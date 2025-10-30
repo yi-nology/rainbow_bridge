@@ -207,7 +207,8 @@ protobuf 定义位于 `proto/resource.proto`，由 `script/gen.sh` 生成代码�
 
 ## 配置与环境
 
-- `config.yaml`：主配置文件，包含 `server.address`、`database` 等；  
+- `config.yaml`：主配置文件，包含 `server.address`、`database` 等；
+- 若文件缺失，程序会使用默认配置（监听 `:8080`，使用 `sqlite` & `data/resource.db`）；
 - `main.go` 启动流程：
   1. 加载配置；  
   2. 初始化数据库与自动迁移（Config/Asset 表）；  

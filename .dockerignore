@@ -1,0 +1,10 @@
+.git
+.github
+output
+bin
+build
+script/*.sh
+*.md
+*.log
+*.db
+data/uploads

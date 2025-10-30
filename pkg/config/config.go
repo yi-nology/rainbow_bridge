@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -43,17 +44,49 @@ type PostgresConfig struct {
 
 // Load reads a YAML configuration file from the provided path.
 func Load(path string) (*Config, error) {
+	cfg := defaultConfig()
+
 	f, err := os.Open(path)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return cfg, nil
+		}
 		return nil, fmt.Errorf("open config: %w", err)
 	}
 	defer f.Close()
 
-	var cfg Config
+	var parsed Config
 	decoder := yaml.NewDecoder(f)
 	decoder.KnownFields(true)
-	if err := decoder.Decode(&cfg); err != nil {
+	if err := decoder.Decode(&parsed); err != nil {
 		return nil, fmt.Errorf("decode config: %w", err)
 	}
-	return &cfg, nil
+	applyDefaults(&parsed)
+	return &parsed, nil
+}
+
+func defaultConfig() *Config {
+	return &Config{
+		Server: ServerConfig{
+			Address: ":8080",
+		},
+		Database: DatabaseConfig{
+			Driver: "sqlite",
+			SQLite: SQLiteConfig{
+				Path: "data/resource.db",
+			},
+		},
+	}
+}
+
+func applyDefaults(cfg *Config) {
+	if cfg.Server.Address == "" {
+		cfg.Server.Address = ":8080"
+	}
+	if cfg.Database.Driver == "" {
+		cfg.Database.Driver = "sqlite"
+	}
+	if cfg.Database.SQLite.Path == "" {
+		cfg.Database.SQLite.Path = "data/resource.db"
+	}
 }

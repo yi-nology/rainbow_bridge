@@ -24,18 +24,23 @@ jobs:
           - goos: linux
             goarch: amd64
             archive: tar.gz
+            bin_ext: ""
           - goos: linux
             goarch: arm64
             archive: tar.gz
+            bin_ext: ""
           - goos: windows
             goarch: amd64
             archive: zip
+            bin_ext: ".exe"
           - goos: darwin
             goarch: amd64
             archive: tar.gz
+            bin_ext: ""
           - goos: darwin
             goarch: arm64
             archive: tar.gz
+            bin_ext: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,21 +59,22 @@ jobs:
         env:
           CGO_ENABLED: 0
         run: |
-          output="./dist/${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          mkdir -p "$(dirname "$output")"
-          go build -o "$output" .
+          NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          OUTPUT_DIR="./dist/${NAME}"
+          mkdir -p "$OUTPUT_DIR"
+          go build -o "$OUTPUT_DIR/${{ env.RUN_NAME }}${{ matrix.bin_ext }}" .
+          cp config.yaml "$OUTPUT_DIR/config.yaml"
 
       - name: Package artifact
         run: |
           cd dist
           NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            zip "${NAME}.zip" "${NAME}"
-            rm "${NAME}"
+            zip -rq "${NAME}.zip" "${NAME}"
           else
             tar czf "${NAME}.tar.gz" "${NAME}"
-            rm "${NAME}"
           fi
+          rm -rf "${NAME}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

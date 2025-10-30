@@ -127,6 +127,34 @@ func (h *ResourceHandler) GetRealtimeStaticConfig(ctx context.Context, c *app.Re
 	c.JSON(consts.StatusOK, payload)
 }
 
+// ExportSystemSelectedStaticBundle returns a static bundle containing system configs and the business selected by system.business_select.
+func (h *ResourceHandler) ExportSystemSelectedStaticBundle(ctx context.Context, c *app.RequestContext) {
+	data, name, err := h.service.ExportSystemSelectedStaticBundle(enrichContext(ctx, c))
+	if err != nil {
+		writeInternalError(c, err)
+		return
+	}
+	if name == "" {
+		name = "system_static_bundle.zip"
+	}
+	c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
+	c.Data(consts.StatusOK, "application/zip", data)
+}
+
+// ExportStaticBundleAll returns a static bundle containing all business configs including system.
+func (h *ResourceHandler) ExportStaticBundleAll(ctx context.Context, c *app.RequestContext) {
+	data, name, err := h.service.ExportStaticBundleAll(enrichContext(ctx, c))
+	if err != nil {
+		writeInternalError(c, err)
+		return
+	}
+	if name == "" {
+		name = "all_static_bundle.zip"
+	}
+	c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
+	c.Data(consts.StatusOK, "application/zip", data)
+}
+
 // enrichContext mirrors the logic used in protobuf handlers to propagate headers.
 func enrichContext(ctx context.Context, c *app.RequestContext) context.Context {
 	if userHeader := c.GetHeader("X-User-Id"); len(userHeader) > 0 {

@@ -448,6 +448,61 @@ func (s *Service) ExportStaticBundleBatch(ctx context.Context, businessKeys []st
 	return data, fmt.Sprintf("%s_static_bundle.zip", name), nil
 }
 
+// ExportSystemSelectedStaticBundle exports the system business together with the business
+// referenced by system.business_select into a static bundle.
+func (s *Service) ExportSystemSelectedStaticBundle(ctx context.Context) ([]byte, string, error) {
+	systemConfigs, err := s.logic.ExportConfigs(ctx, "system", false)
+	if err != nil {
+		return nil, "", err
+	}
+	keys := []string{"system"}
+	configs := make([]resourcemodel.Config, 0, len(systemConfigs)+4)
+	configs = append(configs, systemConfigs...)
+
+	selectedKey := strings.TrimSpace(extractBusinessSelectKey(systemConfigs))
+	if selectedKey != "" && selectedKey != "system" {
+		businessConfigs, err := s.logic.ExportConfigs(ctx, selectedKey, false)
+		if err != nil {
+			return nil, "", err
+		}
+		configs = append(configs, businessConfigs...)
+		keys = append(keys, selectedKey)
+	}
+
+	keys = sanitizeBusinessKeys(keys)
+	if len(keys) == 0 {
+		keys = []string{"system"}
+	}
+	data, err := s.writeStaticBundle(ctx, configs, keys, true)
+	if err != nil {
+		return nil, "", err
+	}
+	name := bundleBaseName(keys)
+	return data, fmt.Sprintf("%s_static_bundle.zip", name), nil
+}
+
+// ExportStaticBundleAll exports every business (including system) into one bundle.
+func (s *Service) ExportStaticBundleAll(ctx context.Context) ([]byte, string, error) {
+	allKeys, err := s.ListBusinessKeys(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	keys := sanitizeBusinessKeys(allKeys)
+	if len(keys) == 0 {
+		keys = []string{"system"}
+	}
+	configs, resolvedKeys, err := s.collectExportConfigs(ctx, keys, true)
+	if err != nil {
+		return nil, "", err
+	}
+	data, err := s.writeStaticBundle(ctx, configs, resolvedKeys, true)
+	if err != nil {
+		return nil, "", err
+	}
+	name := bundleBaseName(resolvedKeys)
+	return data, fmt.Sprintf("%s_static_bundle.zip", name), nil
+}
+
 func (s *Service) writeConfigArchive(ctx context.Context, configs []resourcemodel.Config) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	zipWriter := zip.NewWriter(buf)

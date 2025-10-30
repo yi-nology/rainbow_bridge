@@ -1,0 +1,154 @@
+# Rainbow Bridge Kubernetes deployment manifests
+#
+# This file defines the core resources required to run the rainbow_bridge
+# service on a Kubernetes cluster. It includes:
+# - Namespace (optional, remove if you deploy into an existing namespace)
+# - ConfigMap (application configuration)
+# - PersistentVolumeClaim (for SQLite database & uploaded assets)
+# - Deployment (application pods)
+# - Service (cluster-internal exposure)
+# - Ingress (optional, comment out or customise to match your ingress class)
+#
+# Apply with: kubectl apply -f deploy/kubernetes/rainbow-bridge.yaml
+# Ensure the image reference points to a published container image, e.g.
+# ghcr.io/yi-nology/rainbow_bridge:latest
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rainbow-bridge
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rainbow-bridge-config
+  namespace: rainbow-bridge
+data:
+  config.yaml: |
+    server:
+      address: ":8080"
+
+    database:
+      driver: "sqlite"
+      sqlite:
+        path: "/var/lib/rainbow_bridge/resource.db"
+      mysql:
+        dsn: "user:password@tcp(mysql:3306)/resource?charset=utf8mb4&parseTime=True&loc=Local"
+      postgres:
+        dsn: "host=postgres user=postgres password=postgres dbname=resource port=5432 sslmode=disable TimeZone=UTC"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rainbow-bridge-data
+  namespace: rainbow-bridge
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rainbow-bridge
+  namespace: rainbow-bridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rainbow-bridge
+  template:
+    metadata:
+      labels:
+        app: rainbow-bridge
+    spec:
+      containers:
+        - name: rainbow-bridge
+          image: ghcr.io/yi-nology/rainbow_bridge:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--config"
+            - "/etc/rainbow_bridge/config.yaml"
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            # Expose database driver override via env if needed.
+            # - name: RB_DATABASE_DRIVER
+            #   value: sqlite
+          volumeMounts:
+            - name: config
+              mountPath: /etc/rainbow_bridge/config.yaml
+              subPath: config.yaml
+            - name: data
+              mountPath: /var/lib/rainbow_bridge
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: rainbow-bridge-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: rainbow-bridge-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rainbow-bridge
+  namespace: rainbow-bridge
+spec:
+  selector:
+    app: rainbow-bridge
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP
+
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: rainbow-bridge
+#   namespace: rainbow-bridge
+#   annotations:
+#     kubernetes.io/ingress.class: nginx
+# spec:
+#   rules:
+#     - host: rainbow-bridge.example.com
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: rainbow-bridge
+#                 port:
+#                   number: 80

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	resourcepb "github.com/yi-nology/rainbow_bridge/biz/model/api/resourcepb"
 	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/model/resource"
 	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service/resource"
@@ -32,7 +33,8 @@ func newTestService(t *testing.T) (*resourceservice.Service, func()) {
 		t.Fatalf("chdir temp: %v", err)
 	}
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
@@ -303,4 +305,172 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 	if entry["content"] != "hello" {
 		t.Fatalf("unexpected greeting content %v", entry["content"])
 	}
+}
+
+func TestExportSystemSelectedStaticBundle(t *testing.T) {
+	ctx := context.Background()
+	svc, cleanup := newTestService(t)
+	defer cleanup()
+
+	// Seed system configs
+	_, err := svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+		BusinessKey: "system",
+		Alias:       "business_select",
+		Name:        "默认业务",
+		Type:        "text",
+		Content:     "biz-main",
+	}})
+	if err != nil {
+		t.Fatalf("seed business_select: %v", err)
+	}
+
+	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+		BusinessKey: "system",
+		Alias:       "system_copy",
+		Name:        "系统文案",
+		Type:        "text",
+		Content:     "hello-system",
+	}})
+	if err != nil {
+		t.Fatalf("seed system config: %v", err)
+	}
+
+	// Seed selected business configs
+	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+		BusinessKey: "biz-main",
+		Alias:       "welcome",
+		Name:        "欢迎语",
+		Type:        "text",
+		Content:     "hello",
+	}})
+	if err != nil {
+		t.Fatalf("seed business config: %v", err)
+	}
+
+	bundle, name, err := svc.ExportSystemSelectedStaticBundle(ctx)
+	if err != nil {
+		t.Fatalf("ExportSystemSelectedStaticBundle: %v", err)
+	}
+	if len(bundle) == 0 {
+		t.Fatalf("expected bundle data")
+	}
+	if name == "" {
+		t.Fatalf("expected bundle name")
+	}
+
+	payload := readStaticConfig(t, bundle)
+	systemData := getStaticSection(t, payload, "system")
+	entry := getStaticEntry(t, systemData, "business_select")
+	if content := entry["content"]; content != "biz-main" {
+		t.Fatalf("unexpected business_select content %v", content)
+	}
+
+	bizData := getStaticSection(t, payload, "biz-main")
+	if _, ok := bizData["welcome"]; !ok {
+		t.Fatalf("expected welcome entry for biz-main")
+	}
+}
+
+func TestExportStaticBundleAll(t *testing.T) {
+	ctx := context.Background()
+	svc, cleanup := newTestService(t)
+	defer cleanup()
+
+	seed := []struct {
+		business string
+		alias    string
+		content  string
+	}{
+		{"system", "business_select", "biz-a"},
+		{"system", "system_copy", "hello"},
+		{"biz-a", "alpha", "A"},
+		{"biz-b", "beta", "B"},
+	}
+	for _, item := range seed {
+		_, err := svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+			BusinessKey: item.business,
+			Alias:       item.alias,
+			Name:        item.alias,
+			Type:        "text",
+			Content:     item.content,
+		}})
+		if err != nil {
+			t.Fatalf("seed config (%s/%s): %v", item.business, item.alias, err)
+		}
+	}
+
+	bundle, name, err := svc.ExportStaticBundleAll(ctx)
+	if err != nil {
+		t.Fatalf("ExportStaticBundleAll: %v", err)
+	}
+	if len(bundle) == 0 {
+		t.Fatalf("expected bundle data")
+	}
+	if name == "" {
+		t.Fatalf("expected bundle name")
+	}
+
+	payload := readStaticConfig(t, bundle)
+	for _, key := range []string{"system", "biz-a", "biz-b"} {
+		if _, ok := payload[key]; !ok {
+			t.Fatalf("expected section %s in payload", key)
+		}
+	}
+}
+
+func readStaticConfig(t *testing.T, data []byte) map[string]any {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("zip.NewReader: %v", err)
+	}
+	var payload map[string]any
+	for _, f := range reader.File {
+		if filepath.Clean(f.Name) != "static/config.json" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("open static config: %v", err)
+		}
+		bytesData, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatalf("read static config: %v", err)
+		}
+		if err := json.Unmarshal(bytesData, &payload); err != nil {
+			t.Fatalf("unmarshal static config: %v", err)
+		}
+		break
+	}
+	if payload == nil {
+		t.Fatalf("static config not found in bundle")
+	}
+	return payload
+}
+
+func getStaticSection(t *testing.T, payload map[string]any, section string) map[string]any {
+	t.Helper()
+	raw, ok := payload[section]
+	if !ok {
+		t.Fatalf("section %s missing", section)
+	}
+	m, ok := raw.(map[string]any)
+	if !ok {
+		t.Fatalf("section %s is not an object", section)
+	}
+	return m
+}
+
+func getStaticEntry(t *testing.T, section map[string]any, alias string) map[string]any {
+	t.Helper()
+	raw, ok := section[alias]
+	if !ok {
+		t.Fatalf("entry %s missing", alias)
+	}
+	m, ok := raw.(map[string]any)
+	if !ok {
+		t.Fatalf("entry %s is not an object", alias)
+	}
+	return m
 }

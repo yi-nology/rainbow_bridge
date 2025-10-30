@@ -444,6 +444,17 @@ button:hover {
   accent-color: var(--primary);
 }
 
+.export-quick-actions {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.export-quick-actions button {
+  min-width: 220px;
+}
+
 .summary-block {
   margin-top: 24px;
   display: grid;

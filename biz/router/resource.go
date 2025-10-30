@@ -16,6 +16,8 @@ func RegisterResourceRoutes(r *server.Hertz, h *handler.ResourceHandler) {
 	resources := v1.Group("/resources")
 	resources.POST("/upload", h.UploadFile)
 	resources.GET("/nginx-config", h.GetRealtimeStaticConfig)
+	resources.GET("/export/system-selected-static", h.ExportSystemSelectedStaticBundle)
+	resources.GET("/export/all-static", h.ExportStaticBundleAll)
 	v1.GET("/files/:fileID", h.GetFile)
 
 	r.GET("/ping", handler.Ping)

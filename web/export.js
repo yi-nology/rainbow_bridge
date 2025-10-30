@@ -15,6 +15,8 @@ const state = {
   lastStaticSummary: null,
   exportingZip: false,
   exportingStatic: false,
+  exportingSystemSelected: false,
+  exportingAllStatic: false,
 };
 
 function getSelectedBusinessKeys() {
@@ -27,6 +29,8 @@ const el = {
   businessList: document.getElementById("exportBusinessList"),
   exportZipBtn: document.getElementById("exportZipBtn"),
   exportStaticBtn: document.getElementById("exportStaticBtn"),
+  exportSystemSelectedStaticBtn: document.getElementById("exportSystemSelectedStaticBtn"),
+  exportAllStaticBtn: document.getElementById("exportAllStaticBtn"),
   exportSummary: document.getElementById("exportSummary"),
   exportClearBtn: document.getElementById("exportClearBtn"),
   staticSummary: document.getElementById("staticSummary"),
@@ -45,6 +49,12 @@ async function init() {
   el.businessList.addEventListener("change", onBusinessToggle);
   el.exportZipBtn.addEventListener("click", onExportZip);
   el.exportStaticBtn.addEventListener("click", onExportStatic);
+  if (el.exportSystemSelectedStaticBtn) {
+    el.exportSystemSelectedStaticBtn.addEventListener("click", onExportSystemSelectedStatic);
+  }
+  if (el.exportAllStaticBtn) {
+    el.exportAllStaticBtn.addEventListener("click", onExportAllStatic);
+  }
   el.exportClearBtn.addEventListener("click", () => {
     state.lastConfigSummary = null;
     renderSummary(el.exportSummary, null, "尚未导出任何配置");
@@ -156,6 +166,36 @@ async function onExportStatic() {
   }
 }
 
+async function onExportSystemSelectedStatic() {
+  if (state.exportingSystemSelected) return;
+  state.exportingSystemSelected = true;
+  setButtonLoading(el.exportSystemSelectedStaticBtn, true, "导出中…");
+  try {
+    await downloadQuickStatic(`${state.apiBase}/api/v1/resources/export/system-selected-static`, "system_static_bundle.zip");
+    showToast("系统 + 默认业务静态包已导出");
+  } catch (err) {
+    showToast(err.message || "导出失败");
+  } finally {
+    state.exportingSystemSelected = false;
+    setButtonLoading(el.exportSystemSelectedStaticBtn, false);
+  }
+}
+
+async function onExportAllStatic() {
+  if (state.exportingAllStatic) return;
+  state.exportingAllStatic = true;
+  setButtonLoading(el.exportAllStaticBtn, true, "导出中…");
+  try {
+    await downloadQuickStatic(`${state.apiBase}/api/v1/resources/export/all-static`, "all_static_bundle.zip");
+    showToast("全部业务静态包已导出");
+  } catch (err) {
+    showToast(err.message || "导出失败");
+  } finally {
+    state.exportingAllStatic = false;
+    setButtonLoading(el.exportAllStaticBtn, false);
+  }
+}
+
 async function fetchExportSummary(businessKeys, includeSystem) {
   const query = new URLSearchParams({
     format: "json",
@@ -212,6 +252,17 @@ async function downloadStaticBundle(businessKeys, includeSystem) {
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
   const filename = parseFilename(disposition) || `${(businessKeys && businessKeys[0]) || "configs"}_static_bundle.zip`;
+  downloadBlob(blob, filename);
+}
+
+async function downloadQuickStatic(url, fallbackName) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(await extractError(res));
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
+  const filename = parseFilename(disposition) || fallbackName;
   downloadBlob(blob, filename);
 }
 

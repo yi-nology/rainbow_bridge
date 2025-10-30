@@ -43,15 +43,26 @@
 
             <div class="summary-block">
               <div class="summary-header">
-                <h3>Nginx 静态包导出记录</h3>
-                <button id="staticClearBtn" class="ghost mini" type="button">清空记录</button>
-              </div>
-              <div id="staticSummary" class="summary-list summary-empty">尚未导出静态资源包</div>
-            </div>
-          </section>
-        </main>
-      </div>
-    </div>
+            <h3>Nginx 静态包导出记录</h3>
+            <button id="staticClearBtn" class="ghost mini" type="button">清空记录</button>
+          </div>
+          <div id="staticSummary" class="summary-list summary-empty">尚未导出静态资源包</div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>快捷导出</h2>
+          </div>
+          <div class="export-quick-actions">
+            <button id="exportSystemSelectedStaticBtn" class="ghost">导出系统+默认业务静态包</button>
+            <button id="exportAllStaticBtn" class="ghost">导出全部业务静态包</button>
+          </div>
+          <p class="hint">系统业务会根据 business_select 指定默认业务；“全部业务” 将包含所有业务及 system。</p>
+        </section>
+      </section>
+    </main>
+  </div>
+</div>
 
     <div id="exportToast" class="toast hidden"></div>
 

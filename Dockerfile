@@ -3,7 +3,7 @@
 ##
 ## Build stage
 ##
-ARG GO_VERSION=1.22
+ARG GO_VERSION=1.25
 FROM golang:${GO_VERSION}-bookworm AS builder
 
 ARG TARGETOS

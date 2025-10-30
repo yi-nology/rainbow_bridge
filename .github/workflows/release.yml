@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 env:
-  GO_VERSION: "1.22.x"
+  GO_VERSION: "1.25.x"
   RUN_NAME: hertz_service
 
 jobs:

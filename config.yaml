@@ -1,0 +1,11 @@
+server:
+  address: ":8080"
+
+database:
+  driver: "sqlite"
+  sqlite:
+    path: "data/resource.db"
+  mysql:
+    dsn: "user:password@tcp(127.0.0.1:3306)/resource?charset=utf8mb4&parseTime=True&loc=Local"
+  postgres:
+    dsn: "host=127.0.0.1 user=postgres password=postgres dbname=resource port=5432 sslmode=disable TimeZone=UTC"

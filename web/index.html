@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>虹桥计划 · 业务配置</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside id="sidebar" class="sider"></aside>
+
+      <div class="content">
+        <header id="pageHeader"></header>
+        <main class="main">
+          <section class="panel">
+            <div class="panel-header">
+              <div class="business-tabs" id="businessTabs"></div>
+              <div class="panel-actions">
+                <button id="newConfigBtn" class="primary">新建配置</button>
+              </div>
+            </div>
+
+            <div class="panel-subheader">
+              <span id="resourceCount">配置列表</span>
+              <div class="search">
+                <input id="searchInput" type="search" placeholder="搜索名称 / 别名 / 类型" />
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>业务</th>
+                    <th>别名</th>
+                    <th>类型</th>
+                    <th>内容</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="configTbody"></tbody>
+              </table>
+              <div id="emptyState" class="empty hidden">暂未查到配置数据</div>
+            </div>
+          </section>
+
+        </main>
+      </div>
+    </div>
+
+    <div
+      id="modalOverlay"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalTitle"
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modalTitle">新建配置</h3>
+          <button id="modalClose" class="ghost" type="button" data-modal-close>✕</button>
+        </div>
+        <form id="modalForm" class="modal-form">
+          <input type="hidden" name="resourceKey" />
+          <div class="form-grid">
+            <label class="full">名称 / 别名来源
+              <div class="identity-mode">
+                <label><input type="radio" name="identityMode" value="custom" checked /> 自定义填写</label>
+                <label><input type="radio" name="identityMode" value="system" /> 引用 system_keys</label>
+                <button type="button" id="refreshSystemKeys" class="ghost mini hidden">刷新</button>
+              </div>
+              <select id="systemKeySelect" class="hidden"></select>
+            </label>
+            <label>名称 *<input name="name" id="modalNameInput" required data-autofocus /></label>
+            <label>别名 *<input name="alias" id="modalAliasInput" required /></label>
+            <label>类型 *
+              <select name="type" id="modalTypeSelect" required>
+                <option value="config">配置对象</option>
+                <option value="image">图片</option>
+                <option value="text">文案</option>
+              </select>
+            </label>
+            <label>业务 *
+              <div class="combo">
+                <input name="businessKey" id="modalBusinessInput" list="businessOptions" required />
+                <datalist id="businessOptions"></datalist>
+                <button type="button" id="refreshBusiness" class="ghost mini">刷新</button>
+              </div>
+            </label>
+            <label class="full">内容 *
+              <div id="contentConfigGroup" class="content-group">
+                <textarea id="contentJsonInput" rows="5" placeholder='请输入合法的 JSON 对象，例如 {"foo":"bar"}'></textarea>
+                <p class="hint small">内容需为 JSON 对象，系统会在保存时校验格式。</p>
+              </div>
+              <div id="contentTextGroup" class="content-group hidden">
+                <textarea id="contentTextInput" rows="4" placeholder="请输入文案内容"></textarea>
+              </div>
+              <div id="contentImageGroup" class="content-group hidden">
+                <div class="image-upload">
+                  <input type="file" id="contentImageFile" accept="image/*" />
+                  <button type="button" id="contentImageUploadBtn" class="ghost mini">上传图片</button>
+                </div>
+                <p id="contentImageStatus" class="hint small"></p>
+                <div id="contentImagePreview" class="image-preview hidden">
+                  <img alt="图片预览" />
+                </div>
+              </div>
+              <input type="hidden" name="content" id="modalContentInput" />
+            </label>
+            <label class="full">备注<input name="remark" placeholder="可选" /></label>
+          </div>
+          <div class="radio-group">
+            <span>是否需要权限：</span>
+            <label><input type="radio" name="isPerm" value="true" /> 是</label>
+            <label><input type="radio" name="isPerm" value="false" checked /> 否</label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="modalCancel" class="ghost" data-modal-close>取消</button>
+            <button type="submit" class="primary">确定</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script type="module" src="./config.js"></script>
+  </body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>虹桥计划 · 系统业务配置</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside id="sidebar" class="sider"></aside>
+
+      <div class="content">
+        <header id="pageHeader"></header>
+        <main class="main">
+          <section class="panel">
+            <div class="panel-header with-desc">
+              <div class="panel-header-text">
+                <span>系统业务配置</span>
+                <p>维护 system 业务下的配置，支持配置对象、图片及文案类型</p>
+              </div>
+              <div class="panel-actions">
+                <button id="systemNewBtn" class="primary">新建配置</button>
+              </div>
+            </div>
+
+            <div class="panel-subheader">
+              <span id="systemConfigCount">system 配置列表</span>
+              <div class="search">
+                <input
+                  id="systemSearchInput"
+                  type="search"
+                  placeholder="搜索名称 / 别名 / 类型 / 内容"
+                />
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>别名</th>
+                    <th>类型</th>
+                    <th>内容</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="systemConfigTbody"></tbody>
+              </table>
+              <div id="systemEmpty" class="empty hidden">system 业务暂未查到配置数据</div>
+            </div>
+          </section>
+
+        </main>
+      </div>
+    </div>
+
+    <div
+      id="systemModal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="systemModalTitle"
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="systemModalTitle">新建 system 配置</h3>
+          <button id="systemModalClose" class="ghost" type="button" data-modal-close>✕</button>
+        </div>
+        <form id="systemModalForm" class="modal-form">
+          <input type="hidden" name="resourceKey" />
+          <input type="hidden" name="businessKey" value="system" />
+          <div class="form-grid">
+            <label>名称 *<input name="name" required data-autofocus /></label>
+            <label>别名 *<input name="alias" required /></label>
+            <label>类型 *
+              <select name="type" id="systemTypeSelect" required>
+                <option value="config">配置对象</option>
+                <option value="image">图片</option>
+                <option value="text">文案</option>
+              </select>
+            </label>
+            <label class="full">内容 *
+              <div id="systemContentConfig" class="content-group">
+                <textarea id="systemContentJson" rows="5" placeholder='请输入合法的 JSON 对象，例如 {"foo":"bar"}'></textarea>
+                <p class="hint small">内容需为 JSON 对象，系统会在保存时校验格式。</p>
+              </div>
+              <div id="systemContentText" class="content-group hidden">
+                <textarea id="systemContentTextInput" rows="4" placeholder="请输入文案内容"></textarea>
+              </div>
+              <div id="systemContentImage" class="content-group hidden">
+                <div class="image-upload">
+                  <input type="file" id="systemImageFile" accept="image/*" />
+                  <button type="button" id="systemImageUploadBtn" class="ghost mini">上传图片</button>
+                </div>
+                <p id="systemImageStatus" class="hint small"></p>
+                <div id="systemImagePreview" class="image-preview hidden">
+                  <img alt="图片预览" />
+                </div>
+              </div>
+              <input type="hidden" name="content" id="systemContentInput" />
+              <select id="systemBusinessSelect" class="hidden"></select>
+              <div id="systemKeyValueEditor" class="kv-editor hidden">
+                <div class="kv-editor-header">
+                  <span>Key</span>
+                  <span>名称</span>
+                  <span class="kv-editor-actions">操作</span>
+                </div>
+                <div id="systemKeyValueList" class="kv-editor-list"></div>
+                <button type="button" id="systemKeyValueAdd" class="ghost mini">新增一行</button>
+              </div>
+            </label>
+            <label class="full">备注<input name="remark" placeholder="可选" /></label>
+          </div>
+          <div class="radio-group">
+            <span>是否需要权限：</span>
+            <label><input type="radio" name="isPerm" value="true" /> 是</label>
+            <label><input type="radio" name="isPerm" value="false" checked /> 否</label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="systemModalCancel" class="ghost" data-modal-close>取消</button>
+            <button type="submit" class="primary">确定</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="systemToast" class="toast hidden"></div>
+
+    <script type="module" src="./system.js"></script>
+  </body>
+</html>

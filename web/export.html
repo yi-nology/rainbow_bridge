@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>虹桥计划 · 配置导出</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside id="sidebar" class="sider"></aside>
+
+      <div class="content">
+        <header id="pageHeader"></header>
+        <main class="main">
+          <section class="panel">
+            <div class="panel-header with-desc">
+              <div class="panel-header-text">
+                <span>导出配置与静态资源</span>
+                <p>选择业务后生成标准 ZIP 或 Nginx 静态资源包，便于快速分发</p>
+              </div>
+              <div class="panel-actions">
+                <button id="exportZipBtn" class="primary">导出配置 ZIP</button>
+                <button id="exportStaticBtn" class="ghost">导出 Nginx 包</button>
+              </div>
+            </div>
+
+            <div class="panel-body">
+              <div class="business-selector">
+                <h3>选择业务</h3>
+                <div id="exportBusinessList" class="business-checklist"></div>
+              </div>
+              <p class="hint">配置 ZIP 包含 configs.json 及引用的文件；Nginx 包会生成 static/config.json 与静态资源，可直接部署到静态站点。</p>
+            </div>
+
+            <div class="summary-block">
+              <div class="summary-header">
+                <h3>配置 ZIP 导出记录</h3>
+                <button id="exportClearBtn" class="ghost mini" type="button">清空记录</button>
+              </div>
+              <div id="exportSummary" class="summary-list summary-empty">尚未导出任何配置</div>
+            </div>
+
+            <div class="summary-block">
+              <div class="summary-header">
+                <h3>Nginx 静态包导出记录</h3>
+                <button id="staticClearBtn" class="ghost mini" type="button">清空记录</button>
+              </div>
+              <div id="staticSummary" class="summary-list summary-empty">尚未导出静态资源包</div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="exportToast" class="toast hidden"></div>
+
+    <script type="module" src="./export.js"></script>
+  </body>
+</html>

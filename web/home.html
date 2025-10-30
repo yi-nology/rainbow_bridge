@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>虹桥计划 · 项目概览</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside id="sidebar" class="sider"></aside>
+
+      <div class="content">
+        <header id="pageHeader"></header>
+        <main class="main home">
+          <section class="panel">
+            <h2>项目简介</h2>
+            <p>
+              “虹桥计划（Rainbow Bridge）”是一个自部署的静态资源中台，以 CloudWeGo Hertz
+              为核心服务框架，配合 GORM 及 SQLite/MySQL/PGSQL 提供快速落地的资源管理能力。
+              名称灵感来自中国神话中连接人界与天界的七彩虹桥，寓意为前端团队搭起一座高效、安全的静态资源通道。
+            </p>
+            <p>
+              通过该系统，你可以以业务维度（Business Key）管理前端静态配置、文件资源，并提供导入导出、静态引用等完整流程，支撑多环境、多项目的资源交付需求。
+            </p>
+          </section>
+
+          <section class="panel">
+            <h2>前端对接</h2>
+            <ol class="guide-list">
+              <li>
+                <strong>配置获取：</strong>
+                运行中的服务默认监听 <code>/api/v1/resources</code>，通过
+                <code>?business_key=xxx</code> 拉取业务配置，或使用“配置导出”页面生成
+                <code>static/config.json</code> 直接部署到静态服务器。
+              </li>
+              <li>
+                <strong>实时接口：</strong>
+                访问 <code>/api/v1/resources/nginx-config</code> 可同时获取 system 业务与默认业务合并的
+                <code>config.json</code> 结构，便于前端直接消费最新配置。
+              </li>
+              <li>
+                <strong>静态资源访问：</strong>
+                通过 <code>/api/v1/files/&lt;file_id&gt;</code> 访问已上传文件；也可在导出的 Nginx 包中使用
+                <code>static/assets/&lt;file_id&gt;/... </code> 的形式直接引用。
+              </li>
+              <li>
+                <strong>业务切换：</strong>
+                system 业务下的 <code>business_select</code> 配置可指定默认业务，前端可在未传
+                <code>business_key</code> 时读取该配置实现自动切换。
+              </li>
+              <li>
+                <strong>配合 CI/CD：</strong>
+                借助“配置导出 / 配置导入”页面产出的 ZIP，可在流水线中进行备份、回滚以及多环境同步。
+              </li>
+            </ol>
+          </section>
+
+          <section class="panel" id="realtimePanel">
+            <div class="panel-header with-desc">
+              <div class="panel-header-text">
+                <span>实时配置预览</span>
+                <p>实时展示 /api/v1/resources/nginx-config 合成的最新配置</p>
+              </div>
+              <div class="panel-actions">
+                <button id="realtimeRefreshBtn" class="ghost">刷新</button>
+              </div>
+            </div>
+            <div class="realtime-summary">
+              <span>默认业务：<code id="realtimeBusinessKey">-</code></span>
+              <span>业务列表：<span id="realtimeBusinessList">-</span></span>
+            </div>
+            <p id="realtimeStatus" class="realtime-status">实时数据加载中…</p>
+            <div class="realtime-sections">
+              <div class="realtime-card">
+                <h3>system</h3>
+                <div class="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>名称</th>
+                        <th>别名</th>
+                        <th>类型</th>
+                        <th>内容</th>
+                        <th>备注</th>
+                      </tr>
+                    </thead>
+                    <tbody id="realtimeSystemTbody"></tbody>
+                  </table>
+                  <div id="realtimeSystemEmpty" class="empty hidden">暂未查到 system 配置</div>
+                </div>
+              </div>
+              <div class="realtime-card">
+                <h3 id="realtimeBusinessTitle">默认业务</h3>
+                <div class="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>名称</th>
+                        <th>别名</th>
+                        <th>类型</th>
+                        <th>内容</th>
+                        <th>备注</th>
+                      </tr>
+                    </thead>
+                    <tbody id="realtimeBusinessTbody"></tbody>
+                  </table>
+                  <div id="realtimeBusinessEmpty" class="empty hidden">默认业务暂无配置</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>资源与导航</h2>
+            <div class="resource-links">
+              <a class="primary" href="index.html">进入业务资源配置</a>
+              <a class="ghost" href="https://www.cloudwego.io/zh/docs/hertz/" target="_blank">了解 CloudWeGo Hertz</a>
+              <a class="ghost" href="https://gorm.io/" target="_blank">了解 GORM</a>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="./home.js"></script>
+  </body>
+</html>

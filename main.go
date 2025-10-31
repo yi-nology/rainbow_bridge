@@ -10,6 +10,7 @@ import (
 
 	app "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
 	handlerpb "github.com/yi-nology/rainbow_bridge/biz/handler/resourcepb"
 	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/model/resource"
@@ -48,6 +49,18 @@ func main() {
 	resourceHandler := handler.NewResourceHandler(resourceService)
 	pbHandler := handlerpb.NewResourceService(resourceService)
 	routerpb.SetResourceServiceHandler(pbHandler)
+
+	h.Use(func(ctx context.Context, c *app.RequestContext) {
+		c.Response.Header.Set("Access-Control-Allow-Origin", "*")
+		c.Response.Header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+		c.Response.Header.Set("Access-Control-Allow-Headers", "*")
+		c.Response.Header.Set("Access-Control-Allow-Credentials", "false")
+		if string(c.Request.Method()) == consts.MethodOptions {
+			c.AbortWithStatus(consts.StatusNoContent)
+			return
+		}
+		c.Next(ctx)
+	})
 
 	bizrouter.GeneratedRegister(h)
 	bizrouter.RegisterResourceRoutes(h, resourceHandler)

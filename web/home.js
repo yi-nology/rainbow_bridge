@@ -1,5 +1,5 @@
 import { initPageLayout } from "./components.js";
-import { getDefaultApiBase } from "./runtime.js";
+import { getDefaultApiBase, getBasePathname } from "./runtime.js";
 
 initPageLayout({
   activeKey: "home",
@@ -8,6 +8,7 @@ initPageLayout({
 });
 
 const defaultBase = getDefaultApiBase();
+const basePathname = getBasePathname();
 const state = {
   apiBase: defaultBase,
   realtime: {
@@ -28,6 +29,30 @@ const elements = {
   businessTbody: document.getElementById("realtimeBusinessTbody"),
   businessEmpty: document.getElementById("realtimeBusinessEmpty"),
 };
+
+const endpointMap = {
+  resources: "/api/v1/resources",
+  realtime: "/api/v1/resources/nginx-config",
+  files: "/api/v1/files/<file_id>",
+};
+
+function formatEndpoint(path = "") {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${basePathname || ""}${normalized}`;
+}
+
+function applyEndpointHints() {
+  Object.entries(endpointMap).forEach(([key, relative]) => {
+    const nodes = document.querySelectorAll(`[data-endpoint="${key}"]`);
+    if (!nodes.length) return;
+    const formatted = formatEndpoint(relative);
+    nodes.forEach((node) => {
+      node.textContent = formatted;
+    });
+  });
+}
+
+applyEndpointHints();
 
 if (elements.refreshBtn) {
   elements.refreshBtn.addEventListener("click", () => {

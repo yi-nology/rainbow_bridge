@@ -1,4 +1,5 @@
 import { initPageLayout } from "./components.js";
+import { getDefaultApiBase } from "./runtime.js";
 
 initPageLayout({
   activeKey: "import",
@@ -6,7 +7,7 @@ initPageLayout({
   caption: "上传由平台导出的 ZIP，系统会还原配置与静态资源",
 });
 
-const defaultBase = window.location.origin.replace(/\/$/, "");
+const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
   lastImportSummary: null,

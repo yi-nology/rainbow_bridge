@@ -10,6 +10,7 @@ import (
 
 	app "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	hconfig "github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
 	handlerpb "github.com/yi-nology/rainbow_bridge/biz/handler/resourcepb"
@@ -17,7 +18,7 @@ import (
 	bizrouter "github.com/yi-nology/rainbow_bridge/biz/router"
 	routerpb "github.com/yi-nology/rainbow_bridge/biz/router/resourcepb"
 	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service/resource"
-	"github.com/yi-nology/rainbow_bridge/pkg/config"
+	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
 )
 
@@ -25,7 +26,7 @@ import (
 var embeddedWeb embed.FS
 
 func main() {
-	cfg, err := config.Load("config.yaml")
+	cfg, err := appconfig.Load("config.yaml")
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
@@ -43,9 +44,14 @@ func main() {
 		log.Fatalf("seed system defaults: %v", err)
 	}
 
-	h := server.Default(server.WithHostPorts(cfg.Server.Address))
+	basePath := appconfig.NormalizeBasePath(cfg.Server.BasePath)
+	opts := []hconfig.Option{server.WithHostPorts(cfg.Server.Address)}
+	if basePath != "" {
+		opts = append(opts, server.WithBasePath(basePath))
+	}
+	h := server.Default(opts...)
 
-	resourceService := resourceservice.NewService(db)
+	resourceService := resourceservice.NewService(db, basePath)
 	resourceHandler := handler.NewResourceHandler(resourceService)
 	pbHandler := handlerpb.NewResourceService(resourceService)
 	routerpb.SetResourceServiceHandler(pbHandler)
@@ -71,7 +77,11 @@ func main() {
 	}
 	registerStaticRoutes(h, webFS)
 
-	log.Printf("server listening at %s", cfg.Server.Address)
+	if basePath != "" {
+		log.Printf("server listening at %s with base path %s", cfg.Server.Address, basePath)
+	} else {
+		log.Printf("server listening at %s", cfg.Server.Address)
+	}
 	h.Spin()
 }
 
@@ -113,4 +123,5 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
 	serve("/components.js", "components.js", "application/javascript")
 	serve("/ui.js", "ui.js", "application/javascript")
 	serve("/system.js", "system.js", "application/javascript")
+	serve("/runtime.js", "runtime.js", "application/javascript")
 }

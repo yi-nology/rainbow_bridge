@@ -28,6 +28,7 @@ const (
 	dataDirectory   = "data"
 	uploadDirectory = "uploads"
 	assetScheme     = "asset://"
+	fileURLPrefix   = "/api/v1/files/"
 )
 
 var (
@@ -47,11 +48,15 @@ type FileUploadInput struct {
 
 // Service orchestrates config and asset operations using Logic.
 type Service struct {
-	logic *Logic
+	logic    *Logic
+	basePath string
 }
 
-func NewService(db *gorm.DB) *Service {
-	return &Service{logic: NewLogic(db)}
+func NewService(db *gorm.DB, basePath string) *Service {
+	return &Service{
+		logic:    NewLogic(db),
+		basePath: sanitizeServiceBasePath(basePath),
+	}
 }
 
 // --------------------- Config operations ---------------------
@@ -64,7 +69,7 @@ func (s *Service) AddConfig(ctx context.Context, req *resourcepb.CreateOrUpdateC
 	if err := s.logic.AddConfig(ctx, model); err != nil {
 		return nil, err
 	}
-	return modelConfigToPB(model), nil
+	return s.decorateConfig(modelConfigToPB(model)), nil
 }
 
 func (s *Service) UpdateConfig(ctx context.Context, req *resourcepb.CreateOrUpdateConfigRequest) (*resourcepb.ResourceConfig, error) {
@@ -79,7 +84,7 @@ func (s *Service) UpdateConfig(ctx context.Context, req *resourcepb.CreateOrUpda
 	if err != nil {
 		return nil, err
 	}
-	return modelConfigToPB(updated), nil
+	return s.decorateConfig(modelConfigToPB(updated)), nil
 }
 
 func (s *Service) DeleteConfig(ctx context.Context, req *resourcepb.ResourceDeleteRequest) error {
@@ -97,7 +102,7 @@ func (s *Service) ListConfigs(ctx context.Context, req *resourcepb.ResourceQuery
 	if err != nil {
 		return nil, err
 	}
-	return configSliceToPB(configs), nil
+	return s.decorateConfigList(configSliceToPB(configs)), nil
 }
 
 func (s *Service) GetConfigDetail(ctx context.Context, req *resourcepb.ResourceDetailRequest) (*resourcepb.ResourceConfig, error) {
@@ -108,7 +113,7 @@ func (s *Service) GetConfigDetail(ctx context.Context, req *resourcepb.ResourceD
 	if err != nil {
 		return nil, err
 	}
-	return modelConfigToPB(cfg), nil
+	return s.decorateConfig(modelConfigToPB(cfg)), nil
 }
 
 func (s *Service) ListSystemConfigs(ctx context.Context) (map[string]string, string, error) {
@@ -120,7 +125,7 @@ func (s *Service) ListSystemConfigs(ctx context.Context) (map[string]string, str
 	keys := make([]string, 0, len(data))
 	for alias, content := range data {
 		if str, ok := content.(string); ok {
-			result[alias] = str
+			result[alias] = s.applyFileURLPrefix(str)
 			keys = append(keys, alias)
 		}
 	}
@@ -176,7 +181,7 @@ func (s *Service) GetRealtimeStaticConfig(ctx context.Context) (map[string]any, 
 		payload["business_keys"] = targetKeys
 	}
 
-	return payload, nil
+	return s.decorateRealtimePayload(payload), nil
 }
 
 func extractBusinessSelectKey(configs []resourcemodel.Config) string {
@@ -240,7 +245,7 @@ func (s *Service) ListAssets(ctx context.Context, businessKey string) ([]*resour
 	if err != nil {
 		return nil, err
 	}
-	return assetSliceToPB(assets), nil
+	return s.decorateAssetList(assetSliceToPB(assets)), nil
 }
 
 func sanitizeBusinessKeys(keys []string) []string {
@@ -340,7 +345,7 @@ func (s *Service) ExportConfigsBatch(ctx context.Context, businessKeys []string,
 	if err != nil {
 		return nil, err
 	}
-	return configSliceToPB(configs), nil
+	return s.decorateConfigList(configSliceToPB(configs)), nil
 }
 
 func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*resourcepb.FileAsset, string, error) {
@@ -386,7 +391,7 @@ func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*res
 	}
 
 	reference := fmt.Sprintf("%s%s", assetScheme, fileID)
-	return assetModelToPB(asset), reference, nil
+	return s.decorateAsset(assetModelToPB(asset)), reference, nil
 }
 
 func (s *Service) GetAssetFile(ctx context.Context, fileID string) (*resourcemodel.Asset, string, error) {
@@ -843,7 +848,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 		}
 	}
 
-	return configs, nil
+	return s.decorateConfigList(configs), nil
 }
 
 // --------------------- Helpers ---------------------
@@ -909,6 +914,112 @@ func assetSliceToPB(assets []resourcemodel.Asset) []*resourcepb.FileAsset {
 		list = append(list, assetModelToPB(&assets[i]))
 	}
 	return list
+}
+
+func sanitizeServiceBasePath(input string) string {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" || trimmed == "/" {
+		return ""
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		trimmed = "/" + trimmed
+	}
+	return strings.TrimSuffix(trimmed, "/")
+}
+
+func (s *Service) applyFileURLPrefix(value string) string {
+	if s == nil || s.basePath == "" {
+		return value
+	}
+	if strings.HasPrefix(value, fileURLPrefix) {
+		return s.basePath + value
+	}
+	return value
+}
+
+func (s *Service) expandConfigContent(content string, typ string) string {
+	if s == nil || s.basePath == "" || content == "" {
+		return content
+	}
+	if normalizeConfigTypeString(typ) != "config" {
+		return s.applyFileURLPrefix(content)
+	}
+	var payload any
+	if err := json.Unmarshal([]byte(content), &payload); err != nil {
+		return s.applyFileURLPrefix(content)
+	}
+	expanded := s.expandNestedValue(payload)
+	data, err := json.Marshal(expanded)
+	if err != nil {
+		return s.applyFileURLPrefix(content)
+	}
+	return string(data)
+}
+
+func (s *Service) expandNestedValue(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		for key, val := range v {
+			v[key] = s.expandNestedValue(val)
+		}
+		return v
+	case []any:
+		for i, val := range v {
+			v[i] = s.expandNestedValue(val)
+		}
+		return v
+	case string:
+		return s.applyFileURLPrefix(v)
+	default:
+		return value
+	}
+}
+
+func (s *Service) decorateConfig(cfg *resourcepb.ResourceConfig) *resourcepb.ResourceConfig {
+	if cfg == nil || s == nil || s.basePath == "" {
+		return cfg
+	}
+	cfg.Type = normalizeConfigTypeString(cfg.GetType())
+	cfg.Content = s.expandConfigContent(cfg.GetContent(), cfg.Type)
+	return cfg
+}
+
+func (s *Service) decorateConfigList(list []*resourcepb.ResourceConfig) []*resourcepb.ResourceConfig {
+	if s == nil || s.basePath == "" {
+		return list
+	}
+	for _, cfg := range list {
+		s.decorateConfig(cfg)
+	}
+	return list
+}
+
+func (s *Service) decorateAsset(asset *resourcepb.FileAsset) *resourcepb.FileAsset {
+	if asset == nil || s == nil || s.basePath == "" {
+		return asset
+	}
+	asset.Url = s.applyFileURLPrefix(asset.GetUrl())
+	return asset
+}
+
+func (s *Service) decorateAssetList(list []*resourcepb.FileAsset) []*resourcepb.FileAsset {
+	if s == nil || s.basePath == "" {
+		return list
+	}
+	for _, asset := range list {
+		s.decorateAsset(asset)
+	}
+	return list
+}
+
+func (s *Service) decorateRealtimePayload(payload map[string]any) map[string]any {
+	if s == nil || s.basePath == "" || payload == nil {
+		return payload
+	}
+	for key, value := range payload {
+		payload[key] = s.expandNestedValue(value)
+	}
+	return payload
 }
 
 func ensureUploadDir(fileID string) error {

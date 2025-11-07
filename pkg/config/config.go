@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -16,7 +18,8 @@ type Config struct {
 
 // ServerConfig defines HTTP server options.
 type ServerConfig struct {
-	Address string `yaml:"address"`
+	Address  string `yaml:"address"`
+	BasePath string `yaml:"base_path"`
 }
 
 // DatabaseConfig defines the database backend configuration.
@@ -68,7 +71,8 @@ func Load(path string) (*Config, error) {
 func defaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Address: ":8080",
+			Address:  ":8080",
+			BasePath: "",
 		},
 		Database: DatabaseConfig{
 			Driver: "sqlite",
@@ -83,10 +87,30 @@ func applyDefaults(cfg *Config) {
 	if cfg.Server.Address == "" {
 		cfg.Server.Address = ":8080"
 	}
+	cfg.Server.BasePath = NormalizeBasePath(cfg.Server.BasePath)
 	if cfg.Database.Driver == "" {
 		cfg.Database.Driver = "sqlite"
 	}
 	if cfg.Database.SQLite.Path == "" {
 		cfg.Database.SQLite.Path = "data/resource.db"
 	}
+}
+
+// NormalizeBasePath cleans up user input and returns a URL path prefix suitable for routing.
+// Examples:
+//
+//	"", "/", " ."        -> ""
+//	"rainbow"            -> "/rainbow"
+//	"/rainbow/"          -> "/rainbow"
+//	"/nested/prefix/"    -> "/nested/prefix"
+func NormalizeBasePath(input string) string {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return ""
+	}
+	cleaned := path.Clean("/" + strings.TrimPrefix(trimmed, "/"))
+	if cleaned == "." || cleaned == "/" {
+		return ""
+	}
+	return strings.TrimSuffix(cleaned, "/")
 }

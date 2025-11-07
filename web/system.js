@@ -1,4 +1,5 @@
 import { initPageLayout } from "./components.js";
+import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 
 initPageLayout({
@@ -7,7 +8,7 @@ initPageLayout({
   caption: "维护 system 业务下的配置，支持配置对象、图片及文案类型",
 });
 
-const defaultBase = window.location.origin.replace(/\/$/, "");
+const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
   configs: [],
@@ -735,7 +736,7 @@ function setImageReference(reference, asset) {
     }
   }
   if (!url && trimmed.startsWith("/api/v1/files/")) {
-    url = trimmed;
+    url = `${state.apiBase}${trimmed}`;
   }
   if (!url && /^https?:\/\//i.test(trimmed)) {
     url = trimmed;

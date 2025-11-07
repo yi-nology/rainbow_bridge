@@ -1,4 +1,5 @@
 import { initPageLayout } from "./components.js";
+import { getDefaultApiBase } from "./runtime.js";
 
 initPageLayout({
   activeKey: "home",
@@ -6,7 +7,7 @@ initPageLayout({
   caption: "快速了解虹桥计划的能力与访问路径",
 });
 
-const defaultBase = window.location.origin.replace(/\/$/, "");
+const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
   realtime: {

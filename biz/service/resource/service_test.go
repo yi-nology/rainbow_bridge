@@ -22,7 +22,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func newTestService(t *testing.T) (*resourceservice.Service, func()) {
+func newTestService(t *testing.T, basePath ...string) (*resourceservice.Service, func()) {
 	t.Helper()
 	tmp := t.TempDir()
 	cwd, err := os.Getwd()
@@ -42,7 +42,11 @@ func newTestService(t *testing.T) (*resourceservice.Service, func()) {
 		t.Fatalf("auto migrate: %v", err)
 	}
 
-	svc := resourceservice.NewService(db)
+	pathPrefix := ""
+	if len(basePath) > 0 {
+		pathPrefix = basePath[0]
+	}
+	svc := resourceservice.NewService(db, pathPrefix)
 	cleanup := func() { _ = os.Chdir(cwd) }
 	return svc, cleanup
 }
@@ -145,6 +149,46 @@ func TestAssetUploadAndServe(t *testing.T) {
 	}
 	if assetList[0].GetFileId() != asset.GetFileId() {
 		t.Fatalf("unexpected asset id %s", assetList[0].GetFileId())
+	}
+}
+
+func TestBasePathDecoratesURLs(t *testing.T) {
+	ctx := context.Background()
+	svc, cleanup := newTestService(t, "/rainbow-bridge")
+	defer cleanup()
+
+	data := []byte("logo")
+	asset, _, err := svc.UploadAsset(ctx, &resourceservice.FileUploadInput{
+		BusinessKey: "prefixed",
+		FileName:    "logo.png",
+		Data:        data,
+	})
+	if err != nil {
+		t.Fatalf("UploadAsset: %v", err)
+	}
+	if url := asset.GetUrl(); !strings.HasPrefix(url, "/rainbow-bridge/api/v1/files/") {
+		t.Fatalf("asset url should include base path, got %s", url)
+	}
+
+	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+		BusinessKey: "prefixed",
+		Alias:       "logo",
+		Type:        "image",
+		Content:     fmt.Sprintf("asset://%s", asset.GetFileId()),
+	}})
+	if err != nil {
+		t.Fatalf("AddConfig: %v", err)
+	}
+
+	list, err := svc.ListConfigs(ctx, &resourcepb.ResourceQueryRequest{BusinessKey: "prefixed"})
+	if err != nil {
+		t.Fatalf("ListConfigs: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 config, got %d", len(list))
+	}
+	if content := list[0].GetContent(); !strings.HasPrefix(content, "/rainbow-bridge/api/v1/files/") {
+		t.Fatalf("config content should include base path, got %s", content)
 	}
 }
 

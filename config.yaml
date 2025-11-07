@@ -1,5 +1,6 @@
 server:
   address: ":8080"
+  base_path: "rainbow-bridge" # optional path prefix (e.g. "/rainbow-bridge")
 
 database:
   driver: "sqlite"

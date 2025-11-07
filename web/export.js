@@ -1,4 +1,5 @@
 import { initPageLayout } from "./components.js";
+import { getDefaultApiBase } from "./runtime.js";
 
 initPageLayout({
   activeKey: "export",
@@ -6,7 +7,7 @@ initPageLayout({
   caption: "批量导出配置 ZIP 或 Nginx 静态资源包，支持多业务并行",
 });
 
-const defaultBase = window.location.origin.replace(/\/$/, "");
+const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
   businessKeys: [],

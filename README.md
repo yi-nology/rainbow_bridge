@@ -143,7 +143,7 @@
 | `content_type`| string  | Content-Type，用于下载时设置 MIME      |
 | `file_size`   | int64   | 文件大小                               |
 | `path`        | string  | 存储路径，相对 `data/` 目录            |
-| `url`         | string  | 下载 URL `/api/v1/files/{file_id}`     |
+| `url`         | string  | 下载 URL（默认 `/api/v1/files/{file_id}`，响应会自动补上 `server.base_path`） |
 | `remark`      | string  | 备注                                   |
 | `created_at`/`updated_at` | datetime | 创建/更新时间           |
 
@@ -208,6 +208,7 @@ protobuf 定义位于 `proto/resource.proto`，由 `script/gen.sh` 生成代码�
 ## 配置与环境
 
 - `config.yaml`：主配置文件，包含 `server.address`、`database` 等；
+- `server.base_path`：可选的统一访问前缀（如 `/rainbow-bridge`），启用后 API、静态控制台与返回的资源 URL 会自动携带该前缀，便于部署在反向代理或多租户网关之下；
 - 若文件缺失，程序会使用默认配置（监听 `:8080`，使用 `sqlite` & `data/resource.db`）；
 - `main.go` 启动流程：
   1. 加载配置；  

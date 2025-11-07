@@ -29,6 +29,7 @@ data:
   config.yaml: |
     server:
       address: ":8080"
+      base_path: "/rainbow-bridge"
 
     database:
       driver: "sqlite"

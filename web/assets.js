@@ -1,4 +1,5 @@
 import { initPageLayout } from "./components.js";
+import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 
 initPageLayout({
@@ -7,7 +8,7 @@ initPageLayout({
   caption: "集中上传与管理可复用文件，统一引用规范",
 });
 
-const defaultBase = window.location.origin.replace(/\/$/, "");
+const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
   businessKeys: [],
@@ -167,7 +168,7 @@ document.addEventListener("click", (evt) => {
   if (!text) {
     const fallbackId = btn.dataset.fallbackId;
     if (fallbackId) {
-      text = `/api/v1/files/${fallbackId}`;
+      text = `${state.apiBase}/api/v1/files/${fallbackId}`;
     }
   }
   if (!text) {

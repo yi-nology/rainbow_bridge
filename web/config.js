@@ -1,4 +1,5 @@
 import { initPageLayout } from "./components.js";
+import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 
 initPageLayout({
@@ -7,7 +8,7 @@ initPageLayout({
   caption: "按业务维度管理资源配置与版本，保持配置变更透明可追踪",
 });
 
-const defaultBase = window.location.origin.replace(/\/$/, "");
+const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
   businessKeys: [],
@@ -708,7 +709,7 @@ function setImageReference(reference, asset) {
     }
   }
   if (!url && trimmed.startsWith("/api/v1/files/")) {
-    url = trimmed;
+    url = `${state.apiBase}${trimmed}`;
   }
   if (!url && /^https?:\/\//i.test(trimmed)) {
     url = trimmed;

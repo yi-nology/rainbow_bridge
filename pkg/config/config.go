@@ -72,7 +72,7 @@ func defaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
 			Address:  ":8080",
-			BasePath: "",
+			BasePath: "rainbow-bridge",
 		},
 		Database: DatabaseConfig{
 			Driver: "sqlite",

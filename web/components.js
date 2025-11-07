@@ -59,7 +59,7 @@ const BRAND = {
     },
     {
       label: "GitHub 仓库",
-      href: "https://www.cloudwego.io/zh/",
+      href: "https://github.com/yi-nology/rainbow_bridge",
     },
   ],
 };

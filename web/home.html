@@ -30,18 +30,18 @@
             <ol class="guide-list">
               <li>
                 <strong>配置获取：</strong>
-                运行中的服务默认监听 <code>/api/v1/resources</code>，通过
+                运行中的服务默认监听 <code data-endpoint="resources">/api/v1/resources</code>，通过
                 <code>?business_key=xxx</code> 拉取业务配置，或使用“配置导出”页面生成
                 <code>static/config.json</code> 直接部署到静态服务器。
               </li>
               <li>
                 <strong>实时接口：</strong>
-                访问 <code>/api/v1/resources/nginx-config</code> 可同时获取 system 业务与默认业务合并的
+                访问 <code data-endpoint="realtime">/api/v1/resources/nginx-config</code> 可同时获取 system 业务与默认业务合并的
                 <code>config.json</code> 结构，便于前端直接消费最新配置。
               </li>
               <li>
                 <strong>静态资源访问：</strong>
-                通过 <code>/api/v1/files/&lt;file_id&gt;</code> 访问已上传文件；也可在导出的 Nginx 包中使用
+                通过 <code data-endpoint="files">/api/v1/files/&lt;file_id&gt;</code> 访问已上传文件；也可在导出的 Nginx 包中使用
                 <code>static/assets/&lt;file_id&gt;/... </code> 的形式直接引用。
               </li>
               <li>
@@ -60,7 +60,11 @@
             <div class="panel-header with-desc">
               <div class="panel-header-text">
                 <span>实时配置预览</span>
-                <p>实时展示 /api/v1/resources/nginx-config 合成的最新配置</p>
+                <p>
+                  实时展示
+                  <code data-endpoint="realtime">/api/v1/resources/nginx-config</code>
+                  合成的最新配置
+                </p>
               </div>
               <div class="panel-actions">
                 <button id="realtimeRefreshBtn" class="ghost">刷新</button>
@@ -115,8 +119,7 @@
             <h2>资源与导航</h2>
             <div class="resource-links">
               <a class="primary" href="index.html">进入业务资源配置</a>
-              <a class="ghost" href="https://www.cloudwego.io/zh/docs/hertz/" target="_blank">了解 CloudWeGo Hertz</a>
-              <a class="ghost" href="https://gorm.io/" target="_blank">了解 GORM</a>
+              <a class="ghost" href="https://github.com/yi-nology/rainbow_bridge" target="_blank">了解 虹桥计划 最新信息</a>
             </div>
           </section>
         </main>

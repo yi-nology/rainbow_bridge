@@ -234,7 +234,7 @@ elements.modalForm.addEventListener("submit", async (evt) => {
     }
     showToast("保存成功");
     configModal.close();
-    await fetchConfigs();
+    await refreshConfigsAfterMutation(payload.config.business_key);
   } catch (err) {
     showToast(err.message || "保存失败");
   }
@@ -322,10 +322,27 @@ async function deleteConfig(businessKey, resourceKey) {
       throw new Error(json.error || json.msg || "删除失败");
     }
     showToast("删除成功");
-    await fetchConfigs();
+    await refreshConfigsAfterMutation(businessKey);
   } catch (err) {
     showToast(err.message || "删除失败");
   }
+}
+
+async function refreshConfigsAfterMutation(targetBusiness) {
+  const key = (targetBusiness || state.activeBusiness || "").trim();
+  if (key) {
+    const exists = state.businessKeys.includes(key);
+    if (!exists) {
+      state.businessKeys = [...state.businessKeys, key].sort();
+      state.activeBusiness = key;
+      populateBusinessOptions(state.editing?.business_key);
+      renderBusinessTabs();
+    } else if (state.activeBusiness !== key) {
+      state.activeBusiness = key;
+      renderBusinessTabs();
+    }
+  }
+  await fetchConfigs();
 }
 
 function resetIdentityMode() {

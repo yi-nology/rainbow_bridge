@@ -10,6 +10,8 @@ services:
       - "/etc/rainbow_bridge/config.yaml"
     environment:
       TZ: Asia/Shanghai
+    expose:
+      - "8080"
     ports:
       - "8080:8080"
     volumes:

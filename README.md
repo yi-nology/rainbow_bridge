@@ -258,6 +258,19 @@ Dockerfile（未贴出）可结合上述多架构构建，支持容器化部署�
 
 4. **静态站点部署**：`Export Static` 功能产出的 `static/config.json` + `static/assets/` 可直接丢到任意静态服务器（Nginx、CDN）。
 
+### 自动提示打 Tag
+
+仓库提供 `script/auto_tag.sh` 和 `.githooks/post-commit`，用于在每次提交后交互式询问是否根据语义化版本（大版本/小版本/补丁）创建 Git tag。
+
+启用方式：
+
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/post-commit script/auto_tag.sh
+```
+
+之后每次 `git commit` 完成都会提示是否打 tag，并可选择是否立即推送到 `origin`。在 CI 等非交互环境会自动跳过。
+
 ## 安全与权限
 
 - 当前版本支持通过 `X-User-Id` 传递用户 ID，Service 层可依据 `is_perm` 字段限制普通用户访问。  

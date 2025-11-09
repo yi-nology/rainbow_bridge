@@ -1,0 +1,12 @@
+server:
+  address: ":8080"
+  base_path: "rainbow-bridge"
+
+database:
+  driver: "sqlite"
+  sqlite:
+    path: "/var/lib/rainbow_bridge/resource.db"
+  mysql:
+    dsn: "user:password@tcp(mysql:3306)/resource?charset=utf8mb4&parseTime=True&loc=Local"
+  postgres:
+    dsn: "host=postgres user=postgres password=postgres dbname=resource port=5432 sslmode=disable TimeZone=UTC"

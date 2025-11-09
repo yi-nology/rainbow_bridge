@@ -258,6 +258,17 @@ Dockerfile（未贴出）可结合上述多架构构建，支持容器化部署�
 
 4. **静态站点部署**：`Export Static` 功能产出的 `static/config.json` + `static/assets/` 可直接丢到任意静态服务器（Nginx、CDN）。
 
+### Docker Compose
+
+仓库在 `deploy/docker-compose.yaml` 中提供了单实例 Compose 部署示例：
+
+```bash
+cd deploy
+docker compose up -d
+```
+
+默认会挂载 `deploy/docker-compose/config.yaml` 作为容器内配置文件，并使用命名卷 `rainbow_bridge_data` 存储数据库/上传内容。根据需要修改 config、端口映射或卷路径即可。
+
 ### 自动提示打 Tag
 
 仓库提供 `script/auto_tag.sh` 和 `.githooks/post-commit`，用于在每次提交后交互式询问是否根据语义化版本（大版本/小版本/补丁）创建 Git tag。
@@ -298,4 +309,3 @@ chmod +x .githooks/post-commit script/auto_tag.sh
 ## License
 
 本项目遵循 [Apache License 2.0](LICENSE)。
-

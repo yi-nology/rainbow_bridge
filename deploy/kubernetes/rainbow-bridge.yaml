@@ -17,19 +17,19 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: rainbow-bridge
+  name: rainbow_bridge
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: rainbow-bridge-config
-  namespace: rainbow-bridge
+  namespace: rainbow_bridge
 data:
   config.yaml: |
     server:
       address: ":8080"
-      base_path: "/rainbow-bridge"
+      base_path: "rainbow-bridge" # optional path prefix (e.g. "/rainbow-bridge")
 
     database:
       driver: "sqlite"
@@ -41,12 +41,36 @@ data:
         dsn: "host=postgres user=postgres password=postgres dbname=resource port=5432 sslmode=disable TimeZone=UTC"
 
 ---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-rainbow-bridge
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+    path: /mnt/data/rainbow-data
+
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: rainbow-bridge-data
-  namespace: rainbow-bridge
+  namespace: rainbow_bridge
 spec:
+  storageClassName: local-storage
   accessModes:
     - ReadWriteOnce
   resources:
@@ -58,21 +82,30 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rainbow-bridge
-  namespace: rainbow-bridge
+  namespace: rainbow_bridge
 spec:
   replicas: 1
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
   selector:
     matchLabels:
       app: rainbow-bridge
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
   template:
     metadata:
       labels:
         app: rainbow-bridge
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2025-11-07T13:28:14+08:00"
     spec:
       containers:
         - name: rainbow-bridge
-          image: ghcr.io/yi-nology/rainbow_bridge:latest
-          imagePullPolicy: IfNotPresent
+          image: cr.kylinos.cn/kylin-insight/rainbow_bridge:v0.6.8
+          imagePullPolicy: Always
           args:
             - "--config"
             - "/etc/rainbow_bridge/config.yaml"
@@ -93,16 +126,24 @@ spec:
               mountPath: /var/lib/rainbow_bridge
           readinessProbe:
             httpGet:
-              path: /ping
+              path: /rainbow-bridge/ping
               port: http
+              scheme: HTTP
             initialDelaySeconds: 5
+            periodSeconds: 10
             timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /ping
+              path: /rainbow-bridge/ping
               port: http
+              scheme: HTTP
             initialDelaySeconds: 15
+            periodSeconds: 10
             timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
           resources:
             requests:
               cpu: 100m
@@ -110,6 +151,8 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
       volumes:
         - name: config
           configMap:
@@ -123,22 +166,26 @@ apiVersion: v1
 kind: Service
 metadata:
   name: rainbow-bridge
-  namespace: rainbow-bridge
+  namespace: rainbow_bridge
 spec:
+  type: NodePort
   selector:
     app: rainbow-bridge
   ports:
     - name: http
-      port: 80
+      port: 8080
       targetPort: http
-  type: ClusterIP
+      nodePort: 32222
+      protocol: TCP
+  externalTrafficPolicy: Cluster
+  sessionAffinity: None
 
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
 #   name: rainbow-bridge
-#   namespace: rainbow-bridge
+#   namespace: rainbow_bridge
 #   annotations:
 #     kubernetes.io/ingress.class: nginx
 # spec:

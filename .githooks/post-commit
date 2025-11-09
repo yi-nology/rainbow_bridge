@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Automatically prompt for tagging after each commit.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+"$REPO_ROOT/script/auto_tag.sh"

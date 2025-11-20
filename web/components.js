@@ -52,6 +52,7 @@ const NAV_ITEMS = [
 const BRAND = {
   title: "虹桥计划",
   subtitle: "静态资源与配置一体化平台",
+  icon: "🌈",
   footerLinks: [
     {
       label: "使用文档",
@@ -70,7 +71,6 @@ export function initPageLayout(options = {}) {
 
   initSidebar({
     activeKey,
-    icon: activeItem.icon,
     tagline: tagline || activeItem.tagline,
   });
 
@@ -81,7 +81,7 @@ export function initPageLayout(options = {}) {
 }
 
 export function initSidebar(options = {}) {
-  const { activeKey, icon, tagline } = options;
+  const { activeKey, tagline } = options;
   const sidebar = document.getElementById("sidebar");
   if (!sidebar) return;
 
@@ -92,11 +92,9 @@ export function initSidebar(options = {}) {
   }
 
   sidebar.innerHTML = `
-    <div class="brand" aria-label="${BRAND.title}">
-      <div class="brand-logo" aria-hidden="true">${icon || activeItem.icon}</div>
+    <div class="brand brand-text-only" aria-label="${BRAND.title}">
       <div class="brand-text">
         <div>${BRAND.title}</div>
-        <p>${tagline || BRAND.subtitle}</p>
       </div>
     </div>
     <nav class="side-nav" aria-label="主导航">

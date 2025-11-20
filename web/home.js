@@ -191,6 +191,7 @@ function displayDataType(value = "") {
   const str = value.toString().toLowerCase();
   if (str === "image") return "图片";
   if (["text", "string", "copy", "文案"].includes(str)) return "文案";
+  if (["color", "colour", "色彩", "色彩标签"].includes(str)) return "色彩标签";
   return "配置对象";
 }
 

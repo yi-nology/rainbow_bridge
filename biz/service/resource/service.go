@@ -1101,6 +1101,8 @@ func normalizeConfigTypeString(t string) string {
 		return "image"
 	case "text", "string", "copy", "文案":
 		return "text"
+	case "color", "colour", "color_tag", "color-tag", "色彩", "色彩标签":
+		return "color"
 	default:
 		return "config"
 	}

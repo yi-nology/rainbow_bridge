@@ -17,7 +17,7 @@
             <div class="panel-header with-desc">
               <div class="panel-header-text">
                 <span>系统业务配置</span>
-                <p>维护 system 业务下的配置，支持配置对象、图片及文案类型</p>
+                <p>维护 system 业务下的配置，支持配置对象、图片、文案及色彩标签类型</p>
               </div>
               <div class="panel-actions">
                 <button id="systemNewBtn" class="primary">新建配置</button>
@@ -79,6 +79,7 @@
                 <option value="config">配置对象</option>
                 <option value="image">图片</option>
                 <option value="text">文案</option>
+                <option value="color">色彩标签</option>
               </select>
             </label>
             <label class="full">内容 *
@@ -98,6 +99,14 @@
                 <div id="systemImagePreview" class="image-preview hidden">
                   <img alt="图片预览" />
                 </div>
+              </div>
+              <div id="systemContentColor" class="content-group hidden">
+                <div class="color-picker">
+                  <input type="color" id="systemColorPicker" value="#1677ff" />
+                  <input type="text" id="systemColorValue" placeholder="#1677FF" maxlength="20" />
+                  <span id="systemColorSwatch" class="color-preview" aria-hidden="true"></span>
+                </div>
+                <p class="hint small">可直接拾色或输入 16 进制色值，例如 #1677FF。</p>
               </div>
               <input type="hidden" name="content" id="systemContentInput" />
               <select id="systemBusinessSelect" class="hidden"></select>

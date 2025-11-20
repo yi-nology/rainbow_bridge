@@ -80,6 +80,7 @@
                 <option value="config">配置对象</option>
                 <option value="image">图片</option>
                 <option value="text">文案</option>
+                <option value="color">色彩标签</option>
               </select>
             </label>
             <label>业务 *
@@ -106,6 +107,14 @@
                 <div id="contentImagePreview" class="image-preview hidden">
                   <img alt="图片预览" />
                 </div>
+              </div>
+              <div id="contentColorGroup" class="content-group hidden">
+                <div class="color-picker">
+                  <input type="color" id="contentColorPicker" value="#1677ff" />
+                  <input type="text" id="contentColorValue" placeholder="#1677FF" maxlength="20" />
+                  <span id="contentColorSwatch" class="color-preview" aria-hidden="true"></span>
+                </div>
+                <p class="hint small">可直接拾色或输入 16 进制色值，例如 #1677FF。</p>
               </div>
               <input type="hidden" name="content" id="modalContentInput" />
             </label>

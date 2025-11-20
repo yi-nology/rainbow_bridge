@@ -9,6 +9,7 @@ initPageLayout({
 });
 
 const defaultBase = getDefaultApiBase();
+const DEFAULT_COLOR = "#1677ff";
 const state = {
   apiBase: defaultBase,
   businessKeys: [],
@@ -25,6 +26,7 @@ const state = {
     filename: "",
   },
   imageUploading: false,
+  colorValue: "",
 };
 
 const elements = {
@@ -53,6 +55,7 @@ const elements = {
   contentJsonGroup: document.getElementById("contentConfigGroup"),
   contentTextGroup: document.getElementById("contentTextGroup"),
   contentImageGroup: document.getElementById("contentImageGroup"),
+  contentColorGroup: document.getElementById("contentColorGroup"),
   contentJsonInput: document.getElementById("contentJsonInput"),
   contentTextInput: document.getElementById("contentTextInput"),
   contentImageFile: document.getElementById("contentImageFile"),
@@ -60,6 +63,9 @@ const elements = {
   contentImageStatus: document.getElementById("contentImageStatus"),
   contentImagePreview: document.getElementById("contentImagePreview"),
   contentImagePreviewImg: document.querySelector("#contentImagePreview img"),
+  contentColorPicker: document.getElementById("contentColorPicker"),
+  contentColorValue: document.getElementById("contentColorValue"),
+  contentColorSwatch: document.getElementById("contentColorSwatch"),
 };
 
 const configModal = createModal("modalOverlay", {
@@ -152,6 +158,26 @@ if (elements.contentImageUploadBtn) {
   elements.contentImageUploadBtn.addEventListener("click", onImageUpload);
 }
 
+if (elements.contentColorPicker) {
+  elements.contentColorPicker.addEventListener("input", (evt) => {
+    setColorValue(evt.target.value, { fillPicker: true, forceContent: true });
+  });
+}
+
+if (elements.contentColorValue) {
+  elements.contentColorValue.addEventListener("input", (evt) => {
+    const value = evt.target.value || "";
+    state.colorValue = value.trim();
+    if (state.dataType === "color" && elements.modalContentInput) {
+      elements.modalContentInput.value = state.colorValue;
+    }
+    updateColorPreview(value);
+  });
+  elements.contentColorValue.addEventListener("blur", (evt) => {
+    setColorValue(evt.target.value, { fillPicker: true, forceContent: true });
+  });
+}
+
 elements.modalForm.addEventListener("submit", async (evt) => {
   evt.preventDefault();
   const form = elements.modalForm;
@@ -191,6 +217,13 @@ elements.modalForm.addEventListener("submit", async (evt) => {
       return;
     }
     contentValue = reference;
+  } else if (dataType === "color") {
+    const colorValue = getColorValue();
+    if (!colorValue) {
+      showToast("请选择色彩值");
+      return;
+    }
+    contentValue = colorValue;
   } else {
     const textContent = elements.contentTextInput?.value.trim() || "";
     if (!textContent) {
@@ -582,6 +615,7 @@ function normalizeDataType(value = "") {
   const str = value.toString().toLowerCase();
   if (str === "image") return "image";
   if (["text", "string", "copy", "文案"].includes(str)) return "text";
+  if (["color", "colour", "color_tag", "color-tag", "色彩", "色彩标签"].includes(str)) return "color";
   return "config";
 }
 
@@ -589,6 +623,7 @@ function resetDataType() {
   state.dataType = "config";
   state.imageUpload = { reference: "", url: "", filename: "" };
   state.imageUploading = false;
+  state.colorValue = "";
   if (elements.modalTypeSelect) {
     elements.modalTypeSelect.value = "config";
   }
@@ -599,6 +634,7 @@ function resetDataType() {
     elements.contentTextInput.value = "";
   }
   clearImageReference();
+  clearColorValue({ resetPicker: true, forceContent: true });
   updateDataTypeViews("config");
 }
 
@@ -619,6 +655,12 @@ function setDataType(type, options = {}) {
     if (normalized === "image") {
       clearImageReference();
     }
+    if (normalized === "color") {
+      const initial = state.colorValue || elements.contentColorPicker?.value || DEFAULT_COLOR;
+      setColorValue(initial, { fillPicker: true, forceContent: true });
+    } else {
+      clearColorValue({ resetPicker: true });
+    }
   }
 }
 
@@ -631,6 +673,9 @@ function updateDataTypeViews(type, options = {}) {
   }
   if (elements.contentImageGroup) {
     elements.contentImageGroup.classList.toggle("hidden", type !== "image");
+  }
+  if (elements.contentColorGroup) {
+    elements.contentColorGroup.classList.toggle("hidden", type !== "color");
   }
   if (type !== "image" && !options.initialize) {
     state.imageUpload = { reference: "", url: "", filename: "" };
@@ -647,6 +692,12 @@ function updateDataTypeViews(type, options = {}) {
   }
   if (type !== "text" && !options.initialize && elements.contentTextInput) {
     elements.contentTextInput.value = "";
+  }
+  if (type === "color") {
+    const preset = state.colorValue || elements.contentColorPicker?.value || DEFAULT_COLOR;
+    setColorValue(preset, { fillPicker: true, forceContent: true });
+  } else if (!options.initialize) {
+    clearColorValue({ resetPicker: true });
   }
 }
 
@@ -689,6 +740,8 @@ function initializeDataTypeFields(type, content) {
     } else {
       clearImageReference();
     }
+  } else if (normalized === "color") {
+    setColorValue(trimmed || DEFAULT_COLOR, { fillPicker: true, forceContent: true });
   } else {
     state.imageUpload = { reference: "", url: "", filename: "" };
     state.imageUploading = false;
@@ -754,6 +807,77 @@ function updateImagePreview() {
   }
   elements.contentImagePreviewImg.src = url;
   elements.contentImagePreview.classList.remove("hidden");
+}
+
+function normalizeColorValue(value = "") {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const match = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) return "";
+  let hex = match[1];
+  if (hex.length === 3) {
+    hex = hex
+      .split("")
+      .map((ch) => ch + ch)
+      .join("");
+  }
+  return `#${hex.toUpperCase()}`;
+}
+
+function setColorValue(value, options = {}) {
+  const trimmed = (value || "").trim();
+  const normalized = normalizeColorValue(trimmed);
+  const finalValue = normalized || trimmed;
+  state.colorValue = finalValue;
+  if (elements.contentColorValue && options.updateText !== false) {
+    elements.contentColorValue.value = finalValue;
+  }
+  if (elements.modalContentInput && (state.dataType === "color" || options.forceContent)) {
+    elements.modalContentInput.value = finalValue;
+  }
+  if (elements.contentColorPicker && (normalized || options.fillPicker)) {
+    elements.contentColorPicker.value = normalized || DEFAULT_COLOR;
+  }
+  updateColorPreview(finalValue);
+}
+
+function clearColorValue(options = {}) {
+  state.colorValue = "";
+  if (elements.contentColorValue && options.updateText !== false) {
+    elements.contentColorValue.value = "";
+  }
+  if (elements.modalContentInput && (state.dataType === "color" || options.forceContent)) {
+    elements.modalContentInput.value = "";
+  }
+  if (elements.contentColorPicker && options.resetPicker) {
+    elements.contentColorPicker.value = DEFAULT_COLOR;
+  }
+  updateColorPreview("");
+}
+
+function updateColorPreview(value = "") {
+  if (!elements.contentColorSwatch) return;
+  const trimmed = (value || "").trim();
+  const normalized = normalizeColorValue(trimmed);
+  const hasValue = Boolean(normalized || trimmed);
+  const display = normalized || trimmed;
+  elements.contentColorSwatch.style.background = hasValue ? display : DEFAULT_COLOR;
+  elements.contentColorSwatch.title = hasValue ? display : "未选择色值";
+}
+
+function getColorValue() {
+  const candidates = [
+    state.colorValue,
+    elements.contentColorValue?.value || "",
+    elements.contentColorPicker?.value || "",
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeColorValue(candidate || "");
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return "";
 }
 
 function setImageUploadStatus(message, isError = false) {
@@ -846,6 +970,7 @@ function displayDataType(value = "") {
   const normalized = normalizeDataType(value);
   if (normalized === "image") return "图片";
   if (normalized === "text") return "文案";
+  if (normalized === "color") return "色彩标签";
   return "配置对象";
 }
 

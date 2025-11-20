@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	resourcedal "github.com/yi-nology/rainbow_bridge/biz/dal/resource"
@@ -18,6 +19,7 @@ var (
 	ErrResourceNotFound      = errors.New("resource not found")
 	ErrAssetNotFound         = errors.New("asset not found")
 	ErrProtectedSystemConfig = errors.New("系统保留配置禁止删除")
+	colorHexRegexp           = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 )
 
 // Logic contains business rules on top of data persistence.
@@ -214,6 +216,8 @@ func normalizeConfigType(t string) string {
 		return "image"
 	case "text", "string", "copy", "文案":
 		return "text"
+	case "color", "colour", "color_tag", "color-tag", "色彩", "色彩标签":
+		return "color"
 	default:
 		return "config"
 	}
@@ -243,6 +247,13 @@ func validateConfigContent(cfg *resourcemodel.Config) error {
 			return errors.New("文案内容不能为空")
 		}
 		return nil
+	case "color":
+		colorValue, err := normalizeColorContent(cfg.Content)
+		if err != nil {
+			return err
+		}
+		cfg.Content = colorValue
+		return nil
 	default:
 		if cfg.Content == "" {
 			return errors.New("配置内容不能为空")
@@ -261,6 +272,22 @@ func validateConfigContent(cfg *resourcemodel.Config) error {
 		cfg.Content = string(canonical)
 		return nil
 	}
+}
+
+func normalizeColorContent(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", errors.New("色彩标签内容不能为空")
+	}
+	matches := colorHexRegexp.FindStringSubmatch(trimmed)
+	if matches == nil {
+		return "", errors.New("色彩标签内容需为 #RGB 或 #RRGGBB 格式")
+	}
+	hex := matches[1]
+	if len(hex) == 3 {
+		hex = fmt.Sprintf("%c%c%c%c%c%c", hex[0], hex[0], hex[1], hex[1], hex[2], hex[2])
+	}
+	return "#" + strings.ToUpper(hex), nil
 }
 
 func (l *Logic) ListBusinessKeys(ctx context.Context) ([]string, error) {

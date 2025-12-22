@@ -104,7 +104,7 @@ spec:
     spec:
       containers:
         - name: rainbow-bridge
-          image: cr.kylinos.cn/kylin-insight/rainbow_bridge:v0.6.8
+          image: ghcr.io/yi-nology/rainbow_bridge:v0.7.1
           imagePullPolicy: Always
           args:
             - "--config"

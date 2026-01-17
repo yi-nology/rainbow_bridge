@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package config;
+
+option go_package = "github.com/yi-nology/rainbow_bridge/biz/model/api/configpb";
+
+import "google/api/annotations.proto";
+import "common/common.proto";
+
+// CreateConfigRequest is used for creating a config.
+message CreateConfigRequest {
+  common.ResourceConfig config = 1;
+}
+
+// UpdateConfigRequest is used for updating a config.
+message UpdateConfigRequest {
+  common.ResourceConfig config = 1;
+}
+
+// DeleteConfigRequest is used for deleting a config.
+message DeleteConfigRequest {
+  string business_key = 1;
+  string resource_key = 2;
+}
+
+// ListConfigRequest is used to list configs with filters.
+message ListConfigRequest {
+  string business_key = 1;
+  string type = 2;
+  string min_version = 3;
+  string max_version = 4;
+  bool is_latest = 5;
+}
+
+// ConfigDetailRequest is used to get a specific config.
+message ConfigDetailRequest {
+  string business_key = 1;
+  string resource_key = 2;
+}
+
+// ConfigResponse is a response containing a config.
+message ConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  common.ResourceConfig config = 4;
+}
+
+// ConfigListResponse contains a list of configs.
+message ConfigListResponse {
+  repeated common.ResourceConfig list = 1;
+}
+
+// ConfigDetailResponse contains a single config.
+message ConfigDetailResponse {
+  common.ResourceConfig detail = 1;
+}
+
+// ConfigService handles configuration CRUD operations.
+service ConfigService {
+  // Create creates a new configuration.
+  rpc Create(CreateConfigRequest) returns (ConfigResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/config/create"
+      body: "*"
+    };
+  }
+
+  // Update updates an existing configuration.
+  rpc Update(UpdateConfigRequest) returns (ConfigResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/config/update"
+      body: "*"
+    };
+  }
+
+  // Delete removes a configuration.
+  rpc Delete(DeleteConfigRequest) returns (common.OperateResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/config/delete"
+      body: "*"
+    };
+  }
+
+  // List returns a list of configurations.
+  rpc List(ListConfigRequest) returns (ConfigListResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/config/list"
+    };
+  }
+
+  // Detail returns a specific configuration.
+  rpc Detail(ConfigDetailRequest) returns (ConfigDetailResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/config/detail"
+    };
+  }
+}

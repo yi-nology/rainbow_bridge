@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package transfer;
+
+option go_package = "github.com/yi-nology/rainbow_bridge/biz/model/api/transferpb";
+
+import "google/api/annotations.proto";
+import "common/common.proto";
+
+// ImportRequest is used to import configurations.
+message ImportRequest {
+  repeated common.ResourceConfig configs = 1;
+  bool overwrite = 2;
+}
+
+// ImportSummaryItem represents a single item in the import summary.
+message ImportSummaryItem {
+  string resource_key = 1;
+  string business_key = 2;
+  string name = 3;
+  string alias = 4;
+  string type = 5;
+}
+
+// ImportSummary contains summary information for import operations.
+message ImportSummary {
+  int32 total = 1;
+  repeated string business_keys = 2;
+  repeated ImportSummaryItem items = 3;
+}
+
+// ImportResponse is a response for import operations.
+message ImportResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  ImportSummary summary = 4;
+}
+
+// ExportRequest is used to export configurations.
+message ExportRequest {
+  repeated string business_keys = 1;
+  bool include_system = 2;
+  string format = 3; // json, zip, static
+}
+
+// ExportResponse contains exported configurations.
+message ExportResponse {
+  repeated common.ResourceConfig list = 1;
+}
+
+// TransferService handles import and export operations.
+service TransferService {
+  // Import imports configurations from a request or ZIP archive.
+  // Note: This endpoint accepts both JSON and multipart/form-data.
+  rpc Import(ImportRequest) returns (ImportResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/transfer/import"
+      body: "*"
+    };
+  }
+
+  // Export exports configurations in various formats.
+  // Use format query param: json (default), zip, static
+  rpc Export(ExportRequest) returns (ExportResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/transfer/export"
+    };
+  }
+
+  // ExportStaticSelected exports static bundle for system + selected business.
+  rpc ExportStaticSelected(ExportRequest) returns (common.OperateResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/transfer/export/static/selected"
+    };
+  }
+
+  // ExportStaticAll exports static bundle for all businesses.
+  rpc ExportStaticAll(ExportRequest) returns (common.OperateResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/transfer/export/static/all"
+    };
+  }
+}

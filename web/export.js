@@ -1,5 +1,9 @@
 import { initPageLayout } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
+import { getValue, setButtonLoading, parseFilename, downloadBlob } from "./lib/utils.js";
+import { extractError } from "./lib/api.js";
+import { createToast } from "./lib/toast.js";
+import { getBusinessKeys } from "./lib/init.js";
 
 initPageLayout({
   activeKey: "export",
@@ -39,6 +43,8 @@ const el = {
   toast: document.getElementById("exportToast"),
 };
 
+const showToast = createToast("exportToast");
+
 if (!el.businessList || !el.exportZipBtn || !el.exportStaticBtn) {
   console.warn("export page markup missing required nodes");
 } else {
@@ -46,7 +52,7 @@ if (!el.businessList || !el.exportZipBtn || !el.exportStaticBtn) {
 }
 
 async function init() {
-  await fetchBusinessKeys();
+  await fetchBusinessKeysList();
   el.businessList.addEventListener("change", onBusinessToggle);
   el.exportZipBtn.addEventListener("click", onExportZip);
   el.exportStaticBtn.addEventListener("click", onExportStatic);
@@ -68,18 +74,14 @@ async function init() {
   renderSummary(el.staticSummary, null, "尚未导出静态资源包");
 }
 
-async function fetchBusinessKeys() {
+async function fetchBusinessKeysList() {
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources/business-keys`);
-    const json = await res.json();
-    const list = json?.list || json?.data?.list || [];
-    if (!list.includes("system")) {
-      list.unshift("system");
-    }
-    state.businessKeys = list;
+    const list = await getBusinessKeys({ apiBase: state.apiBase });
+    const fullList = list.includes("system") ? list : ["system", ...list];
+    state.businessKeys = fullList;
     state.selectedKeys.clear();
-    if (list.length) {
-      state.selectedKeys.add(list[0]);
+    if (fullList.length) {
+      state.selectedKeys.add(fullList[0]);
     }
     renderBusinessChecklist();
   } catch (err) {
@@ -172,7 +174,7 @@ async function onExportSystemSelectedStatic() {
   state.exportingSystemSelected = true;
   setButtonLoading(el.exportSystemSelectedStaticBtn, true, "导出中…");
   try {
-    await downloadQuickStatic(`${state.apiBase}/api/v1/resources/export/system-selected-static`, "system_static_bundle.zip");
+    await downloadQuickStatic(`${state.apiBase}/api/v1/transfer/export/static/selected`, "system_static_bundle.zip");
     showToast("系统 + 默认业务静态包已导出");
   } catch (err) {
     showToast(err.message || "导出失败");
@@ -187,7 +189,7 @@ async function onExportAllStatic() {
   state.exportingAllStatic = true;
   setButtonLoading(el.exportAllStaticBtn, true, "导出中…");
   try {
-    await downloadQuickStatic(`${state.apiBase}/api/v1/resources/export/all-static`, "all_static_bundle.zip");
+    await downloadQuickStatic(`${state.apiBase}/api/v1/transfer/export/static/all`, "all_static_bundle.zip");
     showToast("全部业务静态包已导出");
   } catch (err) {
     showToast(err.message || "导出失败");
@@ -207,7 +209,7 @@ async function fetchExportSummary(businessKeys, includeSystem) {
   if (includeSystem) {
     query.set("include_system", "true");
   }
-  const res = await fetch(`${state.apiBase}/api/v1/resources/export?${query.toString()}`);
+  const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
     throw new Error(await extractError(res));
   }
@@ -226,7 +228,7 @@ async function downloadExportZip(businessKeys, includeSystem) {
   if (includeSystem) {
     query.set("include_system", "true");
   }
-  const res = await fetch(`${state.apiBase}/api/v1/resources/export?${query.toString()}`);
+  const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
     throw new Error(await extractError(res));
   }
@@ -246,7 +248,7 @@ async function downloadStaticBundle(businessKeys, includeSystem) {
   if (includeSystem) {
     query.set("include_system", "true");
   }
-  const res = await fetch(`${state.apiBase}/api/v1/resources/export?${query.toString()}`);
+  const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
     throw new Error(await extractError(res));
   }
@@ -393,73 +395,4 @@ function sortSummaryItems(items = []) {
     }
     return (a.businessKey || "").localeCompare(b.businessKey || "", "zh-Hans-CN");
   });
-}
-
-function getValue(obj, keys = []) {
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(obj || {}, key) && obj[key] !== undefined && obj[key] !== null) {
-      return obj[key];
-    }
-  }
-  return "";
-}
-
-function parseFilename(header) {
-  const match = /filename\\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i.exec(header);
-  if (!match) return "";
-  const encoded = match[1] || match[2];
-  try {
-    return decodeURIComponent(encoded);
-  } catch (err) {
-    return encoded;
-  }
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-async function extractError(res) {
-  const text = await res.text();
-  if (!text) return res.statusText || "请求失败";
-  try {
-    const json = JSON.parse(text);
-    return json.error || json.msg || res.statusText || "请求失败";
-  } catch (err) {
-    return text;
-  }
-}
-
-function showToast(message) {
-  if (!el.toast) return;
-  el.toast.textContent = message;
-  el.toast.classList.remove("hidden");
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => el.toast.classList.add("hidden"), 2600);
-}
-
-function setButtonLoading(button, loading, loadingText) {
-  if (!button) return;
-  if (loading) {
-    if (!button.dataset.originalText) {
-      button.dataset.originalText = button.textContent;
-    }
-    if (loadingText) {
-      button.textContent = loadingText;
-    }
-    button.disabled = true;
-  } else {
-    button.disabled = false;
-    if (button.dataset.originalText) {
-      button.textContent = button.dataset.originalText;
-      delete button.dataset.originalText;
-    }
-  }
 }

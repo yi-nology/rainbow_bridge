@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	resourcepb "github.com/yi-nology/rainbow_bridge/biz/model/api/resourcepb"
+	"github.com/yi-nology/rainbow_bridge/biz/model/api"
 	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/model/resource"
 	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service/resource"
 
@@ -56,7 +56,7 @@ func TestConfigLifecycle(t *testing.T) {
 	svc, cleanup := newTestService(t)
 	defer cleanup()
 
-	create := &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	create := &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "biz-1",
 		Alias:       "conf",
 		Content:     `{"foo":"bar"}`,
@@ -69,7 +69,7 @@ func TestConfigLifecycle(t *testing.T) {
 		t.Fatalf("expected resource key assigned")
 	}
 
-	list, err := svc.ListConfigs(ctx, &resourcepb.ResourceQueryRequest{BusinessKey: "biz-1"})
+	list, err := svc.ListConfigs(ctx, &api.ResourceQueryRequest{BusinessKey: "biz-1"})
 	if err != nil {
 		t.Fatalf("ListConfigs: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestConfigLifecycle(t *testing.T) {
 		t.Fatalf("expected 1 config, got %d", len(list))
 	}
 
-	update := &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	update := &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: cfg.GetBusinessKey(),
 		ResourceKey: cfg.GetResourceKey(),
 		Alias:       cfg.GetAlias(),
@@ -88,7 +88,7 @@ func TestConfigLifecycle(t *testing.T) {
 		t.Fatalf("UpdateConfig: %v", err)
 	}
 
-	detail, err := svc.GetConfigDetail(ctx, &resourcepb.ResourceDetailRequest{
+	detail, err := svc.GetConfigDetail(ctx, &api.ResourceDetailRequest{
 		BusinessKey: cfg.GetBusinessKey(),
 		ResourceKey: cfg.GetResourceKey(),
 	})
@@ -99,7 +99,7 @@ func TestConfigLifecycle(t *testing.T) {
 		t.Fatalf("unexpected content %s", detail.GetContent())
 	}
 
-	if err := svc.DeleteConfig(ctx, &resourcepb.ResourceDeleteRequest{
+	if err := svc.DeleteConfig(ctx, &api.ResourceDeleteRequest{
 		BusinessKey: cfg.GetBusinessKey(),
 		ResourceKey: cfg.GetResourceKey(),
 	}); err != nil {
@@ -170,7 +170,7 @@ func TestBasePathDecoratesURLs(t *testing.T) {
 		t.Fatalf("asset url should include base path, got %s", url)
 	}
 
-	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "prefixed",
 		Alias:       "logo",
 		Type:        "image",
@@ -180,7 +180,7 @@ func TestBasePathDecoratesURLs(t *testing.T) {
 		t.Fatalf("AddConfig: %v", err)
 	}
 
-	list, err := svc.ListConfigs(ctx, &resourcepb.ResourceQueryRequest{BusinessKey: "prefixed"})
+	list, err := svc.ListConfigs(ctx, &api.ResourceQueryRequest{BusinessKey: "prefixed"})
 	if err != nil {
 		t.Fatalf("ListConfigs: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestExportImportArchive(t *testing.T) {
 	}
 
 	// Create config referencing the asset
-	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "biz-archive",
 		Alias:       "cfg",
 		Content:     fmt.Sprintf(`{"file":"%s"}`, ref),
@@ -216,7 +216,7 @@ func TestExportImportArchive(t *testing.T) {
 		t.Fatalf("AddConfig: %v", err)
 	}
 
-	archive, name, err := svc.ExportConfigsArchive(ctx, &resourcepb.ResourceExportRequest{BusinessKey: "biz-archive"})
+	archive, name, err := svc.ExportConfigsArchive(ctx, &api.ResourceExportRequest{BusinessKey: "biz-archive"})
 	if err != nil {
 		t.Fatalf("ExportConfigsArchive: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestExportImportArchive(t *testing.T) {
 		t.Fatalf("zip reader: %v", err)
 	}
 
-	var cfgs []*resourcepb.ResourceConfig
+	var cfgs []*api.ResourceConfig
 	foundAsset := false
 	for _, f := range reader.File {
 		clean := filepath.Clean(f.Name)
@@ -264,7 +264,7 @@ func TestExportImportArchive(t *testing.T) {
 	if len(imported) != 1 {
 		t.Fatalf("expected summary from import")
 	}
-	list, err := other.ListConfigs(ctx, &resourcepb.ResourceQueryRequest{BusinessKey: "biz-archive"})
+	list, err := other.ListConfigs(ctx, &api.ResourceQueryRequest{BusinessKey: "biz-archive"})
 	if err != nil {
 		t.Fatalf("ListConfigs: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 	svc, cleanup := newTestService(t)
 	defer cleanup()
 
-	_, err := svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err := svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "system",
 		Alias:       "business_select",
 		Name:        "默认业务",
@@ -291,7 +291,7 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed business_select: %v", err)
 	}
-	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "system",
 		Alias:       "system_keys",
 		Name:        "系统选项",
@@ -301,7 +301,7 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed system_keys: %v", err)
 	}
-	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "biz-realtime",
 		Alias:       "greeting",
 		Name:        "问候语",
@@ -357,7 +357,7 @@ func TestExportSystemSelectedStaticBundle(t *testing.T) {
 	defer cleanup()
 
 	// Seed system configs
-	_, err := svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err := svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "system",
 		Alias:       "business_select",
 		Name:        "默认业务",
@@ -368,7 +368,7 @@ func TestExportSystemSelectedStaticBundle(t *testing.T) {
 		t.Fatalf("seed business_select: %v", err)
 	}
 
-	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "system",
 		Alias:       "system_copy",
 		Name:        "系统文案",
@@ -380,7 +380,7 @@ func TestExportSystemSelectedStaticBundle(t *testing.T) {
 	}
 
 	// Seed selected business configs
-	_, err = svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "biz-main",
 		Alias:       "welcome",
 		Name:        "欢迎语",
@@ -431,7 +431,7 @@ func TestExportStaticBundleAll(t *testing.T) {
 		{"biz-b", "beta", "B"},
 	}
 	for _, item := range seed {
-		_, err := svc.AddConfig(ctx, &resourcepb.CreateOrUpdateConfigRequest{Config: &resourcepb.ResourceConfig{
+		_, err := svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 			BusinessKey: item.business,
 			Alias:       item.alias,
 			Name:        item.alias,

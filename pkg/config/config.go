@@ -14,6 +14,22 @@ import (
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
+	CORS     CORSConfig     `yaml:"cors"`
+	Upload   UploadConfig   `yaml:"upload"`
+}
+
+// CORSConfig defines CORS middleware settings.
+type CORSConfig struct {
+	AllowOrigin      string `yaml:"allow_origin"`
+	AllowMethods     string `yaml:"allow_methods"`
+	AllowHeaders     string `yaml:"allow_headers"`
+	AllowCredentials bool   `yaml:"allow_credentials"`
+}
+
+// UploadConfig defines file upload constraints.
+type UploadConfig struct {
+	MaxSize      int64    `yaml:"max_size"`
+	AllowedTypes []string `yaml:"allowed_types"`
 }
 
 // ServerConfig defines HTTP server options.
@@ -78,6 +94,22 @@ func defaultConfig() *Config {
 			Driver: "sqlite",
 			SQLite: SQLiteConfig{
 				Path: "data/resource.db",
+			},
+		},
+		CORS: CORSConfig{
+			AllowOrigin:      "*",
+			AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+			AllowHeaders:     "*",
+			AllowCredentials: false,
+		},
+		Upload: UploadConfig{
+			MaxSize: 10 * 1024 * 1024, // 10MB
+			AllowedTypes: []string{
+				"image/jpeg",
+				"image/png",
+				"image/gif",
+				"image/webp",
+				"application/json",
 			},
 		},
 	}

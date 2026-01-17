@@ -11,6 +11,9 @@ import (
 	resourcedal "github.com/yi-nology/rainbow_bridge/biz/dal/resource"
 	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/model/resource"
 	"github.com/yi-nology/rainbow_bridge/pkg/common"
+	"github.com/yi-nology/rainbow_bridge/pkg/constants"
+	"github.com/yi-nology/rainbow_bridge/pkg/util"
+	"github.com/yi-nology/rainbow_bridge/pkg/validator"
 
 	"gorm.io/gorm"
 )
@@ -75,7 +78,7 @@ func (l *Logic) DeleteConfig(ctx context.Context, businessKey, resourceKey strin
 		}
 		return err
 	}
-	if businessKey == "system" && (cfg.Alias == "business_select" || cfg.Alias == "system_keys") {
+	if businessKey == constants.SystemBusinessKey && constants.IsProtectedSystemConfig(cfg.Alias) {
 		return ErrProtectedSystemConfig
 	}
 	return l.configDAO.DeleteByBusinessKeyAndResourceKey(ctx, l.db, businessKey, resourceKey)
@@ -106,14 +109,19 @@ func (l *Logic) ListConfigs(ctx context.Context, businessKey, minVersion, maxVer
 }
 
 func (l *Logic) ListSystemConfigs(ctx context.Context) (map[string]any, error) {
-	aliasResource, err := l.configDAO.GetByAlias(ctx, l.db, "system", "business_select")
+	aliasResource, err := l.configDAO.GetByAlias(ctx, l.db, constants.SystemBusinessKey, constants.SysConfigBusinessSelect)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	targetBusiness := "system"
+	targetBusiness := constants.SystemBusinessKey
 	if aliasResource != nil && aliasResource.Content != "" {
-		targetBusiness = aliasResource.Content
+		candidate := strings.TrimSpace(aliasResource.Content)
+		// Validate the business key to prevent injection
+		if validator.ValidateBusinessKey(candidate) {
+			targetBusiness = candidate
+		}
+		// If invalid, fall back to system
 	}
 
 	data, err := l.configDAO.ListByBusinessKey(ctx, l.db, targetBusiness, "", "", "")
@@ -211,16 +219,7 @@ func normalizeConfigPayload(cfg *resourcemodel.Config) {
 }
 
 func normalizeConfigType(t string) string {
-	switch strings.ToLower(strings.TrimSpace(t)) {
-	case "image":
-		return "image"
-	case "text", "string", "copy", "文案":
-		return "text"
-	case "color", "colour", "color_tag", "color-tag", "色彩", "色彩标签":
-		return "color"
-	default:
-		return "config"
-	}
+	return util.NormalizeConfigType(t)
 }
 
 func validateConfigContent(cfg *resourcemodel.Config) error {

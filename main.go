@@ -11,12 +11,10 @@ import (
 	app "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	hconfig "github.com/cloudwego/hertz/pkg/common/config"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
-	handlerpb "github.com/yi-nology/rainbow_bridge/biz/handler/resourcepb"
+	"github.com/yi-nology/rainbow_bridge/biz/middleware"
 	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/model/resource"
 	bizrouter "github.com/yi-nology/rainbow_bridge/biz/router"
-	routerpb "github.com/yi-nology/rainbow_bridge/biz/router/resourcepb"
 	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service/resource"
 	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
@@ -53,22 +51,13 @@ func main() {
 
 	resourceService := resourceservice.NewService(db, basePath)
 	resourceHandler := handler.NewResourceHandler(resourceService)
-	pbHandler := handlerpb.NewResourceService(resourceService)
-	routerpb.SetResourceServiceHandler(pbHandler)
 
-	h.Use(func(ctx context.Context, c *app.RequestContext) {
-		c.Response.Header.Set("Access-Control-Allow-Origin", "*")
-		c.Response.Header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-		c.Response.Header.Set("Access-Control-Allow-Headers", "*")
-		c.Response.Header.Set("Access-Control-Allow-Credentials", "false")
-		if string(c.Request.Method()) == consts.MethodOptions {
-			c.AbortWithStatus(consts.StatusNoContent)
-			return
-		}
-		c.Next(ctx)
-	})
+	// Register middleware
+	h.Use(middleware.Recovery())
+	h.Use(middleware.Logging())
+	h.Use(middleware.CORS(&cfg.CORS))
+	h.Use(middleware.Auth())
 
-	bizrouter.GeneratedRegister(h)
 	bizrouter.RegisterResourceRoutes(h, resourceHandler)
 
 	webFS, err := fs.Sub(embeddedWeb, "web")
@@ -124,4 +113,8 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
 	serve("/ui.js", "ui.js", "application/javascript")
 	serve("/system.js", "system.js", "application/javascript")
 	serve("/runtime.js", "runtime.js", "application/javascript")
+	serve("/lib/utils.js", "lib/utils.js", "application/javascript")
+	serve("/lib/api.js", "lib/api.js", "application/javascript")
+	serve("/lib/toast.js", "lib/toast.js", "application/javascript")
+	serve("/lib/init.js", "lib/init.js", "application/javascript")
 }

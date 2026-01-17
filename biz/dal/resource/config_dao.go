@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	model "github.com/yi-nology/rainbow_bridge/biz/model/resource"
+	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 
 	"gorm.io/gorm"
 )

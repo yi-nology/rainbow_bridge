@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package config;
+import "api.proto";
+import "common.proto";
+
+
+// CreateConfigRequest is used for creating a config.
+message CreateConfigRequest {
+  common.ResourceConfig config = 1;
+}
+
+// UpdateConfigRequest is used for updating a config.
+message UpdateConfigRequest {
+  common.ResourceConfig config = 1;
+}
+
+// DeleteConfigRequest is used for deleting a config.
+message DeleteConfigRequest {
+  string business_key = 1;
+  string resource_key = 2;
+}
+
+// ListConfigRequest is used to list configs with filters.
+message ListConfigRequest {
+  string business_key = 1;
+  string type = 2;
+  string min_version = 3;
+  string max_version = 4;
+  bool is_latest = 5;
+}
+
+// ConfigDetailRequest is used to get a specific config.
+message ConfigDetailRequest {
+  string business_key = 1;
+  string resource_key = 2;
+}
+
+// ConfigResponse is a response containing a config.
+message ConfigResponse {
+  common.OperateResponse operate_response = 3;
+  common.ResourceConfig config = 4;
+}
+
+// ConfigListResponse contains a list of configs.
+message ConfigListResponse {
+  repeated common.ResourceConfig list = 1;
+}
+
+// ConfigDetailResponse contains a single config.
+message ConfigDetailResponse {
+  common.ResourceConfig detail = 1;
+}
+
+// ConfigService handles configuration CRUD operations.
+service ConfigService {
+  // Create creates a new configuration.
+  rpc Create(CreateConfigRequest) returns (ConfigResponse) {
+    option (api.post) = "/api/v1/config/create";
+  }
+
+  //service HelloService {
+ //  rpc Method1(HelloReq) returns(HelloResp) {
+ //     option (api.get) = "/hello";
+ //  }
+//}
+
+
+  // Update updates an existing configuration.
+  rpc Update(UpdateConfigRequest) returns (ConfigResponse) {
+    option (api.post) = "/api/v1/config/update";
+  }
+
+  // Delete removes a configuration.
+  rpc Delete(DeleteConfigRequest) returns (common.OperateResponse) {
+    option (api.post) = "/api/v1/config/delete";
+  }
+
+  // List returns a list of configurations.
+  rpc List(ListConfigRequest) returns (ConfigListResponse) {
+    option (api.get) = "/api/v1/config/list";
+  }
+
+  // Detail returns a specific configuration.
+  rpc Detail(ConfigDetailRequest) returns (ConfigDetailResponse) {
+    option (api.get) = "/api/v1/config/detail";
+  }
+}

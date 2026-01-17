@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package system;
+
+import "api.proto";
+import "common.proto";
+
+// BusinessKeyListResponse contains a list of business keys.
+message BusinessKeyListResponse {
+  repeated string list = 1;
+}
+
+// SystemKeyItem represents a key-value pair in system keys.
+message SystemKeyItem {
+  string key = 1;
+  string value = 2;
+}
+
+// SystemConfig contains parsed system configuration data.
+message SystemConfig {
+  string business_select = 1;
+  repeated SystemKeyItem system_keys = 2;
+}
+
+// RealtimeConfigEntry represents a single config entry in realtime config.
+message RealtimeConfigEntry {
+  string name = 1;
+  string alias = 2;
+  string type = 3;
+  string content = 4;
+  string remark = 5;
+}
+
+// RealtimeBusinessConfig contains configs for a single business.
+message RealtimeBusinessConfig {
+  map<string, RealtimeConfigEntry> configs = 1;
+}
+
+// InitData contains all initialization data for the frontend.
+message InitData {
+  repeated string business_keys = 1;
+  SystemConfig system_config = 2;
+  map<string, string> realtime_config = 3;
+}
+
+// InitResponse is the response for init endpoint.
+message InitResponse {
+  int32 code = 1;
+  string msg = 2;
+  InitData data = 3;
+}
+
+// RealtimeResponse is the response for realtime config endpoint.
+// This response format must remain unchanged for backward compatibility.
+message RealtimeResponse {
+  repeated string business_keys = 1;
+  string business_select = 2;
+  map<string, RealtimeConfigEntry> system = 3;
+  // Additional business configs are added dynamically
+}
+
+// SystemService handles system-level operations.
+service SystemService {
+  // Init returns all data needed for frontend initialization.
+  rpc Init(common.Empty) returns (InitResponse) {
+    option (api.get) = "/api/v1/system/init";
+  }
+
+  // BusinessKeys returns all available business keys.
+  rpc BusinessKeys(common.Empty) returns (BusinessKeyListResponse) {
+    option (api.get) = "/api/v1/system/business-keys";
+  }
+
+  // Realtime returns realtime static configuration.
+  // This endpoint's response structure must remain unchanged for backward compatibility.
+  rpc Realtime(common.Empty)   returns (RealtimeResponse) {
+    option (api.get) = "/api/v1/system/realtime";
+  }
+
+  // Health returns server health status.
+  rpc Health(common.Empty) returns (common.OperateResponse) {
+    option (api.get) = "/api/v1/system/health";
+  }
+}

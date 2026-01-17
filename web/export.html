@@ -17,7 +17,7 @@
             <div class="panel-header with-desc">
               <div class="panel-header-text">
                 <span>导出配置与静态资源</span>
-                <p>选择业务后生成标准 ZIP 或 Nginx 静态资源包，便于快速分发</p>
+                <p>选择环境和流水线后生成标准 ZIP 或 Nginx 静态资源包，便于快速分发</p>
               </div>
               <div class="panel-actions">
                 <button id="exportZipBtn" class="primary">导出配置 ZIP</button>
@@ -26,9 +26,15 @@
             </div>
 
             <div class="panel-body">
-              <div class="business-selector">
-                <h3>选择业务</h3>
-                <div id="exportBusinessList" class="business-checklist"></div>
+              <div class="export-selectors">
+                <div class="export-selector-group">
+                  <h3>选择环境</h3>
+                  <div id="exportEnvList" class="selector-tabs"></div>
+                </div>
+                <div class="export-selector-group">
+                  <h3>选择流水线</h3>
+                  <div id="exportPipelineList" class="selector-tabs"></div>
+                </div>
               </div>
               <p class="hint">配置 ZIP 包含 configs.json 及引用的文件；Nginx 包会生成 static/config.json 与静态资源，可直接部署到静态站点。</p>
             </div>
@@ -43,26 +49,26 @@
 
             <div class="summary-block">
               <div class="summary-header">
-            <h3>Nginx 静态包导出记录</h3>
-            <button id="staticClearBtn" class="ghost mini" type="button">清空记录</button>
-          </div>
-          <div id="staticSummary" class="summary-list summary-empty">尚未导出静态资源包</div>
-        </div>
+                <h3>Nginx 静态包导出记录</h3>
+                <button id="staticClearBtn" class="ghost mini" type="button">清空记录</button>
+              </div>
+              <div id="staticSummary" class="summary-list summary-empty">尚未导出静态资源包</div>
+            </div>
 
-        <section class="panel">
-          <div class="panel-header">
-            <h2>快捷导出</h2>
-          </div>
-          <div class="export-quick-actions">
-            <button id="exportSystemSelectedStaticBtn" class="ghost">导出系统+默认业务静态包</button>
-            <button id="exportAllStaticBtn" class="ghost">导出全部业务静态包</button>
-          </div>
-          <p class="hint">系统业务会根据 business_select 指定默认业务；“全部业务” 将包含所有业务及 system。</p>
-        </section>
-      </section>
-    </main>
-  </div>
-</div>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>快捷导出</h2>
+              </div>
+              <div class="export-quick-actions">
+                <button id="exportSystemSelectedStaticBtn" class="ghost">导出系统+默认业务静态包</button>
+                <button id="exportAllStaticBtn" class="ghost">导出全部业务静态包</button>
+              </div>
+              <p class="hint">系统业务会根据 business_select 指定默认业务；"全部业务" 将包含所有业务及 system。</p>
+            </section>
+          </section>
+        </main>
+      </div>
+    </div>
 
     <div id="exportToast" class="toast hidden"></div>
 

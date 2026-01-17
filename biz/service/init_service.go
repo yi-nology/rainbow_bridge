@@ -54,48 +54,45 @@ func (s *Service) GetInitData(ctx context.Context) (*InitData, error) {
 }
 
 // getSystemConfigData extracts and parses system configuration values.
+// It reads from the new system_config table using the default environment.
 func (s *Service) getSystemConfigData(ctx context.Context) (*SystemConfigData, error) {
-	configs, err := s.logic.ListConfigs(ctx, constants.SystemBusinessKey, "", "", "", true)
-	if err != nil {
-		return nil, err
-	}
-
 	result := &SystemConfigData{
-		BusinessSelect: constants.SystemBusinessKey,
+		BusinessSelect: constants.DefaultBusinessSelect,
 		SystemKeys:     make(map[string]string),
 	}
 
-	for _, cfg := range configs {
-		switch cfg.Alias {
-		case constants.SysConfigBusinessSelect:
-			content := strings.TrimSpace(cfg.Content)
-			if content != "" {
-				// Handle both plain string and JSON object formats
-				if strings.HasPrefix(content, "{") {
-					var parsed map[string]any
-					if err := json.Unmarshal([]byte(content), &parsed); err == nil {
-						for _, key := range []string{"business_key", "businessKey", "selected", "key"} {
-							if val, ok := parsed[key]; ok {
-								if str, ok := val.(string); ok && str != "" {
-									result.BusinessSelect = strings.TrimSpace(str)
-									break
-								}
-							}
+	// Get business_select from system_config table (using default environment)
+	businessSelect, err := s.logic.GetSystemConfigValue(ctx, "default", constants.SysConfigBusinessSelect)
+	if err == nil && businessSelect != "" {
+		content := strings.TrimSpace(businessSelect)
+		// Handle both plain string and JSON object formats
+		if strings.HasPrefix(content, "{") {
+			var parsed map[string]any
+			if err := json.Unmarshal([]byte(content), &parsed); err == nil {
+				for _, key := range []string{"business_key", "businessKey", "selected", "key"} {
+					if val, ok := parsed[key]; ok {
+						if str, ok := val.(string); ok && str != "" {
+							result.BusinessSelect = strings.TrimSpace(str)
+							break
 						}
 					}
-				} else {
-					result.BusinessSelect = strings.Trim(content, "\"")
 				}
 			}
-		case constants.SysConfigSystemKeys:
-			content := strings.TrimSpace(cfg.Content)
-			if content != "" && strings.HasPrefix(content, "{") {
-				var parsed map[string]any
-				if err := json.Unmarshal([]byte(content), &parsed); err == nil {
-					for k, v := range parsed {
-						if str, ok := v.(string); ok {
-							result.SystemKeys[k] = str
-						}
+		} else {
+			result.BusinessSelect = strings.Trim(content, "\"")
+		}
+	}
+
+	// Get system_keys from system_config table (using default environment)
+	systemKeys, err := s.logic.GetSystemConfigValue(ctx, "default", constants.SysConfigSystemKeys)
+	if err == nil && systemKeys != "" {
+		content := strings.TrimSpace(systemKeys)
+		if strings.HasPrefix(content, "{") {
+			var parsed map[string]any
+			if err := json.Unmarshal([]byte(content), &parsed); err == nil {
+				for k, v := range parsed {
+					if str, ok := v.(string); ok {
+						result.SystemKeys[k] = str
 					}
 				}
 			}

@@ -19,3 +19,15 @@ var ProtectedSystemConfigs = map[string]bool{
 func IsProtectedSystemConfig(alias string) bool {
 	return ProtectedSystemConfigs[alias]
 }
+
+// Default values for system configs when initializing a new environment.
+const (
+	DefaultBusinessSelect = "default"
+	DefaultSystemKeys     = `{"logo":"logo"}`
+)
+
+// DefaultSystemConfigRemark provides default remarks for system config keys.
+var DefaultSystemConfigRemark = map[string]string{
+	SysConfigBusinessSelect: "系统选择的业务",
+	SysConfigSystemKeys:     "系统配置选项",
+}

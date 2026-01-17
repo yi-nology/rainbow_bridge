@@ -6,6 +6,7 @@ import (
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/resource"
+	"github.com/yi-nology/rainbow_bridge/pkg/constants"
 	"gorm.io/gorm"
 )
 
@@ -102,18 +103,19 @@ func MigrateConfigDefaults(db *gorm.DB) error {
 	return nil
 }
 
-// EnsureSystemDefaults initializes default environment and pipeline at startup.
+// EnsureSystemDefaults initializes default environment, pipeline, and system configs at startup.
 // This is a package-level function that can be called before Service is created.
 func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
 	envDAO := resource.NewEnvironmentDAO()
 	plDAO := resource.NewPipelineDAO()
+	sysConfigDAO := resource.NewSystemConfigDAO()
 
 	// Create default environment
-	exists, err := envDAO.ExistsByKey(ctx, db, DefaultEnvironmentKey)
+	envExists, err := envDAO.ExistsByKey(ctx, db, DefaultEnvironmentKey)
 	if err != nil {
 		return err
 	}
-	if !exists {
+	if !envExists {
 		env := &model.Environment{
 			EnvironmentKey:  DefaultEnvironmentKey,
 			EnvironmentName: DefaultEnvironmentName,
@@ -127,12 +129,38 @@ func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
 		log.Printf("[Init] Created default environment: %s", DefaultEnvironmentKey)
 	}
 
-	// Create default pipeline
-	exists, err = plDAO.ExistsByKey(ctx, db, DefaultPipelineKey)
+	// Initialize system configs for default environment if not exists
+	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, db, DefaultEnvironmentKey, constants.SysConfigBusinessSelect)
 	if err != nil {
 		return err
 	}
-	if !exists {
+	if !sysConfigExists {
+		configs := []model.SystemConfig{
+			{
+				EnvironmentKey: DefaultEnvironmentKey,
+				ConfigKey:      constants.SysConfigBusinessSelect,
+				ConfigValue:    constants.DefaultBusinessSelect,
+				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigBusinessSelect],
+			},
+			{
+				EnvironmentKey: DefaultEnvironmentKey,
+				ConfigKey:      constants.SysConfigSystemKeys,
+				ConfigValue:    constants.DefaultSystemKeys,
+				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemKeys],
+			},
+		}
+		if err := sysConfigDAO.BatchCreate(ctx, db, configs); err != nil {
+			return err
+		}
+		log.Printf("[Init] Created default system configs for environment: %s", DefaultEnvironmentKey)
+	}
+
+	// Create default pipeline
+	plExists, err := plDAO.ExistsByKey(ctx, db, DefaultPipelineKey)
+	if err != nil {
+		return err
+	}
+	if !plExists {
 		pl := &model.Pipeline{
 			PipelineKey:  DefaultPipelineKey,
 			PipelineName: DefaultPipelineName,

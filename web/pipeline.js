@@ -1,4 +1,4 @@
-import { initPageLayout } from "./components.js";
+import { initPageLayout, initEnvSelector } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createToast } from "./lib/toast.js";
 
@@ -21,9 +21,10 @@ const plModalClose = document.getElementById("plModalClose");
 const plModalCancel = document.getElementById("plModalCancel");
 
 // Initialize
-document.addEventListener("DOMContentLoaded", () => {
-  initPageLayout({ activeKey: "pipeline" });
-  loadPipelines();
+document.addEventListener("DOMContentLoaded", async () => {
+  initPageLayout({ activeKey: "pipeline", showEnvSelector: true });
+  await loadPipelines();
+  await initEnvSelector(apiBase, () => loadPipelines());
   bindEvents();
 });
 

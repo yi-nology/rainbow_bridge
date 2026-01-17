@@ -1,32 +1,25 @@
-import { initPageLayout } from "./components.js";
+import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
-import { escapeHtml, escapeAttr, normalizeDataType, displayDataType, summarizeContent, normalizeColorValue } from "./lib/utils.js";
-import { extractError, fetchBusinessKeys as fetchBusinessKeysApi } from "./lib/api.js";
+import { escapeHtml, escapeAttr } from "./lib/utils.js";
 import { createToast } from "./lib/toast.js";
 
 initPageLayout({
   activeKey: "system",
-  title: "系统业务配置",
-  caption: "维护 system 业务下的配置，支持配置对象、图片、文案及色彩标签类型",
+  title: "系统配置",
+  caption: "管理环境维度的系统配置，包括业务选择和系统选项",
+  showEnvSelector: true,
+  showPipelineSelector: true,
 });
 
 const defaultBase = getDefaultApiBase();
-const DEFAULT_COLOR = "#1677ff";
 const state = {
   apiBase: defaultBase,
   configs: [],
   search: "",
   editing: null,
   businessKeys: [],
-  dataType: "config",
-  imageUpload: {
-    reference: "",
-    url: "",
-    filename: "",
-  },
-  imageUploading: false,
-  colorValue: "",
+  currentEnvironment: "default",
 };
 
 const elements = {
@@ -46,18 +39,10 @@ const elements = {
   contentTextInput: document.getElementById("systemContentTextInput"),
   contentImageGroup: document.getElementById("systemContentImage"),
   contentColorGroup: document.getElementById("systemContentColor"),
-  imageFileInput: document.getElementById("systemImageFile"),
-  imageUploadBtn: document.getElementById("systemImageUploadBtn"),
-  imageStatus: document.getElementById("systemImageStatus"),
-  imagePreview: document.getElementById("systemImagePreview"),
-  imagePreviewImg: document.querySelector("#systemImagePreview img"),
   businessSelect: document.getElementById("systemBusinessSelect"),
   keyValueEditor: document.getElementById("systemKeyValueEditor"),
   keyValueList: document.getElementById("systemKeyValueList"),
   keyValueAddBtn: document.getElementById("systemKeyValueAdd"),
-  colorPicker: document.getElementById("systemColorPicker"),
-  colorValueInput: document.getElementById("systemColorValue"),
-  colorSwatch: document.getElementById("systemColorSwatch"),
 };
 
 const showToast = createToast("systemToast");
@@ -66,25 +51,21 @@ const systemModal = createModal("systemModal", {
   onClose: () => {
     state.editing = null;
     elements.modalForm.reset();
-    elements.modalForm.elements.businessKey.value = "system";
-    resetDataType(true);
     resetAliasState();
     resetKeyValueEditor();
     if (elements.aliasInput) {
       elements.aliasInput.value = "";
-    }
-    const radios = elements.modalForm.elements.isPerm;
-    if (radios) {
-      const list = typeof radios.length === "number" ? Array.from(radios) : [radios];
-      list.forEach((radio) => {
-        radio.checked = radio.value === "false";
-      });
     }
   },
 });
 
 (async function init() {
   await fetchConfigs();
+  await initEnvSelector(state.apiBase, (envKey) => {
+    state.currentEnvironment = envKey;
+    fetchConfigs();
+  });
+  await initPipelineSelector(state.apiBase, () => {});
 })();
 
 if (elements.search) {
@@ -95,7 +76,8 @@ if (elements.search) {
 }
 
 if (elements.newBtn) {
-  elements.newBtn.addEventListener("click", () => openModal());
+  // Hide new button - system configs cannot be created manually
+  elements.newBtn.style.display = "none";
 }
 
 if (elements.modalForm) {
@@ -105,48 +87,6 @@ if (elements.modalForm) {
 if (elements.aliasInput) {
   elements.aliasInput.addEventListener("input", () => {
     syncAliasMode().catch(() => {});
-  });
-}
-
-if (elements.typeSelect) {
-  elements.typeSelect.addEventListener("change", (evt) => {
-    setDataType(evt.target.value);
-  });
-}
-
-if (elements.contentTextInput) {
-  elements.contentTextInput.addEventListener("input", () => {
-    if (state.dataType === "text" && elements.contentInput) {
-      elements.contentInput.value = elements.contentTextInput.value;
-    }
-  });
-}
-
-if (elements.imageFileInput) {
-  elements.imageFileInput.addEventListener("change", onImageFileChange);
-}
-
-if (elements.imageUploadBtn) {
-  elements.imageUploadBtn.addEventListener("click", onImageUpload);
-}
-
-if (elements.colorPicker) {
-  elements.colorPicker.addEventListener("input", (evt) => {
-    setColorValue(evt.target.value, { fillPicker: true, forceContent: true });
-  });
-}
-
-if (elements.colorValueInput) {
-  elements.colorValueInput.addEventListener("input", (evt) => {
-    const value = evt.target.value || "";
-    state.colorValue = value.trim();
-    if (state.dataType === "color" && elements.contentInput) {
-      elements.contentInput.value = state.colorValue;
-    }
-    updateColorPreview(value);
-  });
-  elements.colorValueInput.addEventListener("blur", (evt) => {
-    setColorValue(evt.target.value, { fillPicker: true, forceContent: true });
   });
 }
 
@@ -189,102 +129,113 @@ document.addEventListener("click", (evt) => {
   const target = evt.target;
   if (target.matches("button[data-system-action='edit']")) {
     const key = target.dataset.key;
-    const cfg = state.configs.find((item) => item.resource_key === key);
+    const cfg = state.configs.find((item) => item.config_key === key);
     if (cfg) openModal(cfg);
-  }
-  if (target.matches("button[data-system-action='delete']")) {
-    const key = target.dataset.key;
-    if (confirm("确定删除该配置吗？")) {
-      deleteConfig(key);
-    }
   }
 });
 
 async function fetchConfigs() {
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/config/list?business_key=system`);
+    const res = await fetch(`${state.apiBase}/api/v1/system-config/list?environment_key=${state.currentEnvironment}`);
     const json = await res.json();
-    state.configs = json?.list || json?.data?.list || [];
+    state.configs = json?.list || [];
     renderTable();
   } catch (err) {
     showToast(`获取配置失败: ${err.message}`);
   }
 }
 
-async function deleteConfig(resourceKey) {
-  try {
-    const res = await fetch(`${state.apiBase}/api/v1/config/delete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ business_key: "system", resource_key: resourceKey }),
-    });
-    const json = await res.json();
-    if (json.code && json.code !== 200) {
-      throw new Error(json.error || json.msg || "删除失败");
-    }
-    showToast("删除成功");
-    await fetchConfigs();
-  } catch (err) {
-    showToast(err.message || "删除失败");
-  }
-}
-
 function renderTable() {
   const records = state.configs.filter((cfg) => {
     if (!state.search) return true;
-    const haystack = [cfg.name, cfg.alias, cfg.type, cfg.content]
+    const haystack = [cfg.config_key, cfg.config_value, cfg.remark]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
     return haystack.includes(state.search);
   });
 
-  elements.count.textContent = `system 配置列表 · 共 ${records.length} 条`;
+  elements.count.textContent = `系统配置列表 · 共 ${records.length} 条`;
   elements.tableBody.innerHTML = "";
   elements.empty.classList.toggle("hidden", records.length > 0);
 
   records.forEach((cfg) => {
     const tr = document.createElement("tr");
-    const isProtected = cfg.alias === "business_select" || cfg.alias === "system_keys";
-    const deleteBtn = isProtected
-      ? ""
-      : `<button class="danger" data-system-action="delete" data-key="${escapeAttr(cfg.resource_key || "")}">删除</button>`;
+    const displayName = getConfigDisplayName(cfg.config_key);
+    const displayValue = summarizeConfigValue(cfg.config_key, cfg.config_value);
     tr.innerHTML = `
-      <td>${escapeHtml(cfg.name || "-")}</td>
-      <td>${escapeHtml(cfg.alias || "-")}</td>
-      <td>${escapeHtml(displayDataType(cfg.type))}</td>
-      <td>${escapeHtml(summarizeContent(cfg.content))}</td>
+      <td>${escapeHtml(displayName)}</td>
+      <td><code>${escapeHtml(cfg.config_key || "-")}</code></td>
+      <td>${escapeHtml(displayValue)}</td>
       <td>
         <div class="table-actions">
-          <button class="ghost" data-system-action="edit" data-key="${escapeAttr(cfg.resource_key || "")}">编辑</button>
-          ${deleteBtn}
+          <button class="ghost" data-system-action="edit" data-key="${escapeAttr(cfg.config_key || "")}">编辑</button>
         </div>
       </td>`;
     elements.tableBody.appendChild(tr);
   });
 }
 
+function getConfigDisplayName(configKey) {
+  const names = {
+    "business_select": "业务选择",
+    "system_keys": "系统选项",
+  };
+  return names[configKey] || configKey;
+}
+
+function summarizeConfigValue(configKey, value) {
+  if (!value) return "-";
+  if (configKey === "business_select") {
+    return value;
+  }
+  if (configKey === "system_keys") {
+    try {
+      const parsed = JSON.parse(value);
+      const keys = Object.keys(parsed);
+      return `${keys.length} 个配置项`;
+    } catch {
+      return value.substring(0, 50) + (value.length > 50 ? "..." : "");
+    }
+  }
+  return value.substring(0, 50) + (value.length > 50 ? "..." : "");
+}
+
 async function openModal(cfg) {
   state.editing = cfg || null;
   elements.modalForm.reset();
-  elements.modalForm.elements.businessKey.value = "system";
-  elements.modalForm.elements.resourceKey.value = cfg?.resource_key || "";
-  elements.modalForm.elements.name.value = cfg?.name || "";
-  elements.modalForm.elements.alias.value = cfg?.alias || "";
-  elements.modalForm.elements.remark.value = cfg?.remark || "";
-  const isPermValue = cfg?.is_perm ? "true" : "false";
-  [...elements.modalForm.elements.isPerm].forEach((radio) => {
-    radio.checked = radio.value === isPermValue;
-  });
-  const initialType = cfg?.type || "config";
-  const initialContent = cfg?.content || "";
-  initializeDataTypeFields(initialType, initialContent);
+
+  // Set alias (config_key) - readonly for system configs
+  if (elements.aliasInput) {
+    elements.aliasInput.value = cfg?.config_key || "";
+    elements.aliasInput.readOnly = true;
+  }
+
+  // Set name field
+  const nameInput = elements.modalForm.elements.name;
+  if (nameInput) {
+    nameInput.value = getConfigDisplayName(cfg?.config_key || "");
+    nameInput.readOnly = true;
+  }
+
+  // Set remark field
+  const remarkInput = elements.modalForm.elements.remark;
+  if (remarkInput) {
+    remarkInput.value = cfg?.remark || "";
+  }
+
+  const initialContent = cfg?.config_value || "";
+  if (elements.contentInput) {
+    elements.contentInput.value = initialContent;
+  }
+
   try {
     await syncAliasMode({ content: initialContent, initialize: true });
   } catch {
     // ignore
   }
-  const title = cfg ? "编辑 system 配置" : "新建 system 配置";
+
+  const title = `编辑系统配置 - ${getConfigDisplayName(cfg?.config_key || "")}`;
   const titleNode = document.getElementById("systemModalTitle");
   if (titleNode) titleNode.textContent = title;
   systemModal.open();
@@ -295,23 +246,21 @@ async function onSubmit(evt) {
   const form = elements.modalForm;
   const formData = new FormData(form);
   const getTrim = (key) => ((formData.get(key) || "").toString().trim());
-  const aliasValue = getTrim("alias");
-  const nameValue = getTrim("name");
-  if (!aliasValue || !nameValue) {
-    showToast("请填写名称与别名");
+  const configKey = getTrim("alias");
+
+  if (!configKey) {
+    showToast("配置键不能为空");
     return;
   }
 
-  let contentValue = "";
-  let typeValue = getTrim("type");
-  if (aliasValue === "business_select") {
-    contentValue = (elements.businessSelect?.value || "").trim();
-    if (!contentValue) {
+  let configValue = "";
+  if (configKey === "business_select") {
+    configValue = (elements.businessSelect?.value || "").trim();
+    if (!configValue) {
       showToast("请选择业务");
       return;
     }
-    typeValue = "text";
-  } else if (aliasValue === "system_keys") {
+  } else if (configKey === "system_keys") {
     const { data, errors } = collectKeyValueData({ strict: true });
     if (errors.length) {
       showToast(errors[0]);
@@ -321,71 +270,25 @@ async function onSubmit(evt) {
       showToast("请至少添加一行 key 与 名称");
       return;
     }
-    contentValue = JSON.stringify(data);
-    typeValue = "config";
+    configValue = JSON.stringify(data);
   } else {
-    const normalizedType = normalizeDataType(typeValue);
-    typeValue = normalizedType;
-    if (normalizedType === "config") {
-      const raw = elements.contentJsonInput?.value.trim() || "";
-      if (!raw) {
-        showToast("请填写配置内容");
-        return;
-      }
-      try {
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-          throw new Error("内容需为 JSON 对象");
-        }
-        contentValue = JSON.stringify(parsed);
-        if (elements.contentJsonInput) {
-          elements.contentJsonInput.value = JSON.stringify(parsed, null, 2);
-        }
-      } catch (err) {
-        showToast(err.message || "配置内容不是合法的 JSON 对象");
-        return;
-      }
-    } else if (normalizedType === "image") {
-      const reference = (elements.contentInput?.value || state.imageUpload.reference || "").trim();
-      if (!reference) {
-        showToast("请上传图片");
-        return;
-      }
-      contentValue = reference;
-    } else if (normalizedType === "color") {
-      const colorValue = getColorValue();
-      if (!colorValue) {
-        showToast("请选择色彩值");
-        return;
-      }
-      contentValue = colorValue;
-    } else {
-      const textContent = elements.contentTextInput?.value.trim() || "";
-      if (!textContent) {
-        showToast("请填写文案内容");
-        return;
-      }
-      contentValue = textContent;
+    configValue = elements.contentInput?.value.trim() || "";
+    if (!configValue) {
+      showToast("请填写配置值");
+      return;
     }
   }
 
   const payload = {
-    config: {
-      business_key: "system",
-      resource_key: getTrim("resourceKey"),
-      alias: aliasValue,
-      name: nameValue,
-      type: typeValue,
-      content: contentValue,
-      remark: getTrim("remark"),
-      is_perm: formData.get("isPerm") === "true",
+    system_config: {
+      environment_key: state.currentEnvironment,
+      config_key: configKey,
+      config_value: configValue,
     },
   };
 
-  const isUpdate = Boolean(payload.config.resource_key);
-  const endpoint = isUpdate ? "/api/v1/config/update" : "/api/v1/config/create";
   try {
-    const res = await fetch(`${state.apiBase}${endpoint}`, {
+    const res = await fetch(`${state.apiBase}/api/v1/system-config/update`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -402,149 +305,14 @@ async function onSubmit(evt) {
   }
 }
 
-function getAliasValue() {
-  return elements.aliasInput?.value.trim() || "";
-}
-
-function getBusinessKeyValue() {
-  return "system";
-}
-
-function resetDataType(initial = false) {
-  state.dataType = "config";
-  state.imageUpload = { reference: "", url: "", filename: "" };
-  state.imageUploading = false;
-  state.colorValue = "";
-  if (elements.typeSelect) {
-    elements.typeSelect.disabled = false;
-    elements.typeSelect.value = "config";
-  }
-  if (!initial && elements.contentJsonInput) elements.contentJsonInput.value = "";
-  if (!initial && elements.contentTextInput) elements.contentTextInput.value = "";
-  clearImageReference(true);
-  clearColorValue({ resetPicker: true, forceContent: true });
-  updateDataTypeViews("config", { initialize: true });
-  if (elements.contentInput) {
-    elements.contentInput.value = "";
-    elements.contentInput.disabled = false;
-    elements.contentInput.classList.remove("hidden");
-  }
-}
-
-function setDataType(type, options = {}) {
-  const normalized = normalizeDataType(type);
-  state.dataType = normalized;
-  if (elements.typeSelect) {
-    elements.typeSelect.value = normalized;
-  }
-  updateDataTypeViews(normalized, options);
-  if (!options.preserveContent && elements.contentInput) {
-    elements.contentInput.value = "";
-  }
-  if (normalized === "config" && !options.preserveContent && elements.contentJsonInput) {
-    elements.contentJsonInput.value = "";
-  }
-  if (normalized === "text" && !options.preserveContent && elements.contentTextInput) {
-    elements.contentTextInput.value = "";
-  }
-  if (normalized === "image" && !options.preserveContent) {
-    clearImageReference();
-  }
-  if (normalized === "color") {
-    const initial = state.colorValue || elements.colorPicker?.value || DEFAULT_COLOR;
-    setColorValue(initial, { fillPicker: true, forceContent: true });
-  } else if (!options.preserveContent) {
-    clearColorValue({ resetPicker: true });
-  }
-}
-
-function updateDataTypeViews(type, options = {}) {
-  if (elements.contentJsonGroup) {
-    elements.contentJsonGroup.classList.toggle("hidden", type !== "config");
-  }
-  if (elements.contentTextGroup) {
-    elements.contentTextGroup.classList.toggle("hidden", type !== "text");
-  }
-  if (elements.contentImageGroup) {
-    elements.contentImageGroup.classList.toggle("hidden", type !== "image");
-  }
-  if (elements.contentColorGroup) {
-    elements.contentColorGroup.classList.toggle("hidden", type !== "color");
-  }
-  if (type !== "image" && !options.initialize) {
-    clearImageReference();
-  }
-  if (type === "image" && !state.imageUpload.reference) {
-    setImageUploadStatus("请选择图片文件并上传，成功后将自动填充引用地址。");
-  }
-  if (type === "color") {
-    const preset = state.colorValue || elements.colorPicker?.value || DEFAULT_COLOR;
-    setColorValue(preset, { fillPicker: true, forceContent: true });
-  } else if (!options.initialize) {
-    clearColorValue({ resetPicker: true });
-  }
-}
-
-function initializeDataTypeFields(type, content) {
-  const normalized = normalizeDataType(type);
-  if (elements.typeSelect) {
-    elements.typeSelect.value = normalized;
-  }
-  setDataType(normalized, { initialize: true, preserveContent: true });
-  const trimmed = (content || "").trim();
-  if (elements.contentInput) {
-    elements.contentInput.value = trimmed;
-  }
-  if (normalized === "config") {
-    if (elements.contentJsonInput) {
-      if (trimmed) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          elements.contentJsonInput.value = JSON.stringify(parsed, null, 2);
-        } catch (err) {
-          elements.contentJsonInput.value = trimmed;
-        }
-      } else {
-        elements.contentJsonInput.value = "";
-      }
-    }
-  } else if (normalized === "text") {
-    if (elements.contentTextInput) {
-      elements.contentTextInput.value = trimmed;
-    }
-  } else if (normalized === "image") {
-    if (trimmed) {
-      setImageReference(trimmed);
-    } else {
-      clearImageReference(true);
-    }
-  } else if (normalized === "color") {
-    setColorValue(trimmed || DEFAULT_COLOR, { fillPicker: true, forceContent: true });
-  }
-}
-
-function enableTypeSelect() {
-  if (!elements.typeSelect) return;
-  elements.typeSelect.disabled = false;
-}
-
-function disableTypeSelect(value) {
-  if (!elements.typeSelect) return;
-  elements.typeSelect.value = value;
-  elements.typeSelect.disabled = true;
-  state.dataType = normalizeDataType(value);
-  updateDataTypeViews(state.dataType, { initialize: true, preserveContent: true });
-}
-
 function resetAliasState() {
-  enableTypeSelect();
   hideBusinessSelect();
   hideKeyValueEditor();
-  updateDataTypeViews(state.dataType, { initialize: true });
+  hideDataTypeGroups();
 }
 
 async function syncAliasMode(options = {}) {
-  const alias = getAliasValue();
+  const alias = elements.aliasInput?.value.trim() || "";
   if (alias === "business_select") {
     try {
       await ensureBusinessKeys();
@@ -553,7 +321,6 @@ async function syncAliasMode(options = {}) {
       resetAliasState();
       return;
     }
-    disableTypeSelect("text");
     hideKeyValueEditor();
     hideDataTypeGroups();
     showBusinessSelect(options.content || elements.contentInput?.value.trim() || "");
@@ -564,7 +331,6 @@ async function syncAliasMode(options = {}) {
     return;
   }
   if (alias === "system_keys") {
-    disableTypeSelect("config");
     hideBusinessSelect();
     hideDataTypeGroups();
     showKeyValueEditor(options.content || elements.contentInput?.value.trim() || "");
@@ -575,7 +341,6 @@ async function syncAliasMode(options = {}) {
     return;
   }
   resetAliasState();
-  setDataType(state.dataType, { initialize: options.initialize, preserveContent: true });
   if (elements.contentInput) {
     elements.contentInput.disabled = false;
     elements.contentInput.classList.remove("hidden");
@@ -587,6 +352,7 @@ function hideDataTypeGroups() {
   if (elements.contentTextGroup) elements.contentTextGroup.classList.add("hidden");
   if (elements.contentImageGroup) elements.contentImageGroup.classList.add("hidden");
   if (elements.contentColorGroup) elements.contentColorGroup.classList.add("hidden");
+  if (elements.typeSelect) elements.typeSelect.closest("label")?.classList.add("hidden");
 }
 
 function handleBusinessSelectChange() {
@@ -765,195 +531,6 @@ function updateContentFromEditor() {
   }
   const { data } = collectKeyValueData();
   elements.contentInput.value = JSON.stringify(data);
-}
-
-function setImageReference(reference, asset) {
-  const trimmed = (reference || "").trim();
-  state.imageUpload.reference = trimmed;
-  if (elements.contentInput) {
-    elements.contentInput.value = trimmed;
-  }
-  let url = asset?.url || "";
-  if (!url && trimmed.startsWith("asset://")) {
-    const assetId = trimmed.replace("asset://", "");
-    if (assetId) {
-      url = `${state.apiBase}/api/v1/asset/file/${encodeURIComponent(assetId)}`;
-    }
-  }
-  if (!url && trimmed.startsWith("/api/v1/asset/file/")) {
-    url = `${state.apiBase}${trimmed}`;
-  }
-  if (!url && /^https?:\/\//i.test(trimmed)) {
-    url = trimmed;
-  }
-  state.imageUpload.url = url;
-  state.imageUpload.filename = asset?.file_name || asset?.fileName || "";
-  const parts = [];
-  if (state.imageUpload.filename) {
-    parts.push(`文件：${state.imageUpload.filename}`);
-  }
-  if (trimmed) {
-    parts.push(`引用：${trimmed}`);
-  }
-  setImageUploadStatus(parts.join("  |  ") || "已获取图片引用");
-  updateImagePreview();
-}
-
-function clearImageReference(initial = false) {
-  state.imageUpload = { reference: "", url: "", filename: "" };
-  state.imageUploading = false;
-  if (elements.contentInput) {
-    elements.contentInput.value = "";
-  }
-  if (elements.imageFileInput) {
-    elements.imageFileInput.value = "";
-  }
-  if (initial) {
-    setImageUploadStatus("请选择图片文件并上传，成功后将自动填充引用地址。");
-  } else {
-    setImageUploadStatus("");
-  }
-  updateImagePreview();
-}
-
-function setImageUploadStatus(message, isError = false) {
-  if (!elements.imageStatus) return;
-  elements.imageStatus.textContent = message || "";
-  elements.imageStatus.classList.toggle("error", Boolean(isError));
-}
-
-function setImageUploadLoading(loading) {
-  state.imageUploading = loading;
-  if (!elements.imageUploadBtn) return;
-  elements.imageUploadBtn.disabled = loading;
-  if (loading) {
-    if (!elements.imageUploadBtn.dataset.originalText) {
-      elements.imageUploadBtn.dataset.originalText = elements.imageUploadBtn.textContent;
-    }
-    elements.imageUploadBtn.textContent = "上传中…";
-  } else if (elements.imageUploadBtn.dataset.originalText) {
-    elements.imageUploadBtn.textContent = elements.imageUploadBtn.dataset.originalText;
-    delete elements.imageUploadBtn.dataset.originalText;
-  }
-}
-
-function updateImagePreview() {
-  if (!elements.imagePreview || !elements.imagePreviewImg) return;
-  const url = state.imageUpload.url;
-  if (!url) {
-    elements.imagePreview.classList.add("hidden");
-    elements.imagePreviewImg.src = "";
-    return;
-  }
-  elements.imagePreviewImg.src = url;
-  elements.imagePreview.classList.remove("hidden");
-}
-
-function setColorValue(value, options = {}) {
-  const trimmed = (value || "").trim();
-  const normalized = normalizeColorValue(trimmed);
-  const finalValue = normalized || trimmed;
-  state.colorValue = finalValue;
-  if (elements.colorValueInput && options.updateText !== false) {
-    elements.colorValueInput.value = finalValue;
-  }
-  if (elements.contentInput && (state.dataType === "color" || options.forceContent)) {
-    elements.contentInput.value = finalValue;
-  }
-  if (elements.colorPicker && (normalized || options.fillPicker)) {
-    elements.colorPicker.value = normalized || DEFAULT_COLOR;
-  }
-  updateColorPreview(finalValue);
-}
-
-function clearColorValue(options = {}) {
-  state.colorValue = "";
-  if (elements.colorValueInput && options.updateText !== false) {
-    elements.colorValueInput.value = "";
-  }
-  if (elements.contentInput && (state.dataType === "color" || options.forceContent)) {
-    elements.contentInput.value = "";
-  }
-  if (elements.colorPicker && options.resetPicker) {
-    elements.colorPicker.value = DEFAULT_COLOR;
-  }
-  updateColorPreview("");
-}
-
-function updateColorPreview(value = "") {
-  if (!elements.colorSwatch) return;
-  const trimmed = (value || "").trim();
-  const normalized = normalizeColorValue(trimmed);
-  const hasValue = Boolean(normalized || trimmed);
-  const display = normalized || trimmed;
-  elements.colorSwatch.style.background = hasValue ? display : DEFAULT_COLOR;
-  elements.colorSwatch.title = hasValue ? display : "未选择色值";
-}
-
-function getColorValue() {
-  const candidates = [
-    state.colorValue,
-    elements.colorValueInput?.value || "",
-    elements.colorPicker?.value || "",
-  ];
-  for (const candidate of candidates) {
-    const normalized = normalizeColorValue(candidate || "");
-    if (normalized) {
-      return normalized;
-    }
-  }
-  return "";
-}
-
-function onImageFileChange() {
-  const file = elements.imageFileInput?.files?.[0];
-  if (file) {
-    setImageUploadStatus(`已选择文件：${file.name}，请点击上传`, false);
-  } else if (!state.imageUpload.reference) {
-    setImageUploadStatus("请选择图片文件并上传，成功后将自动填充引用地址。");
-  }
-}
-
-async function onImageUpload() {
-  if (state.imageUploading) return;
-  const file = elements.imageFileInput?.files?.[0];
-  if (!file) {
-    setImageUploadStatus("请先选择图片文件", true);
-    showToast("请先选择图片文件");
-    return;
-  }
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("business_key", getBusinessKeyValue());
-  try {
-    setImageUploadLoading(true);
-    const res = await fetch(`${state.apiBase}/api/v1/asset/upload`, {
-      method: "POST",
-      body: formData,
-    });
-    if (!res.ok) {
-      throw new Error(await extractError(res));
-    }
-    const json = await res.json();
-    if (json.code && json.code !== 200) {
-      throw new Error(json.error || json.msg || "上传失败");
-    }
-    const reference = json?.data?.reference || json?.reference;
-    const asset = json?.data?.asset || json?.asset;
-    if (!reference) {
-      throw new Error("上传成功但未返回引用地址");
-    }
-    setImageReference(reference, asset);
-    showToast("图片上传成功");
-    if (elements.imageFileInput) {
-      elements.imageFileInput.value = "";
-    }
-  } catch (err) {
-    setImageUploadStatus(err.message || "上传失败", true);
-    showToast(err.message || "上传失败");
-  } finally {
-    setImageUploadLoading(false);
-  }
 }
 
 function resetKeyValueEditor() {

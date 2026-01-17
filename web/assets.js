@@ -1,4 +1,4 @@
-import { initPageLayout } from "./components.js";
+import { initPageLayout, initEnvSelector, initPipelineSelector } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr, formatSize } from "./lib/utils.js";
@@ -10,6 +10,8 @@ initPageLayout({
   activeKey: "assets",
   title: "静态资源库",
   caption: "集中上传与管理可复用文件，统一引用规范",
+  showEnvSelector: true,
+  showPipelineSelector: true,
 });
 
 const defaultBase = getDefaultApiBase();
@@ -45,6 +47,8 @@ const assetModal = createModal("assetModal", {
 
 (async function init() {
   await loadBusinessKeys();
+  await initEnvSelector(state.apiBase, () => loadAssets());
+  await initPipelineSelector(state.apiBase, () => loadAssets());
 })();
 
 el.search.addEventListener("input", (evt) => {

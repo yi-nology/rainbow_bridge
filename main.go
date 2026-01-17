@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("open database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&resourcemodel.Config{}, &resourcemodel.Asset{}, &resourcemodel.Environment{}, &resourcemodel.Pipeline{}); err != nil {
+	if err := db.AutoMigrate(&resourcemodel.Config{}, &resourcemodel.Asset{}, &resourcemodel.Environment{}, &resourcemodel.Pipeline{}, &resourcemodel.SystemConfig{}); err != nil {
 		log.Fatalf("auto migrate: %v", err)
 	}
 

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>虹桥计划 · 环境管理</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside id="sidebar" class="sider"></aside>
+
+      <div class="content">
+        <header id="pageHeader"></header>
+        <main class="main">
+          <section class="panel">
+            <div class="panel-header with-desc">
+              <div class="panel-header-text">
+                <span>环境管理</span>
+                <p>管理配置的环境维度，如开发、测试、生产等，实现配置按环境隔离</p>
+              </div>
+              <div class="panel-actions">
+                <button id="envNewBtn" class="primary">新建环境</button>
+              </div>
+            </div>
+
+            <div class="panel-subheader">
+              <span id="envCount">环境列表</span>
+              <div class="search">
+                <input
+                  id="envSearchInput"
+                  type="search"
+                  placeholder="搜索环境标识 / 名称 / 描述"
+                />
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>环境标识</th>
+                    <th>环境名称</th>
+                    <th>描述</th>
+                    <th>排序</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="envTbody"></tbody>
+              </table>
+              <div id="envEmpty" class="empty hidden">暂无环境数据</div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div
+      id="envModal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="envModalTitle"
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="envModalTitle">新建环境</h3>
+          <button id="envModalClose" class="ghost" type="button" data-modal-close>✕</button>
+        </div>
+        <form id="envModalForm" class="modal-form">
+          <input type="hidden" name="isEdit" value="false" />
+          <div class="form-grid">
+            <label>环境标识 *
+              <input name="environmentKey" required placeholder="如 dev, test, prod" data-autofocus />
+              <p class="hint small">唯一标识，创建后不可修改</p>
+            </label>
+            <label>环境名称 *
+              <input name="environmentName" required placeholder="如 开发环境、测试环境" />
+            </label>
+            <label class="full">描述
+              <textarea name="description" rows="2" placeholder="可选，环境用途说明"></textarea>
+            </label>
+            <label>排序
+              <input name="sortOrder" type="number" value="0" min="0" />
+              <p class="hint small">数值越小越靠前</p>
+            </label>
+          </div>
+          <div class="radio-group">
+            <span>是否启用：</span>
+            <label><input type="radio" name="isActive" value="true" checked /> 是</label>
+            <label><input type="radio" name="isActive" value="false" /> 否</label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="envModalCancel" class="ghost" data-modal-close>取消</button>
+            <button type="submit" class="primary">确定</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="envToast" class="toast hidden"></div>
+
+    <script type="module" src="./environment.js"></script>
+  </body>
+</html>

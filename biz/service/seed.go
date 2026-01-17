@@ -2,44 +2,149 @@ package service
 
 import (
 	"context"
+	"log"
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	resourcedal "github.com/yi-nology/rainbow_bridge/biz/dal/resource"
+	"github.com/yi-nology/rainbow_bridge/biz/dal/resource"
 	"gorm.io/gorm"
 )
 
-var defaultSystemConfigs = []model.Config{
-	{
-		Name:        "系统选择",
-		BusinessKey: "system",
-		Alias:       "business_select",
-		Type:        "config",
-		Content:     "default",
-	},
-	{
-		Name:        "系统选项",
-		BusinessKey: "system",
-		Alias:       "system_keys",
-		Type:        "config",
-		Content:     `{"logo":"logo"}`,
-	},
+const (
+	DefaultEnvironmentKey  = "default"
+	DefaultEnvironmentName = "默认环境"
+	DefaultPipelineKey     = "default"
+	DefaultPipelineName    = "默认流水线"
+)
+
+// InitDefaultEnvironment creates the default environment if it doesn't exist.
+func (s *Service) InitDefaultEnvironment(ctx context.Context) error {
+	exists, err := s.logic.environmentDAO.ExistsByKey(ctx, s.logic.db, DefaultEnvironmentKey)
+	if err != nil {
+		return err
+	}
+	if exists {
+		log.Printf("[Init] Default environment already exists")
+		return nil
+	}
+
+	env := &model.Environment{
+		EnvironmentKey:  DefaultEnvironmentKey,
+		EnvironmentName: DefaultEnvironmentName,
+		Description:     "系统默认环境",
+		SortOrder:       0,
+		IsActive:        true,
+	}
+	if err := s.logic.environmentDAO.Create(ctx, s.logic.db, env); err != nil {
+		return err
+	}
+	log.Printf("[Init] Created default environment: %s", DefaultEnvironmentKey)
+	return nil
 }
 
-// EnsureSystemDefaults seeds essential system configs if they are missing.
-func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
-	dao := resourcedal.NewConfigDAO()
-	for i := range defaultSystemConfigs {
-		cfg := defaultSystemConfigs[i]
-		existing, err := dao.GetByAlias(ctx, db, cfg.BusinessKey, cfg.Alias)
-		if err != nil && err != gorm.ErrRecordNotFound {
-			return err
-		}
-		if existing != nil {
-			continue
-		}
-		if err := dao.Create(ctx, db, &cfg); err != nil {
-			return err
-		}
+// InitDefaultPipeline creates the default pipeline if it doesn't exist.
+func (s *Service) InitDefaultPipeline(ctx context.Context) error {
+	exists, err := s.logic.pipelineDAO.ExistsByKey(ctx, s.logic.db, DefaultPipelineKey)
+	if err != nil {
+		return err
 	}
+	if exists {
+		log.Printf("[Init] Default pipeline already exists")
+		return nil
+	}
+
+	pl := &model.Pipeline{
+		PipelineKey:  DefaultPipelineKey,
+		PipelineName: DefaultPipelineName,
+		Description:  "系统默认流水线",
+		SortOrder:    0,
+		IsActive:     true,
+	}
+	if err := s.logic.pipelineDAO.Create(ctx, s.logic.db, pl); err != nil {
+		return err
+	}
+	log.Printf("[Init] Created default pipeline: %s", DefaultPipelineKey)
+	return nil
+}
+
+// InitDefaults initializes default environment and pipeline.
+func (s *Service) InitDefaults(ctx context.Context) error {
+	if err := s.InitDefaultEnvironment(ctx); err != nil {
+		return err
+	}
+	if err := s.InitDefaultPipeline(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+// MigrateConfigDefaults sets default environment_key and pipeline_key for existing configs.
+func MigrateConfigDefaults(db *gorm.DB) error {
+	result := db.Model(&model.Config{}).
+		Where("environment_key = '' OR environment_key IS NULL").
+		Update("environment_key", DefaultEnvironmentKey)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("[Migration] Updated %d configs with default environment_key", result.RowsAffected)
+	}
+
+	result = db.Model(&model.Config{}).
+		Where("pipeline_key = '' OR pipeline_key IS NULL").
+		Update("pipeline_key", DefaultPipelineKey)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("[Migration] Updated %d configs with default pipeline_key", result.RowsAffected)
+	}
+
+	return nil
+}
+
+// EnsureSystemDefaults initializes default environment and pipeline at startup.
+// This is a package-level function that can be called before Service is created.
+func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
+	envDAO := resource.NewEnvironmentDAO()
+	plDAO := resource.NewPipelineDAO()
+
+	// Create default environment
+	exists, err := envDAO.ExistsByKey(ctx, db, DefaultEnvironmentKey)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		env := &model.Environment{
+			EnvironmentKey:  DefaultEnvironmentKey,
+			EnvironmentName: DefaultEnvironmentName,
+			Description:     "系统默认环境",
+			SortOrder:       0,
+			IsActive:        true,
+		}
+		if err := envDAO.Create(ctx, db, env); err != nil {
+			return err
+		}
+		log.Printf("[Init] Created default environment: %s", DefaultEnvironmentKey)
+	}
+
+	// Create default pipeline
+	exists, err = plDAO.ExistsByKey(ctx, db, DefaultPipelineKey)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		pl := &model.Pipeline{
+			PipelineKey:  DefaultPipelineKey,
+			PipelineName: DefaultPipelineName,
+			Description:  "系统默认流水线",
+			SortOrder:    0,
+			IsActive:     true,
+		}
+		if err := plDAO.Create(ctx, db, pl); err != nil {
+			return err
+		}
+		log.Printf("[Init] Created default pipeline: %s", DefaultPipelineKey)
+	}
+
 	return nil
 }

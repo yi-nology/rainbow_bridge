@@ -612,6 +612,24 @@ button.danger {
   color: var(--muted);
 }
 
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.status-badge.inactive {
+  background: rgba(148, 163, 184, 0.2);
+  color: #64748b;
+}
+
 .system-output {
   margin-top: 14px;
   max-height: 220px;

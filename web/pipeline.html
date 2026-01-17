@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>虹桥计划 · 流水线管理</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside id="sidebar" class="sider"></aside>
+
+      <div class="content">
+        <header id="pageHeader"></header>
+        <main class="main">
+          <section class="panel">
+            <div class="panel-header with-desc">
+              <div class="panel-header-text">
+                <span>流水线管理</span>
+                <p>管理配置的流水线维度，如主流程、灰度、实验等，实现配置按流水线隔离</p>
+              </div>
+              <div class="panel-actions">
+                <button id="plNewBtn" class="primary">新建流水线</button>
+              </div>
+            </div>
+
+            <div class="panel-subheader">
+              <span id="plCount">流水线列表</span>
+              <div class="search">
+                <input
+                  id="plSearchInput"
+                  type="search"
+                  placeholder="搜索流水线标识 / 名称 / 描述"
+                />
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>流水线标识</th>
+                    <th>流水线名称</th>
+                    <th>描述</th>
+                    <th>排序</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="plTbody"></tbody>
+              </table>
+              <div id="plEmpty" class="empty hidden">暂无流水线数据</div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div
+      id="plModal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="plModalTitle"
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="plModalTitle">新建流水线</h3>
+          <button id="plModalClose" class="ghost" type="button" data-modal-close>✕</button>
+        </div>
+        <form id="plModalForm" class="modal-form">
+          <input type="hidden" name="isEdit" value="false" />
+          <div class="form-grid">
+            <label>流水线标识 *
+              <input name="pipelineKey" required placeholder="如 main, canary, experiment" data-autofocus />
+              <p class="hint small">唯一标识，创建后不可修改</p>
+            </label>
+            <label>流水线名称 *
+              <input name="pipelineName" required placeholder="如 主流程、灰度流程" />
+            </label>
+            <label class="full">描述
+              <textarea name="description" rows="2" placeholder="可选，流水线用途说明"></textarea>
+            </label>
+            <label>排序
+              <input name="sortOrder" type="number" value="0" min="0" />
+              <p class="hint small">数值越小越靠前</p>
+            </label>
+          </div>
+          <div class="radio-group">
+            <span>是否启用：</span>
+            <label><input type="radio" name="isActive" value="true" checked /> 是</label>
+            <label><input type="radio" name="isActive" value="false" /> 否</label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="plModalCancel" class="ghost" data-modal-close>取消</button>
+            <button type="submit" class="primary">确定</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="plToast" class="toast hidden"></div>
+
+    <script type="module" src="./pipeline.js"></script>
+  </body>
+</html>

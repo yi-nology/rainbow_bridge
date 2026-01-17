@@ -33,8 +33,13 @@ func main() {
 		log.Fatalf("open database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&resourcemodel.Config{}, &resourcemodel.Asset{}); err != nil {
+	if err := db.AutoMigrate(&resourcemodel.Config{}, &resourcemodel.Asset{}, &resourcemodel.Environment{}, &resourcemodel.Pipeline{}); err != nil {
 		log.Fatalf("auto migrate: %v", err)
+	}
+
+	// Migrate existing configs with default environment_key and pipeline_key
+	if err := resourceservice.MigrateConfigDefaults(db); err != nil {
+		log.Fatalf("migrate config defaults: %v", err)
 	}
 
 	if err := resourceservice.EnsureSystemDefaults(context.Background(), db); err != nil {
@@ -105,6 +110,10 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
 	serve("/export.html", "export.html", "text/html; charset=utf-8")
 	serve("/import", "import.html", "text/html; charset=utf-8")
 	serve("/import.html", "import.html", "text/html; charset=utf-8")
+	serve("/environment", "environment.html", "text/html; charset=utf-8")
+	serve("/environment.html", "environment.html", "text/html; charset=utf-8")
+	serve("/pipeline", "pipeline.html", "text/html; charset=utf-8")
+	serve("/pipeline.html", "pipeline.html", "text/html; charset=utf-8")
 	serve("/styles.css", "styles.css", "text/css; charset=utf-8")
 	serve("/config.js", "config.js", "application/javascript")
 	serve("/assets.js", "assets.js", "application/javascript")
@@ -114,6 +123,8 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
 	serve("/components.js", "components.js", "application/javascript")
 	serve("/ui.js", "ui.js", "application/javascript")
 	serve("/system.js", "system.js", "application/javascript")
+	serve("/environment.js", "environment.js", "application/javascript")
+	serve("/pipeline.js", "pipeline.js", "application/javascript")
 	serve("/runtime.js", "runtime.js", "application/javascript")
 	serve("/lib/utils.js", "lib/utils.js", "application/javascript")
 	serve("/lib/api.js", "lib/api.js", "application/javascript")

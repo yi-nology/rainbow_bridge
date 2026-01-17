@@ -4,73 +4,159 @@ package transfer
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
-	transfer "github.com/yi-nology/rainbow_bridge/biz/model/transfer"
+	"github.com/yi-nology/rainbow_bridge/biz/handler"
+	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
+
+var svc *service.Service
+
+func SetService(s *service.Service) {
+	svc = s
+}
 
 // Import .
 // @router /api/v1/transfer/import [POST]
 func Import(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req transfer.ImportRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	contentType := strings.ToLower(string(c.GetHeader("Content-Type")))
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		fileHeader, err := c.FormFile("archive")
+		if err != nil {
+			handler.RespondError(c, consts.StatusBadRequest, err)
+			return
+		}
+		file, err := fileHeader.Open()
+		if err != nil {
+			handler.RespondError(c, consts.StatusBadRequest, err)
+			return
+		}
+		defer file.Close()
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			handler.RespondError(c, consts.StatusInternalServerError, err)
+			return
+		}
+		overwrite := strings.ToLower(string(c.FormValue("overwrite"))) == "true"
+		configs, err := svc.ImportConfigsArchive(handler.EnrichContext(ctx, c), data, overwrite)
+		if err != nil {
+			handler.RespondError(c, consts.StatusInternalServerError, err)
+			return
+		}
+		handler.RespondOKWithSummary(c, handler.BuildConfigSummary(configs))
 		return
 	}
 
-	resp := new(transfer.ImportResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	req := &api.ResourceImportRequest{}
+	if err := c.BindJSON(req); err != nil {
+		handler.RespondError(c, consts.StatusBadRequest, err)
+		return
+	}
+	if len(req.Configs) == 0 {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("configs cannot be empty"))
+		return
+	}
+	if err := svc.ImportConfigs(handler.EnrichContext(ctx, c), req); err != nil {
+		handler.RespondError(c, consts.StatusInternalServerError, err)
+		return
+	}
+	handler.RespondOKWithSummary(c, handler.BuildConfigSummary(req.Configs))
 }
 
 // Export .
 // @router /api/v1/transfer/export [GET]
 func Export(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req transfer.ExportRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	includeSystem := true
+	if val := c.Query("include_system"); val != "" {
+		parsed, err := strconv.ParseBool(val)
+		if err != nil {
+			handler.RespondError(c, consts.StatusBadRequest, err)
+			return
+		}
+		includeSystem = parsed
+	}
+
+	businessKeys := handler.ParseBusinessKeys(c.Query("business_keys"))
+	if single := c.Query("business_key"); single != "" {
+		businessKeys = append(businessKeys, single)
+	}
+	businessKeys = handler.SanitizeBusinessKeys(businessKeys)
+	if len(businessKeys) == 0 {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key is required"))
+		return
+	}
+	format := strings.ToLower(c.Query("format"))
+
+	if format == "zip" {
+		archive, name, err := svc.ExportConfigsArchiveBatch(handler.EnrichContext(ctx, c), businessKeys, includeSystem)
+		if err != nil {
+			handler.RespondError(c, consts.StatusInternalServerError, err)
+			return
+		}
+		if name == "" {
+			name = fmt.Sprintf("%s_archive.zip", businessKeys[0])
+		}
+		c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
+		c.Data(consts.StatusOK, "application/zip", archive)
 		return
 	}
 
-	resp := new(transfer.ExportResponse)
+	if format == "nginx" || format == "static" {
+		archive, name, err := svc.ExportStaticBundleBatch(handler.EnrichContext(ctx, c), businessKeys, includeSystem)
+		if err != nil {
+			handler.RespondError(c, consts.StatusInternalServerError, err)
+			return
+		}
+		if name == "" {
+			name = fmt.Sprintf("%s_static_bundle.zip", businessKeys[0])
+		}
+		c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
+		c.Data(consts.StatusOK, "application/zip", archive)
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	list, err := svc.ExportConfigsBatch(handler.EnrichContext(ctx, c), businessKeys, includeSystem)
+	if err != nil {
+		handler.RespondError(c, consts.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(consts.StatusOK, &api.ResourceListResponse{List: list})
 }
 
 // ExportStaticSelected .
 // @router /api/v1/transfer/export/static/selected [GET]
 func ExportStaticSelected(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req transfer.ExportRequest
-	err = c.BindAndValidate(&req)
+	data, name, err := svc.ExportSystemSelectedStaticBundle(handler.EnrichContext(ctx, c))
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		handler.WriteInternalError(c, err)
 		return
 	}
-
-	resp := new(common.OperateResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	if name == "" {
+		name = "system_static_bundle.zip"
+	}
+	c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
+	c.Data(consts.StatusOK, "application/zip", data)
 }
 
 // ExportStaticAll .
 // @router /api/v1/transfer/export/static/all [GET]
 func ExportStaticAll(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req transfer.ExportRequest
-	err = c.BindAndValidate(&req)
+	data, name, err := svc.ExportStaticBundleAll(handler.EnrichContext(ctx, c))
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		handler.WriteInternalError(c, err)
 		return
 	}
-
-	resp := new(common.OperateResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	if name == "" {
+		name = "all_static_bundle.zip"
+	}
+	c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
+	c.Data(consts.StatusOK, "application/zip", data)
 }

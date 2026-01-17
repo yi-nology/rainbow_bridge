@@ -4,89 +4,136 @@ package config
 
 import (
 	"context"
+	"errors"
+	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
-	config "github.com/yi-nology/rainbow_bridge/biz/model/config"
+	"github.com/yi-nology/rainbow_bridge/biz/handler"
+	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
+
+var svc *service.Service
+
+func SetService(s *service.Service) {
+	svc = s
+}
 
 // Create .
 // @router /api/v1/config/create [POST]
 func Create(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req config.CreateConfigRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	req := &api.CreateOrUpdateConfigRequest{}
+	if err := c.BindJSON(req); err != nil {
+		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
 	}
-
-	resp := new(config.ConfigResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	cfg, err := svc.AddConfig(handler.EnrichContext(ctx, c), req)
+	if err != nil {
+		handler.RespondError(c, consts.StatusInternalServerError, err)
+		return
+	}
+	handler.RespondConfig(c, cfg)
 }
 
 // Update .
 // @router /api/v1/config/update [POST]
 func Update(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req config.UpdateConfigRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	req := &api.CreateOrUpdateConfigRequest{}
+	if err := c.BindJSON(req); err != nil {
+		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
 	}
-
-	resp := new(config.ConfigResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	if req.Config == nil || req.Config.ResourceKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("resource_key is required"))
+		return
+	}
+	cfg, err := svc.UpdateConfig(handler.EnrichContext(ctx, c), req)
+	if err != nil {
+		status := consts.StatusInternalServerError
+		if errors.Is(err, service.ErrResourceNotFound) {
+			status = consts.StatusNotFound
+		}
+		handler.RespondError(c, status, err)
+		return
+	}
+	handler.RespondConfig(c, cfg)
 }
 
 // Delete .
 // @router /api/v1/config/delete [POST]
 func Delete(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req config.DeleteConfigRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	req := &api.ResourceDeleteRequest{}
+	if err := c.BindJSON(req); err != nil {
+		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
 	}
-
-	resp := new(common.OperateResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	if req.BusinessKey == "" || req.ResourceKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key and resource_key are required"))
+		return
+	}
+	if err := svc.DeleteConfig(handler.EnrichContext(ctx, c), req); err != nil {
+		status := consts.StatusInternalServerError
+		if errors.Is(err, service.ErrResourceNotFound) {
+			status = consts.StatusNotFound
+		} else if errors.Is(err, service.ErrProtectedSystemConfig) {
+			status = consts.StatusBadRequest
+		}
+		handler.RespondError(c, status, err)
+		return
+	}
+	handler.RespondOK(c)
 }
 
 // List .
 // @router /api/v1/config/list [GET]
 func List(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req config.ListConfigRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	req := &api.ResourceQueryRequest{
+		BusinessKey: c.Query("business_key"),
+		Type:        c.Query("type"),
+		MinVersion:  c.Query("min_version"),
+		MaxVersion:  c.Query("max_version"),
+	}
+	if req.BusinessKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key is required"))
 		return
 	}
+	if val := c.Query("is_latest"); val != "" {
+		parsed, err := strconv.ParseBool(val)
+		if err != nil {
+			handler.RespondError(c, consts.StatusBadRequest, err)
+			return
+		}
+		req.IsLatest = parsed
+	}
 
-	resp := new(config.ConfigListResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	list, err := svc.ListConfigs(handler.EnrichContext(ctx, c), req)
+	if err != nil {
+		handler.RespondError(c, consts.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(consts.StatusOK, &api.ResourceListResponse{List: list})
 }
 
 // Detail .
 // @router /api/v1/config/detail [GET]
 func Detail(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req config.ConfigDetailRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	req := &api.ResourceDetailRequest{
+		BusinessKey: c.Query("business_key"),
+		ResourceKey: c.Query("resource_key"),
+	}
+	if req.BusinessKey == "" || req.ResourceKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key and resource_key are required"))
 		return
 	}
-
-	resp := new(config.ConfigDetailResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	cfg, err := svc.GetConfigDetail(handler.EnrichContext(ctx, c), req)
+	if err != nil {
+		status := consts.StatusInternalServerError
+		if errors.Is(err, service.ErrResourceNotFound) {
+			status = consts.StatusNotFound
+		}
+		handler.RespondError(c, status, err)
+		return
+	}
+	c.JSON(consts.StatusOK, &api.ResourceDetailResponse{Detail: cfg})
 }

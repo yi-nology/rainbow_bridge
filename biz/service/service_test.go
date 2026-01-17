@@ -16,13 +16,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/biz/model/api"
-	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service/resource"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func newTestService(t *testing.T, basePath ...string) (*resourceservice.Service, func()) {
+func newTestService(t *testing.T, basePath ...string) (*Service, func()) {
 	t.Helper()
 	tmp := t.TempDir()
 	cwd, err := os.Getwd()
@@ -46,7 +45,7 @@ func newTestService(t *testing.T, basePath ...string) (*resourceservice.Service,
 	if len(basePath) > 0 {
 		pathPrefix = basePath[0]
 	}
-	svc := resourceservice.NewService(db, pathPrefix)
+	svc := NewService(db, pathPrefix)
 	cleanup := func() { _ = os.Chdir(cwd) }
 	return svc, cleanup
 }
@@ -113,7 +112,7 @@ func TestAssetUploadAndServe(t *testing.T) {
 	defer cleanup()
 
 	data := []byte("hello world")
-	asset, ref, err := svc.UploadAsset(ctx, &resourceservice.FileUploadInput{
+	asset, ref, err := svc.UploadAsset(ctx, &FileUploadInput{
 		BusinessKey: "biz-asset",
 		FileName:    "hello.txt",
 		Data:        data,
@@ -158,7 +157,7 @@ func TestBasePathDecoratesURLs(t *testing.T) {
 	defer cleanup()
 
 	data := []byte("logo")
-	asset, _, err := svc.UploadAsset(ctx, &resourceservice.FileUploadInput{
+	asset, _, err := svc.UploadAsset(ctx, &FileUploadInput{
 		BusinessKey: "prefixed",
 		FileName:    "logo.png",
 		Data:        data,
@@ -197,7 +196,7 @@ func TestExportImportArchive(t *testing.T) {
 	svc, cleanup := newTestService(t)
 	defer cleanup()
 
-	asset, ref, err := svc.UploadAsset(ctx, &resourceservice.FileUploadInput{
+	asset, ref, err := svc.UploadAsset(ctx, &FileUploadInput{
 		BusinessKey: "biz-archive",
 		FileName:    "data.bin",
 		Data:        []byte("payload"),

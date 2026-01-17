@@ -1,5 +1,7 @@
 import { initPageLayout } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
+import { getValue } from "./lib/utils.js";
+import { createToast } from "./lib/toast.js";
 
 initPageLayout({
   activeKey: "import",
@@ -21,6 +23,8 @@ const el = {
   toast: document.getElementById("importToast"),
 };
 
+const showToast = createToast("importToast");
+
 if (!el.importForm || !el.importSummary) {
   console.warn("import page markup missing required nodes");
 } else {
@@ -41,7 +45,7 @@ async function onImportZip(evt) {
     return;
   }
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources/import`, {
+    const res = await fetch(`${state.apiBase}/api/v1/transfer/import`, {
       method: "POST",
       body: formData,
     });
@@ -176,21 +180,4 @@ function sortSummaryItems(items = []) {
     }
     return (a.businessKey || "").localeCompare(b.businessKey || "", "zh-Hans-CN");
   });
-}
-
-function getValue(obj, keys = []) {
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(obj || {}, key) && obj[key] !== undefined && obj[key] !== null) {
-      return obj[key];
-    }
-  }
-  return "";
-}
-
-function showToast(message) {
-  if (!el.toast) return;
-  el.toast.textContent = message;
-  el.toast.classList.remove("hidden");
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => el.toast.classList.add("hidden"), 2600);
 }

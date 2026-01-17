@@ -1,6 +1,10 @@
 import { initPageLayout } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
+import { escapeHtml, escapeAttr, formatSize } from "./lib/utils.js";
+import { fetchAssets } from "./lib/api.js";
+import { createToast } from "./lib/toast.js";
+import { getBusinessKeys } from "./lib/init.js";
 
 initPageLayout({
   activeKey: "assets",
@@ -16,6 +20,8 @@ const state = {
   assets: [],
   search: "",
 };
+
+const showToast = createToast("assetToast");
 
 const el = {
   tabs: document.getElementById("assetBusinessTabs"),
@@ -38,7 +44,7 @@ const assetModal = createModal("assetModal", {
 });
 
 (async function init() {
-  await fetchBusinessKeys();
+  await loadBusinessKeys();
 })();
 
 el.search.addEventListener("input", (evt) => {
@@ -61,7 +67,7 @@ el.modalForm.addEventListener("submit", async (evt) => {
   evt.preventDefault();
   const formData = new FormData(el.modalForm);
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources/upload`, {
+    const res = await fetch(`${state.apiBase}/api/v1/asset/upload`, {
       method: "POST",
       body: formData,
     });
@@ -74,37 +80,32 @@ el.modalForm.addEventListener("submit", async (evt) => {
     el.uploadResult.textContent = message;
     el.uploadResult.classList.remove("hidden");
     showToast("上传成功");
-    await fetchAssets();
+    await loadAssets();
   } catch (err) {
     el.uploadResult.textContent = err.message;
     el.uploadResult.classList.remove("hidden");
   }
 });
 
-async function fetchBusinessKeys() {
+async function loadBusinessKeys() {
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources/business-keys`);
-    const json = await res.json();
-    state.businessKeys = json?.list || json?.data?.list || [];
+    state.businessKeys = await getBusinessKeys({ apiBase: state.apiBase });
     state.activeBusiness = state.businessKeys[0] || "";
     renderTabs();
-    await fetchAssets();
+    await loadAssets();
   } catch (err) {
     showToast(`获取业务列表失败: ${err.message}`);
   }
 }
 
-async function fetchAssets() {
+async function loadAssets() {
   if (!state.activeBusiness) {
     state.assets = [];
     renderTable();
     return;
   }
   try {
-    const url = `${state.apiBase}/api/v1/assets?business_key=${encodeURIComponent(state.activeBusiness)}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    state.assets = json?.assets || json?.data?.assets || [];
+    state.assets = await fetchAssets(state.apiBase, state.activeBusiness);
     renderTable();
   } catch (err) {
     showToast(`获取静态资源失败: ${err.message}`);
@@ -121,7 +122,7 @@ function renderTabs() {
       if (state.activeBusiness === key) return;
       state.activeBusiness = key;
       renderTabs();
-      await fetchAssets();
+      await loadAssets();
     });
     el.tabs.appendChild(span);
   });
@@ -168,7 +169,7 @@ document.addEventListener("click", (evt) => {
   if (!text) {
     const fallbackId = btn.dataset.fallbackId;
     if (fallbackId) {
-      text = `${state.apiBase}/api/v1/files/${fallbackId}`;
+      text = `${state.apiBase}/api/v1/asset/file/${fallbackId}`;
     }
   }
   if (!text) {
@@ -179,35 +180,3 @@ document.addEventListener("click", (evt) => {
     showToast("已复制引用地址");
   });
 });
-
-function formatSize(size) {
-  if (!size) return "-";
-  const units = ["B", "KB", "MB", "GB"];
-  let idx = 0;
-  let value = size;
-  while (value >= 1024 && idx < units.length - 1) {
-    value /= 1024;
-    idx += 1;
-  }
-  return `${value.toFixed(1)} ${units[idx]}`;
-}
-
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(str = "") {
-  return escapeHtml(str).replace(/"/g, "&quot;");
-}
-
-function showToast(msg) {
-  el.toast.textContent = msg;
-  el.toast.classList.remove("hidden");
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => el.toast.classList.add("hidden"), 2200);
-}

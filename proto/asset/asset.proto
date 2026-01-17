@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package asset;
+
+option go_package = "github.com/yi-nology/rainbow_bridge/biz/model/api/assetpb";
+
+import "google/api/annotations.proto";
+import "common/common.proto";
+
+// ListAssetRequest is used to list assets.
+message ListAssetRequest {
+  string business_key = 1;
+}
+
+// AssetListResponse contains a list of assets.
+message AssetListResponse {
+  repeated common.FileAsset assets = 1;
+}
+
+// UploadAssetResponse is a response for asset upload.
+message UploadAssetResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  common.FileAsset asset = 4;
+  string reference = 5;
+}
+
+// GetFileRequest is used to get a file by ID.
+message GetFileRequest {
+  string file_id = 1;
+}
+
+// AssetService handles file asset operations.
+service AssetService {
+  // List returns a list of assets for a business.
+  rpc List(ListAssetRequest) returns (AssetListResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/asset/list"
+    };
+  }
+
+  // Upload uploads a new asset file.
+  // Note: This endpoint accepts multipart/form-data, not JSON.
+  rpc Upload(ListAssetRequest) returns (UploadAssetResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/asset/upload"
+      body: "*"
+    };
+  }
+
+  // GetFile retrieves a file by its ID.
+  rpc GetFile(GetFileRequest) returns (common.OperateResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/asset/file/{file_id}"
+    };
+  }
+}

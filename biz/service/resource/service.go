@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	resourcepb "github.com/yi-nology/rainbow_bridge/biz/model/api/resourcepb"
+	"github.com/yi-nology/rainbow_bridge/biz/model/api"
 	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/model/resource"
 	"github.com/yi-nology/rainbow_bridge/pkg/common"
 
@@ -61,7 +61,7 @@ func NewService(db *gorm.DB, basePath string) *Service {
 
 // --------------------- Config operations ---------------------
 
-func (s *Service) AddConfig(ctx context.Context, req *resourcepb.CreateOrUpdateConfigRequest) (*resourcepb.ResourceConfig, error) {
+func (s *Service) AddConfig(ctx context.Context, req *api.CreateOrUpdateConfigRequest) (*api.ResourceConfig, error) {
 	if req == nil || req.Config == nil {
 		return nil, errors.New("config payload required")
 	}
@@ -72,7 +72,7 @@ func (s *Service) AddConfig(ctx context.Context, req *resourcepb.CreateOrUpdateC
 	return s.decorateConfig(modelConfigToPB(model)), nil
 }
 
-func (s *Service) UpdateConfig(ctx context.Context, req *resourcepb.CreateOrUpdateConfigRequest) (*resourcepb.ResourceConfig, error) {
+func (s *Service) UpdateConfig(ctx context.Context, req *api.CreateOrUpdateConfigRequest) (*api.ResourceConfig, error) {
 	if req == nil || req.Config == nil {
 		return nil, errors.New("config payload required")
 	}
@@ -87,14 +87,14 @@ func (s *Service) UpdateConfig(ctx context.Context, req *resourcepb.CreateOrUpda
 	return s.decorateConfig(modelConfigToPB(updated)), nil
 }
 
-func (s *Service) DeleteConfig(ctx context.Context, req *resourcepb.ResourceDeleteRequest) error {
+func (s *Service) DeleteConfig(ctx context.Context, req *api.ResourceDeleteRequest) error {
 	if req == nil {
 		return errors.New("request required")
 	}
 	return s.logic.DeleteConfig(ctx, req.GetBusinessKey(), req.GetResourceKey())
 }
 
-func (s *Service) ListConfigs(ctx context.Context, req *resourcepb.ResourceQueryRequest) ([]*resourcepb.ResourceConfig, error) {
+func (s *Service) ListConfigs(ctx context.Context, req *api.ResourceQueryRequest) ([]*api.ResourceConfig, error) {
 	if req == nil {
 		return nil, errors.New("request required")
 	}
@@ -105,7 +105,7 @@ func (s *Service) ListConfigs(ctx context.Context, req *resourcepb.ResourceQuery
 	return s.decorateConfigList(configSliceToPB(configs)), nil
 }
 
-func (s *Service) GetConfigDetail(ctx context.Context, req *resourcepb.ResourceDetailRequest) (*resourcepb.ResourceConfig, error) {
+func (s *Service) GetConfigDetail(ctx context.Context, req *api.ResourceDetailRequest) (*api.ResourceConfig, error) {
 	if req == nil {
 		return nil, errors.New("request required")
 	}
@@ -212,14 +212,14 @@ func extractBusinessSelectKey(configs []resourcemodel.Config) string {
 	return ""
 }
 
-func (s *Service) ExportConfigs(ctx context.Context, req *resourcepb.ResourceExportRequest) ([]*resourcepb.ResourceConfig, error) {
+func (s *Service) ExportConfigs(ctx context.Context, req *api.ResourceExportRequest) ([]*api.ResourceConfig, error) {
 	if req == nil {
 		return nil, errors.New("request required")
 	}
 	return s.ExportConfigsBatch(ctx, []string{req.GetBusinessKey()}, req.GetIncludeSystem())
 }
 
-func (s *Service) ImportConfigs(ctx context.Context, req *resourcepb.ResourceImportRequest) error {
+func (s *Service) ImportConfigs(ctx context.Context, req *api.ResourceImportRequest) error {
 	if req == nil {
 		return errors.New("request required")
 	}
@@ -236,7 +236,7 @@ func (s *Service) ListBusinessKeys(ctx context.Context) ([]string, error) {
 
 // --------------------- Asset operations ---------------------
 
-func (s *Service) ListAssets(ctx context.Context, businessKey string) ([]*resourcepb.FileAsset, error) {
+func (s *Service) ListAssets(ctx context.Context, businessKey string) ([]*api.FileAsset, error) {
 	key := strings.TrimSpace(businessKey)
 	if key == "" {
 		return nil, errors.New("business_key is required")
@@ -340,7 +340,7 @@ func (s *Service) collectExportConfigs(ctx context.Context, businessKeys []strin
 	return result, keys, nil
 }
 
-func (s *Service) ExportConfigsBatch(ctx context.Context, businessKeys []string, includeSystem bool) ([]*resourcepb.ResourceConfig, error) {
+func (s *Service) ExportConfigsBatch(ctx context.Context, businessKeys []string, includeSystem bool) ([]*api.ResourceConfig, error) {
 	configs, _, err := s.collectExportConfigs(ctx, businessKeys, includeSystem)
 	if err != nil {
 		return nil, err
@@ -348,7 +348,7 @@ func (s *Service) ExportConfigsBatch(ctx context.Context, businessKeys []string,
 	return s.decorateConfigList(configSliceToPB(configs)), nil
 }
 
-func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*resourcepb.FileAsset, string, error) {
+func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*api.FileAsset, string, error) {
 	if input == nil {
 		return nil, "", errors.New("input required")
 	}
@@ -410,7 +410,7 @@ func (s *Service) GetAssetFile(ctx context.Context, fileID string) (*resourcemod
 }
 
 // ExportConfigsArchive exports configs and referenced assets into a zip archive.
-func (s *Service) ExportConfigsArchive(ctx context.Context, req *resourcepb.ResourceExportRequest) ([]byte, string, error) {
+func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExportRequest) ([]byte, string, error) {
 	if req == nil {
 		return nil, "", errors.New("request required")
 	}
@@ -432,7 +432,7 @@ func (s *Service) ExportConfigsArchiveBatch(ctx context.Context, businessKeys []
 }
 
 // ExportStaticBundle exports configs and assets into a static-friendly zip bundle.
-func (s *Service) ExportStaticBundle(ctx context.Context, req *resourcepb.ResourceExportRequest) ([]byte, string, error) {
+func (s *Service) ExportStaticBundle(ctx context.Context, req *api.ResourceExportRequest) ([]byte, string, error) {
 	if req == nil {
 		return nil, "", errors.New("request required")
 	}
@@ -719,13 +719,13 @@ func buildStaticPayload(input staticPayloadInput) map[string]any {
 	return payload
 }
 
-func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwrite bool) ([]*resourcepb.ResourceConfig, error) {
+func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwrite bool) ([]*api.ResourceConfig, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
 	}
 
-	var configs []*resourcepb.ResourceConfig
+	var configs []*api.ResourceConfig
 	assetFiles := make(map[string]*zip.File)
 
 	for _, f := range reader.File {
@@ -853,7 +853,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 
 // --------------------- Helpers ---------------------
 
-func pbConfigToModel(cfg *resourcepb.ResourceConfig) *resourcemodel.Config {
+func pbConfigToModel(cfg *api.ResourceConfig) *resourcemodel.Config {
 	if cfg == nil {
 		return &resourcemodel.Config{}
 	}
@@ -869,11 +869,11 @@ func pbConfigToModel(cfg *resourcepb.ResourceConfig) *resourcemodel.Config {
 	}
 }
 
-func modelConfigToPB(cfg *resourcemodel.Config) *resourcepb.ResourceConfig {
+func modelConfigToPB(cfg *resourcemodel.Config) *api.ResourceConfig {
 	if cfg == nil {
 		return nil
 	}
-	return &resourcepb.ResourceConfig{
+	return &api.ResourceConfig{
 		ResourceKey: cfg.ResourceKey,
 		Alias:       cfg.Alias,
 		Name:        cfg.Name,
@@ -885,19 +885,19 @@ func modelConfigToPB(cfg *resourcemodel.Config) *resourcepb.ResourceConfig {
 	}
 }
 
-func configSliceToPB(configs []resourcemodel.Config) []*resourcepb.ResourceConfig {
-	list := make([]*resourcepb.ResourceConfig, 0, len(configs))
+func configSliceToPB(configs []resourcemodel.Config) []*api.ResourceConfig {
+	list := make([]*api.ResourceConfig, 0, len(configs))
 	for i := range configs {
 		list = append(list, modelConfigToPB(&configs[i]))
 	}
 	return list
 }
 
-func assetModelToPB(asset *resourcemodel.Asset) *resourcepb.FileAsset {
+func assetModelToPB(asset *resourcemodel.Asset) *api.FileAsset {
 	if asset == nil {
 		return nil
 	}
-	return &resourcepb.FileAsset{
+	return &api.FileAsset{
 		FileId:      asset.FileID,
 		BusinessKey: asset.BusinessKey,
 		FileName:    asset.FileName,
@@ -908,8 +908,8 @@ func assetModelToPB(asset *resourcemodel.Asset) *resourcepb.FileAsset {
 	}
 }
 
-func assetSliceToPB(assets []resourcemodel.Asset) []*resourcepb.FileAsset {
-	list := make([]*resourcepb.FileAsset, 0, len(assets))
+func assetSliceToPB(assets []resourcemodel.Asset) []*api.FileAsset {
+	list := make([]*api.FileAsset, 0, len(assets))
 	for i := range assets {
 		list = append(list, assetModelToPB(&assets[i]))
 	}
@@ -975,7 +975,7 @@ func (s *Service) expandNestedValue(value any) any {
 	}
 }
 
-func (s *Service) decorateConfig(cfg *resourcepb.ResourceConfig) *resourcepb.ResourceConfig {
+func (s *Service) decorateConfig(cfg *api.ResourceConfig) *api.ResourceConfig {
 	if cfg == nil || s == nil || s.basePath == "" {
 		return cfg
 	}
@@ -984,7 +984,7 @@ func (s *Service) decorateConfig(cfg *resourcepb.ResourceConfig) *resourcepb.Res
 	return cfg
 }
 
-func (s *Service) decorateConfigList(list []*resourcepb.ResourceConfig) []*resourcepb.ResourceConfig {
+func (s *Service) decorateConfigList(list []*api.ResourceConfig) []*api.ResourceConfig {
 	if s == nil || s.basePath == "" {
 		return list
 	}
@@ -994,7 +994,7 @@ func (s *Service) decorateConfigList(list []*resourcepb.ResourceConfig) []*resou
 	return list
 }
 
-func (s *Service) decorateAsset(asset *resourcepb.FileAsset) *resourcepb.FileAsset {
+func (s *Service) decorateAsset(asset *api.FileAsset) *api.FileAsset {
 	if asset == nil || s == nil || s.basePath == "" {
 		return asset
 	}
@@ -1002,7 +1002,7 @@ func (s *Service) decorateAsset(asset *resourcepb.FileAsset) *resourcepb.FileAss
 	return asset
 }
 
-func (s *Service) decorateAssetList(list []*resourcepb.FileAsset) []*resourcepb.FileAsset {
+func (s *Service) decorateAssetList(list []*api.FileAsset) []*api.FileAsset {
 	if s == nil || s.basePath == "" {
 		return list
 	}
@@ -1175,7 +1175,7 @@ func formatContentForType(content any, typ string) string {
 	return restoreStaticContent(formatContentString(content))
 }
 
-func parseStaticBundle(payload []byte) ([]*resourcepb.ResourceConfig, error) {
+func parseStaticBundle(payload []byte) ([]*api.ResourceConfig, error) {
 	var raw map[string]any
 	if err := json.Unmarshal(payload, &raw); err != nil {
 		return nil, err
@@ -1185,7 +1185,7 @@ func parseStaticBundle(payload []byte) ([]*resourcepb.ResourceConfig, error) {
 		return parseLegacyStaticBundle(raw, legacy)
 	}
 
-	configs := make([]*resourcepb.ResourceConfig, 0)
+	configs := make([]*api.ResourceConfig, 0)
 	for key, value := range raw {
 		switch key {
 		case "business_select", "business_keys", "include_system":
@@ -1220,7 +1220,7 @@ type legacyStaticConfig struct {
 	IsPerm      bool   `json:"is_perm"`
 }
 
-func parseLegacyStaticBundle(raw map[string]any, legacy any) ([]*resourcepb.ResourceConfig, error) {
+func parseLegacyStaticBundle(raw map[string]any, legacy any) ([]*api.ResourceConfig, error) {
 	data, err := json.Marshal(legacy)
 	if err != nil {
 		return nil, err
@@ -1240,13 +1240,13 @@ func parseLegacyStaticBundle(raw map[string]any, legacy any) ([]*resourcepb.Reso
 			}
 		}
 	}
-	result := make([]*resourcepb.ResourceConfig, 0, len(configsRaw))
+	result := make([]*api.ResourceConfig, 0, len(configsRaw))
 	for _, item := range configsRaw {
 		businessKey := strings.TrimSpace(item.BusinessKey)
 		if businessKey == "" {
 			businessKey = defaultKey
 		}
-		cfg := &resourcepb.ResourceConfig{
+		cfg := &api.ResourceConfig{
 			ResourceKey: item.ResourceKey,
 			BusinessKey: businessKey,
 			Alias:       item.Alias,
@@ -1261,8 +1261,8 @@ func parseLegacyStaticBundle(raw map[string]any, legacy any) ([]*resourcepb.Reso
 	return result, nil
 }
 
-func convertStaticEntry(alias, businessKey string, entryVal any) *resourcepb.ResourceConfig {
-	cfg := &resourcepb.ResourceConfig{
+func convertStaticEntry(alias, businessKey string, entryVal any) *api.ResourceConfig {
+	cfg := &api.ResourceConfig{
 		Alias:       alias,
 		BusinessKey: businessKey,
 		Type:        "config",

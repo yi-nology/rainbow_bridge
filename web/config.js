@@ -1,6 +1,10 @@
 import { initPageLayout } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
+import { escapeHtml, escapeAttr, normalizeDataType, displayDataType, summarizeContent, normalizeColorValue } from "./lib/utils.js";
+import { extractError } from "./lib/api.js";
+import { createToast } from "./lib/toast.js";
+import { getBusinessKeys, getSystemKeys } from "./lib/init.js";
 
 initPageLayout({
   activeKey: "config",
@@ -67,6 +71,8 @@ const elements = {
   contentColorValue: document.getElementById("contentColorValue"),
   contentColorSwatch: document.getElementById("contentColorSwatch"),
 };
+
+const showToast = createToast("toast");
 
 const configModal = createModal("modalOverlay", {
   onClose: () => {
@@ -254,10 +260,11 @@ elements.modalForm.addEventListener("submit", async (evt) => {
     return;
   }
 
-  const method = payload.config.resource_key ? "PUT" : "POST";
+  const isUpdate = Boolean(payload.config.resource_key);
+  const endpoint = isUpdate ? "/api/v1/config/update" : "/api/v1/config/create";
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources`, {
-      method,
+    const res = await fetch(`${state.apiBase}${endpoint}`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
@@ -293,9 +300,7 @@ document.addEventListener("click", (evt) => {
 
 async function fetchBusinessKeys(force = false) {
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources/business-keys`);
-    const json = await res.json();
-    const list = (json?.list || json?.data?.list || []).filter((key) => key !== "system");
+    const list = await getBusinessKeys({ apiBase: state.apiBase, excludeSystem: true, force });
     const previousActive = state.activeBusiness;
     state.businessKeys = list;
     if (previousActive && list.includes(previousActive)) {
@@ -333,7 +338,7 @@ async function fetchConfigs() {
   if (!state.activeBusiness) return;
   try {
     const res = await fetch(
-      `${state.apiBase}/api/v1/resources?business_key=${encodeURIComponent(state.activeBusiness)}`,
+      `${state.apiBase}/api/v1/config/list?business_key=${encodeURIComponent(state.activeBusiness)}`,
     );
     const json = await res.json();
     state.configs = json?.list || json?.data?.list || [];
@@ -345,8 +350,8 @@ async function fetchConfigs() {
 
 async function deleteConfig(businessKey, resourceKey) {
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources`, {
-      method: "DELETE",
+    const res = await fetch(`${state.apiBase}/api/v1/config/delete`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ business_key: businessKey, resource_key: resourceKey }),
     });
@@ -466,38 +471,14 @@ async function ensureSystemKeys(force = false) {
   if (!force && state.systemKeys.length) {
     return state.systemKeys;
   }
-  const res = await fetch(`${state.apiBase}/api/v1/resources?business_key=system`);
-  if (!res.ok) {
-    throw new Error(`获取 system_keys 失败 (HTTP ${res.status})`);
-  }
-  const json = await res.json();
-  const list = json?.list || json?.data?.list || [];
-  const systemConfig = list.find((item) => item.alias === "system_keys");
-  if (!systemConfig || !systemConfig.content) {
-    state.systemKeys = [];
-    return state.systemKeys;
-  }
-  let parsed = {};
   try {
-    parsed = JSON.parse(systemConfig.content);
+    const entries = await getSystemKeys({ apiBase: state.apiBase, force });
+    state.systemKeys = entries;
+    return state.systemKeys;
   } catch (err) {
-    throw new Error("system_keys 配置格式错误");
+    state.systemKeys = [];
+    throw err;
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("system_keys 配置格式错误");
-  }
-  const entries = Object.entries(parsed).map(([key, value]) => ({
-    key,
-    value: value == null ? "" : String(value),
-  }));
-  entries.sort((a, b) => {
-    if (a.value === b.value) {
-      return a.key.localeCompare(b.key, "zh-Hans-CN");
-    }
-    return a.value.localeCompare(b.value, "zh-Hans-CN");
-  });
-  state.systemKeys = entries;
-  return state.systemKeys;
 }
 
 function populateSystemKeyOptions({ selectedKey, matchAlias, matchName } = {}) {
@@ -610,14 +591,6 @@ function applySystemKeySelection() {
 }
 
 // ------------------------- Data Type Handling -------------------------
-
-function normalizeDataType(value = "") {
-  const str = value.toString().toLowerCase();
-  if (str === "image") return "image";
-  if (["text", "string", "copy", "文案"].includes(str)) return "text";
-  if (["color", "colour", "color_tag", "color-tag", "色彩", "色彩标签"].includes(str)) return "color";
-  return "config";
-}
 
 function resetDataType() {
   state.dataType = "config";
@@ -775,10 +748,10 @@ function setImageReference(reference, asset) {
   if (!url && trimmed.startsWith("asset://")) {
     const assetId = trimmed.replace("asset://", "");
     if (assetId) {
-      url = `${state.apiBase}/api/v1/files/${encodeURIComponent(assetId)}`;
+      url = `${state.apiBase}/api/v1/asset/file/${encodeURIComponent(assetId)}`;
     }
   }
-  if (!url && trimmed.startsWith("/api/v1/files/")) {
+  if (!url && trimmed.startsWith("/api/v1/asset/file/")) {
     url = `${state.apiBase}${trimmed}`;
   }
   if (!url && /^https?:\/\//i.test(trimmed)) {
@@ -807,21 +780,6 @@ function updateImagePreview() {
   }
   elements.contentImagePreviewImg.src = url;
   elements.contentImagePreview.classList.remove("hidden");
-}
-
-function normalizeColorValue(value = "") {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const match = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (!match) return "";
-  let hex = match[1];
-  if (hex.length === 3) {
-    hex = hex
-      .split("")
-      .map((ch) => ch + ch)
-      .join("");
-  }
-  return `#${hex.toUpperCase()}`;
 }
 
 function setColorValue(value, options = {}) {
@@ -935,7 +893,7 @@ async function onImageUpload() {
   formData.append("business_key", businessKey);
   try {
     setImageUploadLoading(true);
-    const res = await fetch(`${state.apiBase}/api/v1/resources/upload`, {
+    const res = await fetch(`${state.apiBase}/api/v1/asset/upload`, {
       method: "POST",
       body: formData,
     });
@@ -965,14 +923,6 @@ async function onImageUpload() {
 }
 
 // ------------------------- Rendering -------------------------
-
-function displayDataType(value = "") {
-  const normalized = normalizeDataType(value);
-  if (normalized === "image") return "图片";
-  if (normalized === "text") return "文案";
-  if (normalized === "color") return "色彩标签";
-  return "配置对象";
-}
 
 function renderBusinessTabs() {
   elements.businessTabs.innerHTML = "";
@@ -1082,45 +1032,4 @@ async function openConfigModal(cfg) {
     requireMatch: initialMode === "system",
   });
   configModal.open();
-}
-
-// ------------------------- Helpers -------------------------
-
-function summarizeContent(content = "") {
-  if (!content) return "";
-  return content.length > 20 ? content.slice(0, 20) + "…" : content;
-}
-
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(str = "") {
-  return escapeHtml(str).replace(/"/g, "&quot;");
-}
-
-async function extractError(res) {
-  const text = await res.text();
-  if (!text) return res.statusText || "请求失败";
-  try {
-    const json = JSON.parse(text);
-    return json.error || json.msg || res.statusText || "请求失败";
-  } catch (err) {
-    return text;
-  }
-}
-
-let toastTimer;
-function showToast(message) {
-  elements.toast.textContent = message;
-  elements.toast.classList.remove("hidden");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    elements.toast.classList.add("hidden");
-  }, 2500);
 }

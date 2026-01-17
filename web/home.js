@@ -1,5 +1,7 @@
 import { initPageLayout } from "./components.js";
 import { getDefaultApiBase, getBasePathname } from "./runtime.js";
+import { escapeHtml, summarizeContent, displayDataType, formatTimestamp } from "./lib/utils.js";
+import { extractError } from "./lib/api.js";
 
 initPageLayout({
   activeKey: "home",
@@ -31,9 +33,9 @@ const elements = {
 };
 
 const endpointMap = {
-  resources: "/api/v1/resources",
-  realtime: "/api/v1/resources/nginx-config",
-  files: "/api/v1/files/<file_id>",
+  resources: "/api/v1/config/list",
+  realtime: "/api/v1/system/realtime",
+  files: "/api/v1/asset/file/<file_id>",
 };
 
 function formatEndpoint(path = "") {
@@ -72,7 +74,7 @@ async function fetchRealtimePreview(manual = false) {
   state.realtime.loading = true;
   setRealtimeStatus(manual ? "刷新中…" : "实时数据加载中…");
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/resources/nginx-config`);
+    const res = await fetch(`${state.apiBase}/api/v1/system/realtime`);
     if (!res.ok) {
       throw new Error(await extractError(res));
     }
@@ -182,51 +184,8 @@ function formatRealtimeContent(value) {
   return String(value);
 }
 
-function summarizeContent(content = "") {
-  if (!content) return "";
-  return content.length > 20 ? `${content.slice(0, 20)}…` : content;
-}
-
-function displayDataType(value = "") {
-  const str = value.toString().toLowerCase();
-  if (str === "image") return "图片";
-  if (["text", "string", "copy", "文案"].includes(str)) return "文案";
-  if (["color", "colour", "色彩", "色彩标签"].includes(str)) return "色彩标签";
-  return "配置对象";
-}
-
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function setRealtimeStatus(message, isError = false) {
   if (!elements.status) return;
   elements.status.textContent = message || "";
   elements.status.classList.toggle("error", Boolean(isError));
-}
-
-function formatTimestamp(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${hours}:${minutes}:${seconds}`;
-}
-
-async function extractError(res) {
-  const text = await res.text();
-  if (!text) return res.statusText || "请求失败";
-  try {
-    const json = JSON.parse(text);
-    return json.error || json.msg || res.statusText || "请求失败";
-  } catch (err) {
-    return text;
-  }
 }

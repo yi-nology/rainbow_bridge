@@ -15,7 +15,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/model/api"
-	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service/resource"
+	"github.com/yi-nology/rainbow_bridge/biz/service"
 	"github.com/yi-nology/rainbow_bridge/pkg/common"
 	"github.com/yi-nology/rainbow_bridge/pkg/validator"
 )
@@ -38,10 +38,10 @@ var AllowedMimeTypes = map[string]bool{
 
 // ResourceHandler exposes non-protobuf endpoints such as file upload.
 type ResourceHandler struct {
-	service *resourceservice.Service
+	service *service.Service
 }
 
-func NewResourceHandler(service *resourceservice.Service) *ResourceHandler {
+func NewResourceHandler(service *service.Service) *ResourceHandler {
 	return &ResourceHandler{service: service}
 }
 
@@ -109,7 +109,7 @@ func (h *ResourceHandler) UploadFile(ctx context.Context, c *app.RequestContext)
 		return
 	}
 
-	input := &resourceservice.FileUploadInput{
+	input := &service.FileUploadInput{
 		BusinessKey: businessKey,
 		Remark:      string(c.FormValue("remark")),
 		FileName:    fileHeader.Filename,
@@ -137,7 +137,7 @@ func (h *ResourceHandler) GetFile(ctx context.Context, c *app.RequestContext) {
 	fileID := c.Param("fileID")
 	asset, path, err := h.service.GetAssetFile(enrichContext(ctx, c), fileID)
 	if err != nil {
-		if errors.Is(err, resourceservice.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, service.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {
 			writeNotFound(c, err)
 			return
 		}
@@ -307,7 +307,7 @@ func (h *ResourceHandler) UpdateConfig(ctx context.Context, c *app.RequestContex
 	cfg, err := h.service.UpdateConfig(enrichContext(ctx, c), req)
 	if err != nil {
 		status := consts.StatusInternalServerError
-		if errors.Is(err, resourceservice.ErrResourceNotFound) {
+		if errors.Is(err, service.ErrResourceNotFound) {
 			status = consts.StatusNotFound
 		}
 		respondError(c, status, err)
@@ -329,9 +329,9 @@ func (h *ResourceHandler) DeleteConfig(ctx context.Context, c *app.RequestContex
 	}
 	if err := h.service.DeleteConfig(enrichContext(ctx, c), req); err != nil {
 		status := consts.StatusInternalServerError
-		if errors.Is(err, resourceservice.ErrResourceNotFound) {
+		if errors.Is(err, service.ErrResourceNotFound) {
 			status = consts.StatusNotFound
-		} else if errors.Is(err, resourceservice.ErrProtectedSystemConfig) {
+		} else if errors.Is(err, service.ErrProtectedSystemConfig) {
 			status = consts.StatusBadRequest
 		}
 		respondError(c, status, err)
@@ -382,7 +382,7 @@ func (h *ResourceHandler) GetConfigDetail(ctx context.Context, c *app.RequestCon
 	cfg, err := h.service.GetConfigDetail(enrichContext(ctx, c), req)
 	if err != nil {
 		status := consts.StatusInternalServerError
-		if errors.Is(err, resourceservice.ErrResourceNotFound) {
+		if errors.Is(err, service.ErrResourceNotFound) {
 			status = consts.StatusNotFound
 		}
 		respondError(c, status, err)

@@ -27,16 +27,20 @@ var (
 
 // Logic contains business rules on top of data persistence.
 type Logic struct {
-	db        *gorm.DB
-	configDAO *resourcedal.ConfigDAO
-	assetDAO  *resourcedal.AssetDAO
+	db             *gorm.DB
+	configDAO      *resourcedal.ConfigDAO
+	assetDAO       *resourcedal.AssetDAO
+	environmentDAO *resourcedal.EnvironmentDAO
+	pipelineDAO    *resourcedal.PipelineDAO
 }
 
 func NewLogic(db *gorm.DB) *Logic {
 	return &Logic{
-		db:        db,
-		configDAO: resourcedal.NewConfigDAO(),
-		assetDAO:  resourcedal.NewAssetDAO(),
+		db:             db,
+		configDAO:      resourcedal.NewConfigDAO(),
+		assetDAO:       resourcedal.NewAssetDAO(),
+		environmentDAO: resourcedal.NewEnvironmentDAO(),
+		pipelineDAO:    resourcedal.NewPipelineDAO(),
 	}
 }
 

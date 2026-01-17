@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package pipeline;
+import "api.proto";
+import "common.proto";
+
+// Pipeline represents a pipeline entity.
+message Pipeline {
+  string pipeline_key = 1;
+  string pipeline_name = 2;
+  string description = 3;
+  int32 sort_order = 4;
+  bool is_active = 5;
+}
+
+// CreatePipelineRequest is used for creating a pipeline.
+message CreatePipelineRequest {
+  Pipeline pipeline = 1;
+}
+
+// UpdatePipelineRequest is used for updating a pipeline.
+message UpdatePipelineRequest {
+  Pipeline pipeline = 1;
+}
+
+// DeletePipelineRequest is used for deleting a pipeline.
+message DeletePipelineRequest {
+  string pipeline_key = 1;
+}
+
+// ListPipelineRequest is used to list pipelines with filters.
+message ListPipelineRequest {
+  bool is_active = 1;
+}
+
+// PipelineDetailRequest is used to get a specific pipeline.
+message PipelineDetailRequest {
+  string pipeline_key = 1;
+}
+
+// PipelineResponse is a response containing a pipeline.
+message PipelineResponse {
+  common.OperateResponse operate_response = 1;
+  Pipeline pipeline = 2;
+}
+
+// PipelineListResponse contains a list of pipelines.
+message PipelineListResponse {
+  repeated Pipeline list = 1;
+}
+
+// PipelineDetailResponse contains a single pipeline.
+message PipelineDetailResponse {
+  Pipeline detail = 1;
+}
+
+// PipelineService handles pipeline CRUD operations.
+service PipelineService {
+  // Create creates a new pipeline.
+  rpc Create(CreatePipelineRequest) returns (PipelineResponse) {
+    option (api.post) = "/api/v1/pipeline/create";
+  }
+
+  // Update updates an existing pipeline.
+  rpc Update(UpdatePipelineRequest) returns (PipelineResponse) {
+    option (api.post) = "/api/v1/pipeline/update";
+  }
+
+  // Delete removes a pipeline.
+  rpc Delete(DeletePipelineRequest) returns (common.OperateResponse) {
+    option (api.post) = "/api/v1/pipeline/delete";
+  }
+
+  // List returns a list of pipelines.
+  rpc List(ListPipelineRequest) returns (PipelineListResponse) {
+    option (api.get) = "/api/v1/pipeline/list";
+  }
+
+  // Detail returns a specific pipeline.
+  rpc Detail(PipelineDetailRequest) returns (PipelineDetailResponse) {
+    option (api.get) = "/api/v1/pipeline/detail";
+  }
+}

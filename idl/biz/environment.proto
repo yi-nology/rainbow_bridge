@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package environment;
+import "api.proto";
+import "common.proto";
+
+// Environment represents an environment entity.
+message Environment {
+  string environment_key = 1;
+  string environment_name = 2;
+  string description = 3;
+  int32 sort_order = 4;
+  bool is_active = 5;
+}
+
+// CreateEnvironmentRequest is used for creating an environment.
+message CreateEnvironmentRequest {
+  Environment environment = 1;
+}
+
+// UpdateEnvironmentRequest is used for updating an environment.
+message UpdateEnvironmentRequest {
+  Environment environment = 1;
+}
+
+// DeleteEnvironmentRequest is used for deleting an environment.
+message DeleteEnvironmentRequest {
+  string environment_key = 1;
+}
+
+// ListEnvironmentRequest is used to list environments with filters.
+message ListEnvironmentRequest {
+  bool is_active = 1;
+}
+
+// EnvironmentDetailRequest is used to get a specific environment.
+message EnvironmentDetailRequest {
+  string environment_key = 1;
+}
+
+// EnvironmentResponse is a response containing an environment.
+message EnvironmentResponse {
+  common.OperateResponse operate_response = 1;
+  Environment environment = 2;
+}
+
+// EnvironmentListResponse contains a list of environments.
+message EnvironmentListResponse {
+  repeated Environment list = 1;
+}
+
+// EnvironmentDetailResponse contains a single environment.
+message EnvironmentDetailResponse {
+  Environment detail = 1;
+}
+
+// EnvironmentService handles environment CRUD operations.
+service EnvironmentService {
+  // Create creates a new environment.
+  rpc Create(CreateEnvironmentRequest) returns (EnvironmentResponse) {
+    option (api.post) = "/api/v1/environment/create";
+  }
+
+  // Update updates an existing environment.
+  rpc Update(UpdateEnvironmentRequest) returns (EnvironmentResponse) {
+    option (api.post) = "/api/v1/environment/update";
+  }
+
+  // Delete removes an environment.
+  rpc Delete(DeleteEnvironmentRequest) returns (common.OperateResponse) {
+    option (api.post) = "/api/v1/environment/delete";
+  }
+
+  // List returns a list of environments.
+  rpc List(ListEnvironmentRequest) returns (EnvironmentListResponse) {
+    option (api.get) = "/api/v1/environment/list";
+  }
+
+  // Detail returns a specific environment.
+  rpc Detail(EnvironmentDetailRequest) returns (EnvironmentDetailResponse) {
+    option (api.get) = "/api/v1/environment/detail";
+  }
+}

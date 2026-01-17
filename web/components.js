@@ -24,6 +24,22 @@ const NAV_ITEMS = [
     tagline: "集中管理系统业务基础配置",
   },
   {
+    key: "environment",
+    href: "environment.html",
+    icon: "🌍",
+    label: "环境管理",
+    description: "管理配置的环境维度，支持多环境隔离",
+    tagline: "按环境隔离配置，支持多套部署",
+  },
+  {
+    key: "pipeline",
+    href: "pipeline.html",
+    icon: "🔄",
+    label: "流水线管理",
+    description: "管理配置的流水线维度，支持多流程隔离",
+    tagline: "按流水线隔离配置，支持多流程并行",
+  },
+  {
     key: "assets",
     href: "assets.html",
     icon: "📦",

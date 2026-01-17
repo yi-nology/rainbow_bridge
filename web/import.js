@@ -6,16 +6,22 @@ import { createToast } from "./lib/toast.js";
 initPageLayout({
   activeKey: "import",
   title: "配置导入中心",
-  caption: "上传由平台导出的 ZIP，系统会还原配置与静态资源",
+  caption: "选择目标环境和流水线，上传由平台导出的 ZIP，系统会还原配置与静态资源",
 });
 
 const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
+  environments: [],
+  pipelines: [],
+  selectedEnv: null,
+  selectedPipeline: null,
   lastImportSummary: null,
 };
 
 const el = {
+  envList: document.getElementById("importEnvList"),
+  pipelineList: document.getElementById("importPipelineList"),
   importForm: document.getElementById("importZipForm"),
   importSummary: document.getElementById("importSummary"),
   importResetBtn: document.getElementById("importResetBtn"),
@@ -31,19 +37,108 @@ if (!el.importForm || !el.importSummary) {
   init();
 }
 
-function init() {
+async function init() {
+  await Promise.all([fetchEnvironments(), fetchPipelines()]);
+  if (el.envList) {
+    el.envList.addEventListener("click", onEnvSelect);
+  }
+  if (el.pipelineList) {
+    el.pipelineList.addEventListener("click", onPipelineSelect);
+  }
   el.importForm.addEventListener("submit", onImportZip);
   el.importResetBtn.addEventListener("click", onImportReset);
   renderSummary(el.importSummary, null, "尚未执行导入");
 }
 
+async function fetchEnvironments() {
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/environment/list`);
+    const json = await res.json();
+    state.environments = json?.list || json?.data?.list || [];
+    if (state.environments.length > 0) {
+      state.selectedEnv = state.environments[0].environment_key;
+    }
+    renderEnvTabs();
+  } catch (err) {
+    showToast(`获取环境列表失败：${err.message || err}`);
+  }
+}
+
+async function fetchPipelines() {
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list`);
+    const json = await res.json();
+    state.pipelines = json?.list || json?.data?.list || [];
+    if (state.pipelines.length > 0) {
+      state.selectedPipeline = state.pipelines[0].pipeline_key;
+    }
+    renderPipelineTabs();
+  } catch (err) {
+    showToast(`获取流水线列表失败：${err.message || err}`);
+  }
+}
+
+function renderEnvTabs() {
+  if (!el.envList) return;
+  if (!state.environments.length) {
+    el.envList.innerHTML = `<span class="selector-empty">暂无环境数据</span>`;
+    return;
+  }
+  el.envList.innerHTML = state.environments.map((env) => `
+    <span class="selector-tab${state.selectedEnv === env.environment_key ? " active" : ""}" 
+          data-key="${env.environment_key}">
+      ${env.environment_name || env.environment_key}
+    </span>
+  `).join("");
+}
+
+function renderPipelineTabs() {
+  if (!el.pipelineList) return;
+  if (!state.pipelines.length) {
+    el.pipelineList.innerHTML = `<span class="selector-empty">暂无流水线数据</span>`;
+    return;
+  }
+  el.pipelineList.innerHTML = state.pipelines.map((pl) => `
+    <span class="selector-tab${state.selectedPipeline === pl.pipeline_key ? " active" : ""}" 
+          data-key="${pl.pipeline_key}">
+      ${pl.pipeline_name || pl.pipeline_key}
+    </span>
+  `).join("");
+}
+
+function onEnvSelect(evt) {
+  const tab = evt.target.closest(".selector-tab");
+  if (!tab) return;
+  state.selectedEnv = tab.dataset.key;
+  renderEnvTabs();
+}
+
+function onPipelineSelect(evt) {
+  const tab = evt.target.closest(".selector-tab");
+  if (!tab) return;
+  state.selectedPipeline = tab.dataset.key;
+  renderPipelineTabs();
+}
+
 async function onImportZip(evt) {
   evt.preventDefault();
+  if (!state.selectedEnv) {
+    showToast("请选择目标环境");
+    return;
+  }
+  if (!state.selectedPipeline) {
+    showToast("请选择目标流水线");
+    return;
+  }
   const formData = new FormData(el.importForm);
   if (!formData.get("archive")) {
     showToast("请选择 ZIP 文件");
     return;
   }
+  // 添加环境和流水线参数
+  formData.append("environment_key", state.selectedEnv);
+  formData.append("pipeline_key", state.selectedPipeline);
+  
   try {
     const res = await fetch(`${state.apiBase}/api/v1/transfer/import`, {
       method: "POST",
@@ -57,7 +152,7 @@ async function onImportZip(evt) {
     state.lastImportSummary = summary;
     renderSummary(el.importSummary, summary, "尚未执行导入");
     const total = summary?.total || 0;
-    showToast(`导入完成，共写入 ${total} 条配置`);
+    showToast(`导入完成，共写入 ${total} 条配置到环境 ${state.selectedEnv}，流水线 ${state.selectedPipeline}`);
     el.importForm.reset();
   } catch (err) {
     showToast(err.message || "导入失败");

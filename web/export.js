@@ -3,19 +3,20 @@ import { getDefaultApiBase } from "./runtime.js";
 import { getValue, setButtonLoading, parseFilename, downloadBlob } from "./lib/utils.js";
 import { extractError } from "./lib/api.js";
 import { createToast } from "./lib/toast.js";
-import { getBusinessKeys } from "./lib/init.js";
 
 initPageLayout({
   activeKey: "export",
   title: "配置导出中心",
-  caption: "批量导出配置 ZIP 或 Nginx 静态资源包，支持多业务并行",
+  caption: "批量导出配置 ZIP 或 Nginx 静态资源包，支持环境和流水线隔离",
 });
 
 const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
-  businessKeys: [],
-  selectedKeys: new Set(),
+  environments: [],
+  pipelines: [],
+  selectedEnv: null,
+  selectedPipeline: null,
   lastConfigSummary: null,
   lastStaticSummary: null,
   exportingZip: false,
@@ -24,14 +25,9 @@ const state = {
   exportingAllStatic: false,
 };
 
-function getSelectedBusinessKeys() {
-  return Array.from(state.selectedKeys.values())
-    .map((key) => (typeof key === "string" ? key.trim() : key))
-    .filter(Boolean);
-}
-
 const el = {
-  businessList: document.getElementById("exportBusinessList"),
+  envList: document.getElementById("exportEnvList"),
+  pipelineList: document.getElementById("exportPipelineList"),
   exportZipBtn: document.getElementById("exportZipBtn"),
   exportStaticBtn: document.getElementById("exportStaticBtn"),
   exportSystemSelectedStaticBtn: document.getElementById("exportSystemSelectedStaticBtn"),
@@ -45,15 +41,16 @@ const el = {
 
 const showToast = createToast("exportToast");
 
-if (!el.businessList || !el.exportZipBtn || !el.exportStaticBtn) {
+if (!el.envList || !el.pipelineList || !el.exportZipBtn || !el.exportStaticBtn) {
   console.warn("export page markup missing required nodes");
 } else {
   init();
 }
 
 async function init() {
-  await fetchBusinessKeysList();
-  el.businessList.addEventListener("change", onBusinessToggle);
+  await Promise.all([fetchEnvironments(), fetchPipelines()]);
+  el.envList.addEventListener("click", onEnvSelect);
+  el.pipelineList.addEventListener("click", onPipelineSelect);
   el.exportZipBtn.addEventListener("click", onExportZip);
   el.exportStaticBtn.addEventListener("click", onExportStatic);
   if (el.exportSystemSelectedStaticBtn) {
@@ -74,69 +71,94 @@ async function init() {
   renderSummary(el.staticSummary, null, "尚未导出静态资源包");
 }
 
-async function fetchBusinessKeysList() {
+async function fetchEnvironments() {
   try {
-    const list = await getBusinessKeys({ apiBase: state.apiBase });
-    const fullList = list.includes("system") ? list : ["system", ...list];
-    state.businessKeys = fullList;
-    state.selectedKeys.clear();
-    if (fullList.length) {
-      state.selectedKeys.add(fullList[0]);
+    const res = await fetch(`${state.apiBase}/api/v1/environment/list`);
+    const json = await res.json();
+    state.environments = json?.list || json?.data?.list || [];
+    if (state.environments.length > 0) {
+      state.selectedEnv = state.environments[0].environment_key;
     }
-    renderBusinessChecklist();
+    renderEnvTabs();
   } catch (err) {
-    showToast(`获取业务列表失败：${err.message || err}`);
+    showToast(`获取环境列表失败：${err.message || err}`);
   }
 }
 
-function renderBusinessChecklist() {
-  if (!el.businessList) return;
-  if (!state.businessKeys.length) {
-    el.businessList.innerHTML = `<p class="summary-list summary-muted">暂无业务数据</p>`;
+async function fetchPipelines() {
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list`);
+    const json = await res.json();
+    state.pipelines = json?.list || json?.data?.list || [];
+    if (state.pipelines.length > 0) {
+      state.selectedPipeline = state.pipelines[0].pipeline_key;
+    }
+    renderPipelineTabs();
+  } catch (err) {
+    showToast(`获取流水线列表失败：${err.message || err}`);
+  }
+}
+
+function renderEnvTabs() {
+  if (!el.envList) return;
+  if (!state.environments.length) {
+    el.envList.innerHTML = `<span class="selector-empty">暂无环境数据</span>`;
     return;
   }
-  el.businessList.innerHTML = "";
-  state.businessKeys.forEach((key) => {
-    const label = document.createElement("label");
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.name = "business";
-    input.value = key;
-    input.checked = state.selectedKeys.has(key);
-    label.appendChild(input);
-    const span = document.createElement("span");
-    span.textContent = key;
-    label.appendChild(span);
-    el.businessList.appendChild(label);
-  });
+  el.envList.innerHTML = state.environments.map((env) => `
+    <span class="selector-tab${state.selectedEnv === env.environment_key ? " active" : ""}" 
+          data-key="${env.environment_key}">
+      ${env.environment_name || env.environment_key}
+    </span>
+  `).join("");
 }
 
-function onBusinessToggle(evt) {
-  const input = evt.target;
-  if (input?.name !== "business") return;
-  if (input.checked) {
-    state.selectedKeys.add(input.value);
-  } else {
-    state.selectedKeys.delete(input.value);
+function renderPipelineTabs() {
+  if (!el.pipelineList) return;
+  if (!state.pipelines.length) {
+    el.pipelineList.innerHTML = `<span class="selector-empty">暂无流水线数据</span>`;
+    return;
   }
+  el.pipelineList.innerHTML = state.pipelines.map((pl) => `
+    <span class="selector-tab${state.selectedPipeline === pl.pipeline_key ? " active" : ""}" 
+          data-key="${pl.pipeline_key}">
+      ${pl.pipeline_name || pl.pipeline_key}
+    </span>
+  `).join("");
+}
+
+function onEnvSelect(evt) {
+  const tab = evt.target.closest(".selector-tab");
+  if (!tab) return;
+  state.selectedEnv = tab.dataset.key;
+  renderEnvTabs();
+}
+
+function onPipelineSelect(evt) {
+  const tab = evt.target.closest(".selector-tab");
+  if (!tab) return;
+  state.selectedPipeline = tab.dataset.key;
+  renderPipelineTabs();
 }
 
 async function onExportZip() {
   if (state.exportingZip) return;
-  const keys = getSelectedBusinessKeys();
-  if (!keys.length) {
-    showToast("请选择至少一个业务");
+  if (!state.selectedEnv) {
+    showToast("请选择环境");
+    return;
+  }
+  if (!state.selectedPipeline) {
+    showToast("请选择流水线");
     return;
   }
   state.exportingZip = true;
   setButtonLoading(el.exportZipBtn, true, "导出中…");
-  const includeSystem = true;
   try {
-    const summary = await fetchExportSummary(keys, includeSystem);
-    await downloadExportZip(keys, includeSystem);
+    const summary = await fetchExportSummary();
+    await downloadExportZip();
     state.lastConfigSummary = summary;
     renderSummary(el.exportSummary, summary, "尚未导出任何配置");
-    showToast(`配置 ZIP 已导出：${keys.length} 个业务`);
+    showToast(`配置 ZIP 已导出：环境 ${state.selectedEnv}，流水线 ${state.selectedPipeline}`);
   } catch (err) {
     showToast(err.message || "导出失败");
   } finally {
@@ -147,20 +169,22 @@ async function onExportZip() {
 
 async function onExportStatic() {
   if (state.exportingStatic) return;
-  const keys = getSelectedBusinessKeys();
-  if (!keys.length) {
-    showToast("请选择至少一个业务");
+  if (!state.selectedEnv) {
+    showToast("请选择环境");
+    return;
+  }
+  if (!state.selectedPipeline) {
+    showToast("请选择流水线");
     return;
   }
   state.exportingStatic = true;
   setButtonLoading(el.exportStaticBtn, true, "导出中…");
-  const includeSystem = true;
   try {
-    const summary = await fetchExportSummary(keys, includeSystem);
-    await downloadStaticBundle(keys, includeSystem);
+    const summary = await fetchExportSummary();
+    await downloadStaticBundle();
     state.lastStaticSummary = summary;
     renderSummary(el.staticSummary, summary, "尚未导出静态资源包");
-    showToast(`Nginx 静态包已导出：${keys.length} 个业务`);
+    showToast(`Nginx 静态包已导出：环境 ${state.selectedEnv}，流水线 ${state.selectedPipeline}`);
   } catch (err) {
     showToast(err.message || "导出失败");
   } finally {
@@ -199,16 +223,13 @@ async function onExportAllStatic() {
   }
 }
 
-async function fetchExportSummary(businessKeys, includeSystem) {
+async function fetchExportSummary() {
   const query = new URLSearchParams({
     format: "json",
+    environment_key: state.selectedEnv,
+    pipeline_key: state.selectedPipeline,
+    include_system: "true",
   });
-  if (Array.isArray(businessKeys) && businessKeys.length) {
-    query.set("business_keys", businessKeys.join(","));
-  }
-  if (includeSystem) {
-    query.set("include_system", "true");
-  }
   const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
     throw new Error(await extractError(res));
@@ -218,43 +239,37 @@ async function fetchExportSummary(businessKeys, includeSystem) {
   return buildSummary(list);
 }
 
-async function downloadExportZip(businessKeys, includeSystem) {
+async function downloadExportZip() {
   const query = new URLSearchParams({
     format: "zip",
+    environment_key: state.selectedEnv,
+    pipeline_key: state.selectedPipeline,
+    include_system: "true",
   });
-  if (Array.isArray(businessKeys) && businessKeys.length) {
-    query.set("business_keys", businessKeys.join(","));
-  }
-  if (includeSystem) {
-    query.set("include_system", "true");
-  }
   const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
     throw new Error(await extractError(res));
   }
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
-  const filename = parseFilename(disposition) || `${(businessKeys && businessKeys[0]) || "configs"}_archive.zip`;
+  const filename = parseFilename(disposition) || `${state.selectedEnv}_${state.selectedPipeline}_archive.zip`;
   downloadBlob(blob, filename);
 }
 
-async function downloadStaticBundle(businessKeys, includeSystem) {
+async function downloadStaticBundle() {
   const query = new URLSearchParams({
     format: "nginx",
+    environment_key: state.selectedEnv,
+    pipeline_key: state.selectedPipeline,
+    include_system: "true",
   });
-  if (Array.isArray(businessKeys) && businessKeys.length) {
-    query.set("business_keys", businessKeys.join(","));
-  }
-  if (includeSystem) {
-    query.set("include_system", "true");
-  }
   const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
     throw new Error(await extractError(res));
   }
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
-  const filename = parseFilename(disposition) || `${(businessKeys && businessKeys[0]) || "configs"}_static_bundle.zip`;
+  const filename = parseFilename(disposition) || `${state.selectedEnv}_${state.selectedPipeline}_static_bundle.zip`;
   downloadBlob(blob, filename);
 }
 

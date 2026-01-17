@@ -970,6 +970,112 @@ button.danger {
   display: none !important;
 }
 
+/* Context Selectors - 环境/流水线切换器 */
+.context-selectors {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.context-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--content-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.context-selector-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.context-select {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text);
+  padding: 4px 8px;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+.context-select:focus {
+  outline: none;
+}
+
+.context-selector-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 12px;
+  color: var(--muted);
+  transition: background 0.2s, color 0.2s;
+}
+
+.context-selector-link:hover {
+  background: rgba(47, 155, 223, 0.12);
+  color: var(--primary);
+}
+
+/* Export Selectors - 导出页面环境/流水线选择器 */
+.export-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.export-selector-group h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.selector-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.selector-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--content-bg);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.selector-tab:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(47, 155, 223, 0.08);
+}
+
+.selector-tab.active {
+  background: rgba(47, 155, 223, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.selector-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 8px 0;
+}
+
 @media (max-width: 1200px) {
   .layout {
     grid-template-columns: 160px 1fr;

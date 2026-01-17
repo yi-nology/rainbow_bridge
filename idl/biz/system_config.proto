@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package system_config;
+import "api.proto";
+import "common.proto";
+
+// SystemConfig represents a system configuration entry.
+message SystemConfig {
+  string environment_key = 1;
+  string config_key = 2;
+  string config_value = 3;
+  string remark = 4;
+}
+
+// GetSystemConfigRequest is used to get a system config.
+message GetSystemConfigRequest {
+  string environment_key = 1;
+  string config_key = 2;
+}
+
+// UpdateSystemConfigRequest is used to update a system config.
+message UpdateSystemConfigRequest {
+  SystemConfig system_config = 1;
+}
+
+// ListSystemConfigRequest is used to list system configs for an environment.
+message ListSystemConfigRequest {
+  string environment_key = 1;
+}
+
+// SystemConfigResponse contains a single system config.
+message SystemConfigResponse {
+  common.OperateResponse operate_response = 1;
+  SystemConfig system_config = 2;
+}
+
+// SystemConfigListResponse contains a list of system configs.
+message SystemConfigListResponse {
+  repeated SystemConfig list = 1;
+}
+
+// SystemConfigService handles system config operations.
+service SystemConfigService {
+  // Get returns a specific system config.
+  rpc Get(GetSystemConfigRequest) returns (SystemConfigResponse) {
+    option (api.get) = "/api/v1/system-config/get";
+  }
+
+  // Update updates a system config (only business_select and system_keys allowed).
+  rpc Update(UpdateSystemConfigRequest) returns (SystemConfigResponse) {
+    option (api.post) = "/api/v1/system-config/update";
+  }
+
+  // List returns all system configs for an environment.
+  rpc List(ListSystemConfigRequest) returns (SystemConfigListResponse) {
+    option (api.get) = "/api/v1/system-config/list";
+  }
+}

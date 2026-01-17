@@ -15,7 +15,7 @@ var (
 	ErrEnvironmentKeyExists   = errors.New("environment_key already exists")
 )
 
-// AddEnvironment creates a new environment.
+// AddEnvironment creates a new environment with default system configs.
 func (s *Service) AddEnvironment(ctx context.Context, env *envpb.Environment) error {
 	if env == nil || env.GetEnvironmentKey() == "" {
 		return ErrEnvironmentKeyRequired
@@ -36,7 +36,19 @@ func (s *Service) AddEnvironment(ctx context.Context, env *envpb.Environment) er
 		SortOrder:       int(env.GetSortOrder()),
 		IsActive:        env.GetIsActive(),
 	}
-	return s.logic.environmentDAO.Create(ctx, s.logic.db, entity)
+
+	// Use transaction to ensure atomicity
+	return s.logic.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Create environment
+		if err := s.logic.environmentDAO.Create(ctx, tx, entity); err != nil {
+			return err
+		}
+		// 2. Initialize system configs for the new environment
+		if err := s.logic.InitSystemConfigsForEnvironment(ctx, tx, env.GetEnvironmentKey()); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // UpdateEnvironment updates an existing environment.
@@ -63,7 +75,7 @@ func (s *Service) UpdateEnvironment(ctx context.Context, env *envpb.Environment)
 	return s.logic.environmentDAO.Update(ctx, s.logic.db, entity)
 }
 
-// DeleteEnvironment deletes an environment by key.
+// DeleteEnvironment deletes an environment by key with cascade delete of system configs.
 func (s *Service) DeleteEnvironment(ctx context.Context, environmentKey string) error {
 	if environmentKey == "" {
 		return ErrEnvironmentKeyRequired
@@ -77,7 +89,15 @@ func (s *Service) DeleteEnvironment(ctx context.Context, environmentKey string) 
 		return err
 	}
 
-	return s.logic.environmentDAO.Delete(ctx, s.logic.db, environmentKey)
+	// Use transaction to ensure atomicity
+	return s.logic.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Delete system configs first (cascade)
+		if err := s.logic.DeleteSystemConfigsByEnvironment(ctx, tx, environmentKey); err != nil {
+			return err
+		}
+		// 2. Delete environment
+		return s.logic.environmentDAO.Delete(ctx, tx, environmentKey)
+	})
 }
 
 // GetEnvironment returns an environment by key.

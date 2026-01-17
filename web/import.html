@@ -17,10 +17,23 @@
             <div class="panel-header with-desc">
               <div class="panel-header-text">
                 <span>导入配置 ZIP</span>
-                <p>上传由本页面导出的 ZIP，系统会还原配置与静态资源</p>
+                <p>选择目标环境和流水线，上传由本页面导出的 ZIP，系统会还原配置与静态资源</p>
               </div>
               <div class="panel-actions">
                 <button id="importResetBtn" class="ghost mini" type="button">清空记录</button>
+              </div>
+            </div>
+
+            <div class="panel-body">
+              <div class="export-selectors">
+                <div class="export-selector-group">
+                  <h3>选择目标环境</h3>
+                  <div id="importEnvList" class="selector-tabs"></div>
+                </div>
+                <div class="export-selector-group">
+                  <h3>选择目标流水线</h3>
+                  <div id="importPipelineList" class="selector-tabs"></div>
+                </div>
               </div>
             </div>
 

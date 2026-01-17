@@ -1,4 +1,4 @@
-import { initPageLayout } from "./components.js";
+import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment, getCurrentPipeline } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr, normalizeDataType, displayDataType, summarizeContent, normalizeColorValue } from "./lib/utils.js";
@@ -10,6 +10,8 @@ initPageLayout({
   activeKey: "config",
   title: "业务配置中心",
   caption: "按业务维度管理资源配置与版本，保持配置变更透明可追踪",
+  showEnvSelector: true,
+  showPipelineSelector: true,
 });
 
 const defaultBase = getDefaultApiBase();
@@ -102,6 +104,8 @@ const configModal = createModal("modalOverlay", {
 
 (async function init() {
   await fetchBusinessKeys();
+  await initEnvSelector(state.apiBase, () => fetchConfigs());
+  await initPipelineSelector(state.apiBase, () => fetchConfigs());
 })();
 
 elements.refreshBusinessBtn.addEventListener("click", () => {

@@ -81,8 +81,14 @@ const BRAND = {
   ],
 };
 
+// 上下文切换器状态存储
+const CONTEXT_STORAGE_KEY = {
+  environment: "rainbow_bridge_current_env",
+  pipeline: "rainbow_bridge_current_pipeline",
+};
+
 export function initPageLayout(options = {}) {
-  const { activeKey, title, caption, tagline } = options;
+  const { activeKey, title, caption, tagline, showEnvSelector = false, showPipelineSelector = false } = options;
   const activeItem = NAV_ITEMS.find((item) => item.key === activeKey) || NAV_ITEMS[0];
 
   initSidebar({
@@ -93,6 +99,8 @@ export function initPageLayout(options = {}) {
   initPageHeader({
     title: title || activeItem.label,
     caption: caption || activeItem.description,
+    showEnvSelector,
+    showPipelineSelector,
   });
 }
 
@@ -140,16 +148,135 @@ export function initSidebar(options = {}) {
 export function initPageHeader(options = {}) {
   const header = document.getElementById("pageHeader");
   if (!header) return;
-  const { title, caption, actions = "" } = options;
+  const { title, caption, actions = "", showEnvSelector = false, showPipelineSelector = false } = options;
   header.classList.add("topbar");
+
+  const selectorsHtml = renderContextSelectors({ showEnvSelector, showPipelineSelector });
+  const actionsHtml = actions || selectorsHtml;
 
   header.innerHTML = `
     <div class="page-heading">
       <h1>${title || BRAND.title}</h1>
       ${caption ? `<p>${caption}</p>` : ""}
     </div>
-    ${actions ? `<div class="page-actions">${actions}</div>` : ""}
+    ${actionsHtml ? `<div class="page-actions">${actionsHtml}</div>` : ""}
   `;
+}
+
+function renderContextSelectors({ showEnvSelector, showPipelineSelector }) {
+  if (!showEnvSelector && !showPipelineSelector) return "";
+
+  const parts = [];
+
+  if (showEnvSelector) {
+    parts.push(`
+      <div class="context-selector" data-type="environment">
+        <span class="context-selector-icon">🌍</span>
+        <select id="globalEnvSelector" class="context-select">
+          <option value="default">默认环境</option>
+        </select>
+        <a href="environment.html" class="context-selector-link" title="管理环境">⚙️</a>
+      </div>
+    `);
+  }
+
+  if (showPipelineSelector) {
+    parts.push(`
+      <div class="context-selector" data-type="pipeline">
+        <span class="context-selector-icon">🔄</span>
+        <select id="globalPipelineSelector" class="context-select">
+          <option value="default">默认流水线</option>
+        </select>
+        <a href="pipeline.html" class="context-selector-link" title="管理流水线">⚙️</a>
+      </div>
+    `);
+  }
+
+  return `<div class="context-selectors">${parts.join("")}</div>`;
+}
+
+// 获取当前选中的环境
+export function getCurrentEnvironment() {
+  const stored = localStorage.getItem(CONTEXT_STORAGE_KEY.environment);
+  return stored || "default";
+}
+
+// 设置当前选中的环境
+export function setCurrentEnvironment(envKey) {
+  localStorage.setItem(CONTEXT_STORAGE_KEY.environment, envKey);
+}
+
+// 获取当前选中的流水线
+export function getCurrentPipeline() {
+  const stored = localStorage.getItem(CONTEXT_STORAGE_KEY.pipeline);
+  return stored || "default";
+}
+
+// 设置当前选中的流水线
+export function setCurrentPipeline(pipelineKey) {
+  localStorage.setItem(CONTEXT_STORAGE_KEY.pipeline, pipelineKey);
+}
+
+// 初始化环境选择器
+export async function initEnvSelector(apiBase, onChange) {
+  const select = document.getElementById("globalEnvSelector");
+  if (!select) return;
+
+  try {
+    const res = await fetch(`${apiBase}/api/v1/environment/list`);
+    const json = await res.json();
+    const list = json?.list || json?.data?.list || [];
+
+    select.innerHTML = list.map((env) => `
+      <option value="${env.environment_key}">${env.environment_name || env.environment_key}</option>
+    `).join("");
+
+    const current = getCurrentEnvironment();
+    if (list.some((env) => env.environment_key === current)) {
+      select.value = current;
+    } else if (list.length > 0) {
+      select.value = list[0].environment_key;
+      setCurrentEnvironment(select.value);
+    }
+
+    select.addEventListener("change", (e) => {
+      setCurrentEnvironment(e.target.value);
+      if (onChange) onChange(e.target.value);
+    });
+  } catch (err) {
+    console.error("Failed to load environments:", err);
+  }
+}
+
+// 初始化流水线选择器
+export async function initPipelineSelector(apiBase, onChange) {
+  const select = document.getElementById("globalPipelineSelector");
+  if (!select) return;
+
+  try {
+    const res = await fetch(`${apiBase}/api/v1/pipeline/list`);
+    const json = await res.json();
+    const list = json?.list || json?.data?.list || [];
+
+    select.innerHTML = list.map((pl) => `
+      <option value="${pl.pipeline_key}">${pl.pipeline_name || pl.pipeline_key}</option>
+    `).join("");
+
+    const current = getCurrentPipeline();
+    if (list.some((pl) => pl.pipeline_key === current)) {
+      select.value = current;
+    } else if (list.length > 0) {
+      select.value = list[0].pipeline_key;
+      setCurrentPipeline(select.value);
+    }
+
+    select.addEventListener("change", (e) => {
+      setCurrentPipeline(e.target.value);
+      if (onChange) onChange(e.target.value);
+    });
+  } catch (err) {
+    console.error("Failed to load pipelines:", err);
+  }
 }
 
 export function getNavItem(key) {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>虹桥计划 · 系统业务配置</title>
+    <title>虹桥计划 · 系统配置</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -16,21 +16,21 @@
           <section class="panel">
             <div class="panel-header with-desc">
               <div class="panel-header-text">
-                <span>系统业务配置</span>
-                <p>维护 system 业务下的配置，支持配置对象、图片、文案及色彩标签类型</p>
+                <span>系统配置</span>
+                <p>管理环境维度的系统配置，包括业务选择和系统选项</p>
               </div>
               <div class="panel-actions">
-                <button id="systemNewBtn" class="primary">新建配置</button>
+                <button id="systemNewBtn" class="primary" style="display:none">新建配置</button>
               </div>
             </div>
 
             <div class="panel-subheader">
-              <span id="systemConfigCount">system 配置列表</span>
+              <span id="systemConfigCount">系统配置列表</span>
               <div class="search">
                 <input
                   id="systemSearchInput"
                   type="search"
-                  placeholder="搜索名称 / 别名 / 类型 / 内容"
+                  placeholder="搜索配置键 / 配置值"
                 />
               </div>
             </div>
@@ -40,15 +40,14 @@
                 <thead>
                   <tr>
                     <th>名称</th>
-                    <th>别名</th>
-                    <th>类型</th>
-                    <th>内容</th>
+                    <th>配置键</th>
+                    <th>配置值</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody id="systemConfigTbody"></tbody>
               </table>
-              <div id="systemEmpty" class="empty hidden">system 业务暂未查到配置数据</div>
+              <div id="systemEmpty" class="empty hidden">暂无系统配置数据</div>
             </div>
           </section>
 
@@ -65,49 +64,28 @@
     >
       <div class="modal">
         <div class="modal-header">
-          <h3 id="systemModalTitle">新建 system 配置</h3>
+          <h3 id="systemModalTitle">编辑系统配置</h3>
           <button id="systemModalClose" class="ghost" type="button" data-modal-close>✕</button>
         </div>
         <form id="systemModalForm" class="modal-form">
-          <input type="hidden" name="resourceKey" />
-          <input type="hidden" name="businessKey" value="system" />
           <div class="form-grid">
-            <label>名称 *<input name="name" required data-autofocus /></label>
-            <label>别名 *<input name="alias" required /></label>
-            <label>类型 *
-              <select name="type" id="systemTypeSelect" required>
+            <label>名称<input name="name" readonly /></label>
+            <label>配置键<input name="alias" readonly /></label>
+            <label class="full hidden">类型
+              <select name="type" id="systemTypeSelect">
                 <option value="config">配置对象</option>
-                <option value="image">图片</option>
                 <option value="text">文案</option>
-                <option value="color">色彩标签</option>
               </select>
             </label>
-            <label class="full">内容 *
-              <div id="systemContentConfig" class="content-group">
-                <textarea id="systemContentJson" rows="5" placeholder='请输入合法的 JSON 对象，例如 {"foo":"bar"}'></textarea>
-                <p class="hint small">内容需为 JSON 对象，系统会在保存时校验格式。</p>
+            <label class="full">配置值
+              <div id="systemContentConfig" class="content-group hidden">
+                <textarea id="systemContentJson" rows="5" placeholder='请输入合法的 JSON 对象'></textarea>
               </div>
               <div id="systemContentText" class="content-group hidden">
-                <textarea id="systemContentTextInput" rows="4" placeholder="请输入文案内容"></textarea>
+                <textarea id="systemContentTextInput" rows="4" placeholder="请输入配置值"></textarea>
               </div>
-              <div id="systemContentImage" class="content-group hidden">
-                <div class="image-upload">
-                  <input type="file" id="systemImageFile" accept="image/*" />
-                  <button type="button" id="systemImageUploadBtn" class="ghost mini">上传图片</button>
-                </div>
-                <p id="systemImageStatus" class="hint small"></p>
-                <div id="systemImagePreview" class="image-preview hidden">
-                  <img alt="图片预览" />
-                </div>
-              </div>
-              <div id="systemContentColor" class="content-group hidden">
-                <div class="color-picker">
-                  <input type="color" id="systemColorPicker" value="#1677ff" />
-                  <input type="text" id="systemColorValue" placeholder="#1677FF" maxlength="20" />
-                  <span id="systemColorSwatch" class="color-preview" aria-hidden="true"></span>
-                </div>
-                <p class="hint small">可直接拾色或输入 16 进制色值，例如 #1677FF。</p>
-              </div>
+              <div id="systemContentImage" class="content-group hidden"></div>
+              <div id="systemContentColor" class="content-group hidden"></div>
               <input type="hidden" name="content" id="systemContentInput" />
               <select id="systemBusinessSelect" class="hidden"></select>
               <div id="systemKeyValueEditor" class="kv-editor hidden">
@@ -120,12 +98,7 @@
                 <button type="button" id="systemKeyValueAdd" class="ghost mini">新增一行</button>
               </div>
             </label>
-            <label class="full">备注<input name="remark" placeholder="可选" /></label>
-          </div>
-          <div class="radio-group">
-            <span>是否需要权限：</span>
-            <label><input type="radio" name="isPerm" value="true" /> 是</label>
-            <label><input type="radio" name="isPerm" value="false" checked /> 否</label>
+            <label class="full">备注<input name="remark" placeholder="可选" readonly /></label>
           </div>
           <div class="modal-actions">
             <button type="button" id="systemModalCancel" class="ghost" data-modal-close>取消</button>

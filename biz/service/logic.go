@@ -27,20 +27,22 @@ var (
 
 // Logic contains business rules on top of data persistence.
 type Logic struct {
-	db             *gorm.DB
-	configDAO      *resourcedal.ConfigDAO
-	assetDAO       *resourcedal.AssetDAO
-	environmentDAO *resourcedal.EnvironmentDAO
-	pipelineDAO    *resourcedal.PipelineDAO
+	db              *gorm.DB
+	configDAO       *resourcedal.ConfigDAO
+	assetDAO        *resourcedal.AssetDAO
+	environmentDAO  *resourcedal.EnvironmentDAO
+	pipelineDAO     *resourcedal.PipelineDAO
+	systemConfigDAO *resourcedal.SystemConfigDAO
 }
 
 func NewLogic(db *gorm.DB) *Logic {
 	return &Logic{
-		db:             db,
-		configDAO:      resourcedal.NewConfigDAO(),
-		assetDAO:       resourcedal.NewAssetDAO(),
-		environmentDAO: resourcedal.NewEnvironmentDAO(),
-		pipelineDAO:    resourcedal.NewPipelineDAO(),
+		db:              db,
+		configDAO:       resourcedal.NewConfigDAO(),
+		assetDAO:        resourcedal.NewAssetDAO(),
+		environmentDAO:  resourcedal.NewEnvironmentDAO(),
+		pipelineDAO:     resourcedal.NewPipelineDAO(),
+		systemConfigDAO: resourcedal.NewSystemConfigDAO(),
 	}
 }
 
@@ -327,4 +329,172 @@ func (l *Logic) GetAsset(ctx context.Context, fileID string) (*resourcemodel.Ass
 
 func (l *Logic) ListAssetsByBusinessKey(ctx context.Context, businessKey string) ([]resourcemodel.Asset, error) {
 	return l.assetDAO.ListByBusinessKey(ctx, l.db, businessKey)
+}
+
+// --------------------- SystemConfig Operations ---------------------
+
+var (
+	ErrSystemConfigNotFound    = errors.New("system config not found")
+	ErrInvalidSystemConfigKey  = errors.New("invalid system config key")
+	ErrSystemConfigKeyRequired = errors.New("config_key is required")
+)
+
+// GetSystemConfigValue retrieves a system config value with fallback strategy:
+// 1. Query system_config table
+// 2. Fallback to resource_config table (business_key='system', alias=config_key)
+// 3. Return hardcoded default value
+func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, configKey string) (string, error) {
+	// Step 1: Try system_config table
+	sysConfig, err := l.systemConfigDAO.GetByKey(ctx, l.db, environmentKey, configKey)
+	if err == nil && sysConfig != nil {
+		return sysConfig.ConfigValue, nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", err
+	}
+
+	// Step 2: Fallback to resource_config table
+	cfg, err := l.configDAO.GetByAlias(ctx, l.db, constants.SystemBusinessKey, configKey)
+	if err == nil && cfg != nil {
+		return cfg.Content, nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", err
+	}
+
+	// Step 3: Return default value
+	switch configKey {
+	case constants.SysConfigBusinessSelect:
+		return constants.DefaultBusinessSelect, nil
+	case constants.SysConfigSystemKeys:
+		return constants.DefaultSystemKeys, nil
+	default:
+		return "", ErrSystemConfigNotFound
+	}
+}
+
+// GetSystemConfig retrieves a system config entity with fallback strategy.
+func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey string) (*resourcemodel.SystemConfig, error) {
+	// Step 1: Try system_config table
+	sysConfig, err := l.systemConfigDAO.GetByKey(ctx, l.db, environmentKey, configKey)
+	if err == nil && sysConfig != nil {
+		return sysConfig, nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	// Step 2: Fallback to resource_config table
+	cfg, err := l.configDAO.GetByAlias(ctx, l.db, constants.SystemBusinessKey, configKey)
+	if err == nil && cfg != nil {
+		return &resourcemodel.SystemConfig{
+			EnvironmentKey: environmentKey,
+			ConfigKey:      configKey,
+			ConfigValue:    cfg.Content,
+			Remark:         cfg.Remark,
+		}, nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	// Step 3: Return default value
+	switch configKey {
+	case constants.SysConfigBusinessSelect:
+		return &resourcemodel.SystemConfig{
+			EnvironmentKey: environmentKey,
+			ConfigKey:      configKey,
+			ConfigValue:    constants.DefaultBusinessSelect,
+			Remark:         constants.DefaultSystemConfigRemark[configKey],
+		}, nil
+	case constants.SysConfigSystemKeys:
+		return &resourcemodel.SystemConfig{
+			EnvironmentKey: environmentKey,
+			ConfigKey:      configKey,
+			ConfigValue:    constants.DefaultSystemKeys,
+			Remark:         constants.DefaultSystemConfigRemark[configKey],
+		}, nil
+	default:
+		return nil, ErrSystemConfigNotFound
+	}
+}
+
+// ListSystemConfigsByEnvironment returns all system configs for an environment.
+func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentKey string) ([]resourcemodel.SystemConfig, error) {
+	configs, err := l.systemConfigDAO.ListByEnvironment(ctx, l.db, environmentKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no configs found, return defaults
+	if len(configs) == 0 {
+		return []resourcemodel.SystemConfig{
+			{
+				EnvironmentKey: environmentKey,
+				ConfigKey:      constants.SysConfigBusinessSelect,
+				ConfigValue:    constants.DefaultBusinessSelect,
+				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigBusinessSelect],
+			},
+			{
+				EnvironmentKey: environmentKey,
+				ConfigKey:      constants.SysConfigSystemKeys,
+				ConfigValue:    constants.DefaultSystemKeys,
+				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemKeys],
+			},
+		}, nil
+	}
+
+	return configs, nil
+}
+
+// UpdateSystemConfig updates a system config value.
+// Only business_select and system_keys are allowed to be updated.
+func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKey, configValue string) error {
+	// Validate config key
+	if !constants.IsProtectedSystemConfig(configKey) {
+		return ErrInvalidSystemConfigKey
+	}
+
+	// Check if config exists
+	exists, err := l.systemConfigDAO.ExistsByKey(ctx, l.db, environmentKey, configKey)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		// Update existing config
+		return l.systemConfigDAO.Update(ctx, l.db, environmentKey, configKey, configValue)
+	}
+
+	// Create new config if not exists
+	return l.systemConfigDAO.Create(ctx, l.db, &resourcemodel.SystemConfig{
+		EnvironmentKey: environmentKey,
+		ConfigKey:      configKey,
+		ConfigValue:    configValue,
+		Remark:         constants.DefaultSystemConfigRemark[configKey],
+	})
+}
+
+// InitSystemConfigsForEnvironment initializes default system configs for a new environment.
+func (l *Logic) InitSystemConfigsForEnvironment(ctx context.Context, db *gorm.DB, environmentKey string) error {
+	configs := []resourcemodel.SystemConfig{
+		{
+			EnvironmentKey: environmentKey,
+			ConfigKey:      constants.SysConfigBusinessSelect,
+			ConfigValue:    constants.DefaultBusinessSelect,
+			Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigBusinessSelect],
+		},
+		{
+			EnvironmentKey: environmentKey,
+			ConfigKey:      constants.SysConfigSystemKeys,
+			ConfigValue:    constants.DefaultSystemKeys,
+			Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemKeys],
+		},
+	}
+	return l.systemConfigDAO.BatchCreate(ctx, db, configs)
+}
+
+// DeleteSystemConfigsByEnvironment removes all system configs for an environment (cascade delete).
+func (l *Logic) DeleteSystemConfigsByEnvironment(ctx context.Context, db *gorm.DB, environmentKey string) error {
+	return l.systemConfigDAO.DeleteByEnvironment(ctx, db, environmentKey)
 }

@@ -4,57 +4,165 @@ package asset
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	asset "github.com/yi-nology/rainbow_bridge/biz/model/asset"
-	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
+	"github.com/yi-nology/rainbow_bridge/biz/handler"
+	"github.com/yi-nology/rainbow_bridge/biz/service"
+	"github.com/yi-nology/rainbow_bridge/pkg/common"
+	"github.com/yi-nology/rainbow_bridge/pkg/validator"
 )
+
+var svc *service.Service
+
+func SetService(s *service.Service) {
+	svc = s
+}
 
 // List .
 // @router /api/v1/asset/list [GET]
 func List(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req asset.ListAssetRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	businessKey := strings.TrimSpace(c.Query("business_key"))
+	if businessKey == "" {
+		handler.WriteBadRequest(c, errors.New("business_key is required"))
 		return
 	}
-
-	resp := new(asset.AssetListResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	assets, err := svc.ListAssets(handler.EnrichContext(ctx, c), businessKey)
+	if err != nil {
+		handler.WriteInternalError(c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, common.CommonResponse{
+		Code: consts.StatusOK,
+		Data: map[string]any{
+			"assets": assets,
+		},
+	})
 }
 
 // Upload .
 // @router /api/v1/asset/upload [POST]
 func Upload(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req asset.ListAssetRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	// Check Content-Length header first
+	contentLength := c.Request.Header.ContentLength()
+	if contentLength > handler.MaxUploadSize {
+		handler.WriteBadRequest(c, errors.New("file too large"))
 		return
 	}
 
-	resp := new(asset.UploadAssetResponse)
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		handler.WriteBadRequest(c, err)
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	// Validate file size
+	if fileHeader.Size > handler.MaxUploadSize {
+		handler.WriteBadRequest(c, errors.New("file too large"))
+		return
+	}
+
+	if fileHeader.Size == 0 {
+		handler.WriteBadRequest(c, errors.New("file is empty"))
+		return
+	}
+
+	// Validate MIME type from header
+	declaredType := fileHeader.Header.Get("Content-Type")
+	normalizedType := strings.ToLower(strings.TrimSpace(declaredType))
+	if idx := strings.Index(normalizedType, ";"); idx > 0 {
+		normalizedType = strings.TrimSpace(normalizedType[:idx])
+	}
+	if !handler.AllowedMimeTypes[normalizedType] {
+		handler.WriteBadRequest(c, errors.New("unsupported file type"))
+		return
+	}
+
+	// Validate business key
+	businessKey := string(c.FormValue("business_key"))
+	if businessKey != "" && !validator.ValidateBusinessKey(businessKey) {
+		handler.WriteBadRequest(c, errors.New("invalid business_key format"))
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		handler.WriteBadRequest(c, err)
+		return
+	}
+	defer file.Close()
+
+	// Use LimitReader to prevent reading more than allowed
+	data, err := io.ReadAll(io.LimitReader(file, handler.MaxUploadSize+1))
+	if err != nil {
+		handler.WriteInternalError(c, err)
+		return
+	}
+
+	// Double-check size after reading
+	if int64(len(data)) > handler.MaxUploadSize {
+		handler.WriteBadRequest(c, errors.New("file too large"))
+		return
+	}
+
+	input := &service.FileUploadInput{
+		BusinessKey: businessKey,
+		Remark:      string(c.FormValue("remark")),
+		FileName:    fileHeader.Filename,
+		ContentType: fileHeader.Header.Get("Content-Type"),
+		Data:        data,
+	}
+
+	asset, reference, err := svc.UploadAsset(handler.EnrichContext(ctx, c), input)
+	if err != nil {
+		handler.WriteInternalError(c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, common.CommonResponse{
+		Code: consts.StatusOK,
+		Data: map[string]any{
+			"asset":     asset,
+			"reference": reference,
+		},
+	})
 }
 
 // GetFile .
 // @router /api/v1/asset/file/{file_id} [GET]
 func GetFile(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req asset.GetFileRequest
-	err = c.BindAndValidate(&req)
+	fileID := c.Param("file_id")
+	if fileID == "" {
+		fileID = c.Param("fileID")
+	}
+	asset, path, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		if errors.Is(err, service.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {
+			handler.WriteNotFound(c, err)
+			return
+		}
+		handler.WriteInternalError(c, err)
 		return
 	}
 
-	resp := new(common.OperateResponse)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		handler.WriteInternalError(c, err)
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	contentType := asset.ContentType
+	if contentType == "" {
+		contentType = consts.MIMEApplicationOctetStream
+	}
+	c.Response.Header.Set("Content-Type", contentType)
+	if asset.FileName != "" {
+		c.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", asset.FileName))
+	}
+	c.Data(consts.StatusOK, contentType, content)
 }

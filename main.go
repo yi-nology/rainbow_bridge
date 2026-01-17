@@ -12,7 +12,6 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	hconfig "github.com/cloudwego/hertz/pkg/common/config"
 	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	"github.com/yi-nology/rainbow_bridge/biz/handler"
 	"github.com/yi-nology/rainbow_bridge/biz/middleware"
 	bizrouter "github.com/yi-nology/rainbow_bridge/biz/router"
 	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service"
@@ -24,8 +23,6 @@ import (
 var embeddedWeb embed.FS
 
 func main() {
-	// h := server.Default()
-	//register(h)
 	cfg, err := appconfig.Load("config.yaml")
 	if err != nil {
 		log.Fatalf("load config: %v", err)
@@ -52,15 +49,18 @@ func main() {
 	h := server.Default(opts...)
 
 	resourceService := resourceservice.NewService(db, basePath)
-	resourceHandler := handler.NewResourceHandler(resourceService)
+
+	// Initialize handlers with service
+	bizrouter.InitHandlers(resourceService)
 
 	// Register middleware
 	h.Use(middleware.Recovery())
 	h.Use(middleware.Logging())
 	h.Use(middleware.CORS(&cfg.CORS))
 	h.Use(middleware.Auth())
-
-	bizrouter.RegisterResourceRoutes(h, resourceHandler)
+	// Register generated routes and legacy routes
+	bizrouter.GeneratedRegister(h)
+	bizrouter.RegisterLegacyRoutes(h)
 
 	webFS, err := fs.Sub(embeddedWeb, "web")
 	if err != nil {

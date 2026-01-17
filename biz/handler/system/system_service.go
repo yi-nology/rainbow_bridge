@@ -7,70 +7,59 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
-	system "github.com/yi-nology/rainbow_bridge/biz/model/system"
+	"github.com/yi-nology/rainbow_bridge/biz/handler"
+	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/service"
+	"github.com/yi-nology/rainbow_bridge/pkg/common"
 )
+
+var svc *service.Service
+
+func SetService(s *service.Service) {
+	svc = s
+}
 
 // Init .
 // @router /api/v1/system/init [GET]
 func Init(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req common.Empty
-	err = c.BindAndValidate(&req)
+	initData, err := svc.GetInitData(handler.EnrichContext(ctx, c))
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		handler.WriteInternalError(c, err)
 		return
 	}
-
-	resp := new(system.InitResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, common.CommonResponse{
+		Code: consts.StatusOK,
+		Data: initData,
+	})
 }
 
 // BusinessKeys .
 // @router /api/v1/system/business-keys [GET]
 func BusinessKeys(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req common.Empty
-	err = c.BindAndValidate(&req)
+	keys, err := svc.ListBusinessKeys(handler.EnrichContext(ctx, c))
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		handler.RespondError(c, consts.StatusInternalServerError, err)
 		return
 	}
-
-	resp := new(system.BusinessKeyListResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &api.BusinessKeyListResponse{List: keys})
 }
 
 // Realtime .
 // @router /api/v1/system/realtime [GET]
 func Realtime(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req common.Empty
-	err = c.BindAndValidate(&req)
+	payload, err := svc.GetRealtimeStaticConfig(handler.EnrichContext(ctx, c))
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		handler.WriteInternalError(c, err)
 		return
 	}
-
-	resp := new(system.RealtimeResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, payload)
 }
 
 // Health .
 // @router /api/v1/system/health [GET]
 func Health(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req common.Empty
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
-
-	resp := new(common.OperateResponse)
-
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, common.CommonResponse{
+		Code: consts.StatusOK,
+		Msg:  "ok",
+	})
 }

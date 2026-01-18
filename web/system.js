@@ -88,7 +88,7 @@ const systemModal = createModal("systemModal", {
   
   await initEnvSelector(state.apiBase, async (envKey) => {
     state.currentEnvironment = envKey;
-    // 环境切换时，重新加载流水线列表
+    // 环境切换时，重新加载渠道列表
     if (pipelineReloader) {
       await pipelineReloader.reload();
     }
@@ -795,8 +795,8 @@ async function onImageUpload() {
   const environmentKey = getCurrentEnvironment();
   const pipelineKey = getCurrentPipeline();
   if (!environmentKey || !pipelineKey) {
-    setImageUploadStatus("请先选择环境和流水线", true);
-    showToast("请先选择环境和流水线");
+    setImageUploadStatus("请先选择环境和渠道", true);
+    showToast("请先选择环境和渠道");
     return;
   }
   const formData = new FormData();

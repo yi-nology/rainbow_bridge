@@ -38,7 +38,7 @@ func (s *Service) GetRuntimeConfig(ctx context.Context, environmentKey, pipeline
 		return nil, err
 	}
 
-	// 验证流水线是否存在
+	// 验证渠道是否存在
 	pipeline, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, environmentKey, pipelineKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -87,7 +87,7 @@ func (s *Service) ExportStaticPackage(ctx context.Context, environmentKey, pipel
 		return nil, "", err
 	}
 
-	// 验证流水线是否存在
+	// 验证渠道是否存在
 	pipeline, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, environmentKey, pipelineKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

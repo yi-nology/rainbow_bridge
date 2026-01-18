@@ -150,7 +150,7 @@ async function fetchExportPipelines() {
     }
     renderExportPipelineTabs();
   } catch (err) {
-    showToast(`获取流水线列表失败：${err.message || err}`);
+    showToast(`获取渠道列表失败：${err.message || err}`);
   }
 }
 
@@ -171,7 +171,7 @@ function renderExportEnvTabs() {
 function renderExportPipelineTabs() {
   if (!el.exportPipelineList) return;
   if (!state.export.pipelines.length) {
-    el.exportPipelineList.innerHTML = `<span class="selector-empty">暂无流水线数据</span>`;
+    el.exportPipelineList.innerHTML = `<span class="selector-empty">暂无渠道数据</span>`;
     return;
   }
   el.exportPipelineList.innerHTML = state.export.pipelines.map((pl) => `
@@ -201,7 +201,7 @@ async function onExportZip() {
   if (state.export.exportingZip) return;
   
   const includeSystemConfig = confirm(
-    "导出所有环境和流水线的配置\n\n" +
+    "导出所有环境和渠道的配置\n\n" +
     "默认导出：所有业务配置 + 图片资源\n\n" +
     "是否一并导出系统配置？\n\n" +
     "点击'确定'：业务配置 + 系统配置 + 图片资源\n" +
@@ -213,8 +213,8 @@ async function onExportZip() {
   try {
     await downloadExportZipAll(includeSystemConfig);
     const msg = includeSystemConfig 
-      ? `配置 ZIP 已导出：所有环境和流水线（包含业务配置、系统配置、图片资源）`
-      : `配置 ZIP 已导出：所有环境和流水线（包含业务配置、图片资源）`;
+      ? `配置 ZIP 已导出：所有环境和渠道（包含业务配置、系统配置、图片资源）`
+      : `配置 ZIP 已导出：所有环境和渠道（包含业务配置、图片资源）`;
     showToast(msg);
   } catch (err) {
     showToast(err.message || "导出失败");
@@ -231,7 +231,7 @@ async function onExportStatic() {
     return;
   }
   if (!state.export.selectedPipeline) {
-    showToast("请选择流水线");
+    showToast("请选择渠道");
     return;
   }
   state.export.exportingStatic = true;
@@ -241,7 +241,7 @@ async function onExportStatic() {
     await downloadStaticBundle();
     state.export.lastStaticSummary = summary;
     renderSummary(el.staticSummary, summary, "尚未导出静态资源包");
-    showToast(`Nginx 静态包已导出：环境 ${state.export.selectedEnv}，流水线 ${state.export.selectedPipeline}`);
+    showToast(`Nginx 静态包已导出：环境 ${state.export.selectedEnv}，渠道 ${state.export.selectedPipeline}`);
   } catch (err) {
     showToast(err.message || "导出失败");
   } finally {
@@ -332,7 +332,7 @@ async function fetchImportPipelines() {
     }
     renderImportPipelineTabs();
   } catch (err) {
-    showToast(`获取流水线列表失败：${err.message || err}`);
+    showToast(`获取渠道列表失败：${err.message || err}`);
   }
 }
 
@@ -353,7 +353,7 @@ function renderImportEnvTabs() {
 function renderImportPipelineTabs() {
   if (!el.importPipelineList) return;
   if (!state.import.pipelines.length) {
-    el.importPipelineList.innerHTML = `<span class="selector-empty">暂无流水线数据</span>`;
+    el.importPipelineList.innerHTML = `<span class="selector-empty">暂无渠道数据</span>`;
     return;
   }
   el.importPipelineList.innerHTML = state.import.pipelines.map((pl) => `
@@ -386,7 +386,7 @@ async function onImportZip(evt) {
     return;
   }
   if (!state.import.selectedPipeline) {
-    showToast("请选择目标流水线");
+    showToast("请选择目标渠道");
     return;
   }
   const formData = new FormData(el.importForm);
@@ -410,7 +410,7 @@ async function onImportZip(evt) {
     state.import.lastImportSummary = summary;
     renderSummary(el.importSummary, summary, "尚未执行导入");
     const total = summary?.total || 0;
-    showToast(`导入完成，共写入 ${total} 条配置到环境 ${state.import.selectedEnv}，流水线 ${state.import.selectedPipeline}`);
+    showToast(`导入完成，共写入 ${total} 条配置到环境 ${state.import.selectedEnv}，渠道 ${state.import.selectedPipeline}`);
     el.importForm.reset();
   } catch (err) {
     showToast(err.message || "导入失败");

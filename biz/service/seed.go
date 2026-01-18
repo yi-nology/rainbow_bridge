@@ -14,7 +14,7 @@ const (
 	DefaultEnvironmentKey  = "default"
 	DefaultEnvironmentName = "默认环境"
 	DefaultPipelineKey     = "default"
-	DefaultPipelineName    = "默认流水线"
+	DefaultPipelineName    = "默认渠道"
 )
 
 // InitDefaultEnvironment creates the default environment if it doesn't exist.
@@ -57,7 +57,7 @@ func (s *Service) InitDefaultPipeline(ctx context.Context) error {
 		EnvironmentKey: DefaultEnvironmentKey,
 		PipelineKey:    DefaultPipelineKey,
 		PipelineName:   DefaultPipelineName,
-		Description:    "系统默认流水线",
+		Description:    "系统默认渠道",
 		SortOrder:      0,
 		IsActive:       true,
 	}
@@ -162,7 +162,7 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 			EnvironmentKey: DefaultEnvironmentKey,
 			PipelineKey:    DefaultPipelineKey,
 			PipelineName:   DefaultPipelineName,
-			Description:    "系统默认流水线",
+			Description:    "系统默认渠道",
 			SortOrder:      0,
 			IsActive:       true,
 		}

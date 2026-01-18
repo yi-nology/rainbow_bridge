@@ -47,7 +47,7 @@ const assetModal = createModal("assetModal", {
   let pipelineReloader = null;
   
   await initEnvSelector(state.apiBase, async () => {
-    // 环境切换时，重新加载流水线列表
+    // 环境切换时，重新加载渠道列表
     if (pipelineReloader) {
       await pipelineReloader.reload();
     }
@@ -75,7 +75,7 @@ el.modalForm.addEventListener("submit", async (evt) => {
   const environmentKey = getCurrentEnvironment();
   const pipelineKey = getCurrentPipeline();
   if (!environmentKey || !pipelineKey) {
-    showToast("请先选择环境和流水线");
+    showToast("请先选择环境和渠道");
     return;
   }
   formData.set("environment_key", environmentKey);

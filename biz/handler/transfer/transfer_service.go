@@ -79,7 +79,7 @@ func Export(ctx context.Context, c *app.RequestContext) {
 	includeSystemConfig := strings.ToLower(strings.TrimSpace(c.Query("include_system_config"))) == "true"
 	systemConfigOnly := strings.ToLower(strings.TrimSpace(c.Query("system_config_only"))) == "true"
 
-	// 如果 environment_key 和 pipeline_key 都为空或为 "all"，导出所有环境和流水线
+	// 如果 environment_key 和 pipeline_key 都为空或为 "all"，导出所有环境和渠道
 	if (environmentKey == "" || environmentKey == "all") && (pipelineKey == "" || pipelineKey == "all") {
 		switch format {
 		case "zip":

@@ -11,7 +11,7 @@ var (
 	ErrResourceNotFound      = errors.New("resource not found")
 	ErrAssetNotFound         = errors.New("asset not found")
 	ErrProtectedSystemConfig = errors.New("系统保留配置禁止删除")
-	ErrConfigAliasExists     = errors.New("该环境和流水线下已存在相同别名的配置")
+	ErrConfigAliasExists     = errors.New("该环境和渠道下已存在相同别名的配置")
 )
 
 // Logic contains business rules on top of data persistence.

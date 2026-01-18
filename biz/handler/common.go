@@ -9,8 +9,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
-	"github.com/yi-nology/rainbow_bridge/pkg/common"
+	"github.com/yi-nology/rainbow_bridge/biz/model/common"
+	"github.com/yi-nology/rainbow_bridge/biz/model/transfer"
+	pkgcommon "github.com/yi-nology/rainbow_bridge/pkg/common"
 )
 
 // Upload constraints
@@ -33,7 +34,7 @@ var AllowedMimeTypes = map[string]bool{
 func EnrichContext(ctx context.Context, c *app.RequestContext) context.Context {
 	if userHeader := c.GetHeader("X-User-Id"); len(userHeader) > 0 {
 		if id, err := strconv.Atoi(string(userHeader)); err == nil {
-			ctx = common.ContextWithUserID(ctx, id)
+			ctx = pkgcommon.ContextWithUserID(ctx, id)
 		}
 	}
 	clientVersion := string(c.GetHeader("X-Client-Version"))
@@ -41,13 +42,13 @@ func EnrichContext(ctx context.Context, c *app.RequestContext) context.Context {
 		clientVersion = c.Query("client_version")
 	}
 	if clientVersion != "" {
-		ctx = common.ContextWithClientVersion(ctx, clientVersion)
+		ctx = pkgcommon.ContextWithClientVersion(ctx, clientVersion)
 	}
 	return ctx
 }
 
 func WriteBadRequest(c *app.RequestContext, err error) {
-	c.JSON(consts.StatusOK, common.CommonResponse{
+	c.JSON(consts.StatusOK, pkgcommon.CommonResponse{
 		Code:  consts.StatusBadRequest,
 		Msg:   err.Error(),
 		Error: err.Error(),
@@ -55,7 +56,7 @@ func WriteBadRequest(c *app.RequestContext, err error) {
 }
 
 func WriteInternalError(c *app.RequestContext, err error) {
-	c.JSON(consts.StatusOK, common.CommonResponse{
+	c.JSON(consts.StatusOK, pkgcommon.CommonResponse{
 		Code:  consts.StatusInternalServerError,
 		Msg:   "internal error",
 		Error: err.Error(),
@@ -63,7 +64,7 @@ func WriteInternalError(c *app.RequestContext, err error) {
 }
 
 func WriteNotFound(c *app.RequestContext, err error) {
-	c.JSON(consts.StatusOK, common.CommonResponse{
+	c.JSON(consts.StatusOK, pkgcommon.CommonResponse{
 		Code:  consts.StatusNotFound,
 		Msg:   err.Error(),
 		Error: err.Error(),
@@ -72,8 +73,16 @@ func WriteNotFound(c *app.RequestContext, err error) {
 
 // --------------------- Response helpers ---------------------
 
-func RespondConfig(c *app.RequestContext, cfg *api.ResourceConfig) {
-	c.JSON(consts.StatusOK, &api.OperateResponse{
+// Response type for config operations
+type ConfigOperateResponse struct {
+	Code   int32                     `json:"code"`
+	Msg    string                    `json:"msg,omitempty"`
+	Error  string                    `json:"error,omitempty"`
+	Config *common.ResourceConfig    `json:"config,omitempty"`
+}
+
+func RespondConfig(c *app.RequestContext, cfg *common.ResourceConfig) {
+	c.JSON(consts.StatusOK, &ConfigOperateResponse{
 		Code:   consts.StatusOK,
 		Msg:    http.StatusText(consts.StatusOK),
 		Config: cfg,
@@ -81,15 +90,15 @@ func RespondConfig(c *app.RequestContext, cfg *api.ResourceConfig) {
 }
 
 func RespondOK(c *app.RequestContext) {
-	c.JSON(consts.StatusOK, &api.OperateResponse{Code: consts.StatusOK, Msg: http.StatusText(consts.StatusOK)})
+	c.JSON(consts.StatusOK, &common.OperateResponse{Code: consts.StatusOK, Msg: http.StatusText(consts.StatusOK)})
 }
 
-func RespondOKWithSummary(c *app.RequestContext, summary *api.ConfigSummary) {
+func RespondOKWithSummary(c *app.RequestContext, summary *transfer.ImportSummary) {
 	if summary == nil {
 		RespondOK(c)
 		return
 	}
-	c.JSON(consts.StatusOK, &api.OperateResponseWithSummary{
+	c.JSON(consts.StatusOK, &transfer.ImportResponse{
 		Code:    consts.StatusOK,
 		Msg:     http.StatusText(consts.StatusOK),
 		Summary: summary,
@@ -101,8 +110,8 @@ func RespondError(c *app.RequestContext, status int, err error) {
 	if err != nil {
 		msg = err.Error()
 	}
-	c.JSON(consts.StatusOK, &api.OperateResponse{
-		Code:  status,
+	c.JSON(consts.StatusOK, &common.OperateResponse{
+		Code:  int32(status),
 		Msg:   msg,
 		Error: msg,
 	})
@@ -139,18 +148,18 @@ func SanitizeBusinessKeys(keys []string) []string {
 	return result
 }
 
-func BuildConfigSummary(configs []*api.ResourceConfig) *api.ConfigSummary {
+func BuildConfigSummary(configs []*common.ResourceConfig) *transfer.ImportSummary {
 	if len(configs) == 0 {
-		return &api.ConfigSummary{
+		return &transfer.ImportSummary{
 			EnvironmentKeys: []string{},
 			PipelineKeys:    []string{},
-			Items:           []api.ConfigSummaryItem{},
+			Items:           []*transfer.ImportSummaryItem{},
 		}
 	}
 
 	envSet := make(map[string]struct{})
 	pipeSet := make(map[string]struct{})
-	items := make([]api.ConfigSummaryItem, 0, len(configs))
+	items := make([]*transfer.ImportSummaryItem, 0, len(configs))
 
 	for _, cfg := range configs {
 		if cfg == nil {
@@ -164,7 +173,7 @@ func BuildConfigSummary(configs []*api.ResourceConfig) *api.ConfigSummary {
 		if pipeKey != "" {
 			pipeSet[pipeKey] = struct{}{}
 		}
-		items = append(items, api.ConfigSummaryItem{
+		items = append(items, &transfer.ImportSummaryItem{
 			ResourceKey:    cfg.ResourceKey,
 			EnvironmentKey: envKey,
 			PipelineKey:    pipeKey,
@@ -199,8 +208,8 @@ func BuildConfigSummary(configs []*api.ResourceConfig) *api.ConfigSummary {
 	}
 	sort.Strings(pipeKeys)
 
-	return &api.ConfigSummary{
-		Total:           len(items),
+	return &transfer.ImportSummary{
+		Total:           int32(len(items)),
 		EnvironmentKeys: envKeys,
 		PipelineKeys:    pipeKeys,
 		Items:           items,

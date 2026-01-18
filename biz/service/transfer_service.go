@@ -68,12 +68,8 @@ func (s *Service) ExportSystemSelectedStaticBundle(ctx context.Context) ([]byte,
 }
 
 func (s *Service) ExportStaticBundleAll(ctx context.Context) ([]byte, string, error) {
-	// Get all environments and pipelines
+	// Get all environments
 	environments, err := s.logic.ListEnvironments(ctx)
-	if err != nil {
-		return nil, "", err
-	}
-	pipelines, err := s.logic.ListPipelines(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -83,6 +79,11 @@ func (s *Service) ExportStaticBundleAll(ctx context.Context) ([]byte, string, er
 	businessKeys := make([]string, 0)
 
 	for _, env := range environments {
+		// Get pipelines for this environment
+		pipelines, err := s.ListPipelines(ctx, env.EnvironmentKey, nil)
+		if err != nil {
+			continue // Skip this environment if error
+		}
 		for _, pipe := range pipelines {
 			configs, err := s.logic.ExportConfigs(ctx, env.EnvironmentKey, pipe.PipelineKey)
 			if err != nil {

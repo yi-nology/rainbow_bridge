@@ -44,7 +44,7 @@ func (s *Service) InitDefaultEnvironment(ctx context.Context) error {
 
 // InitDefaultPipeline creates the default pipeline if it doesn't exist.
 func (s *Service) InitDefaultPipeline(ctx context.Context) error {
-	exists, err := s.logic.pipelineDAO.ExistsByKey(ctx, s.logic.db, DefaultPipelineKey)
+	exists, err := s.logic.pipelineDAO.ExistsByKey(ctx, s.logic.db, DefaultEnvironmentKey, DefaultPipelineKey)
 	if err != nil {
 		return err
 	}
@@ -54,11 +54,12 @@ func (s *Service) InitDefaultPipeline(ctx context.Context) error {
 	}
 
 	pl := &model.Pipeline{
-		PipelineKey:  DefaultPipelineKey,
-		PipelineName: DefaultPipelineName,
-		Description:  "系统默认流水线",
-		SortOrder:    0,
-		IsActive:     true,
+		EnvironmentKey: DefaultEnvironmentKey,
+		PipelineKey:    DefaultPipelineKey,
+		PipelineName:   DefaultPipelineName,
+		Description:    "系统默认流水线",
+		SortOrder:      0,
+		IsActive:       true,
 	}
 	if err := s.logic.pipelineDAO.Create(ctx, s.logic.db, pl); err != nil {
 		return err
@@ -150,17 +151,18 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 	}
 
 	// Create default pipeline
-	plExists, err := plDAO.ExistsByKey(ctx, dbConn, DefaultPipelineKey)
+	plExists, err := plDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey, DefaultPipelineKey)
 	if err != nil {
 		return err
 	}
 	if !plExists {
 		pl := &model.Pipeline{
-			PipelineKey:  DefaultPipelineKey,
-			PipelineName: DefaultPipelineName,
-			Description:  "系统默认流水线",
-			SortOrder:    0,
-			IsActive:     true,
+			EnvironmentKey: DefaultEnvironmentKey,
+			PipelineKey:    DefaultPipelineKey,
+			PipelineName:   DefaultPipelineName,
+			Description:    "系统默认流水线",
+			SortOrder:      0,
+			IsActive:       true,
 		}
 		if err := plDAO.Create(ctx, dbConn, pl); err != nil {
 			return err

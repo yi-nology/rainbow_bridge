@@ -17,23 +17,26 @@ message UpdateConfigRequest {
 
 // DeleteConfigRequest is used for deleting a config.
 message DeleteConfigRequest {
-  string business_key = 1;
-  string resource_key = 2;
+  string environment_key = 1;
+  string pipeline_key = 2;
+  string resource_key = 3;
 }
 
 // ListConfigRequest is used to list configs with filters.
 message ListConfigRequest {
-  string business_key = 1;
-  string type = 2;
-  string min_version = 3;
-  string max_version = 4;
-  bool is_latest = 5;
+  string environment_key = 1;
+  string pipeline_key = 2;
+  string type = 3;
+  string min_version = 4;
+  string max_version = 5;
+  bool is_latest = 6;
 }
 
 // ConfigDetailRequest is used to get a specific config.
 message ConfigDetailRequest {
-  string business_key = 1;
-  string resource_key = 2;
+  string environment_key = 1;
+  string pipeline_key = 2;
+  string resource_key = 3;
 }
 
 // ConfigResponse is a response containing a config.

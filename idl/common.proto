@@ -8,7 +8,8 @@ message ResourceConfig {
   string resource_key = 1;
   string alias = 2;
   string name = 3;
-  string business_key = 5;
+  string environment_key = 4;
+  string pipeline_key = 5;
   string content = 6;
   string type = 7;
   string remark = 8;
@@ -18,12 +19,13 @@ message ResourceConfig {
 // FileAsset represents an uploaded file.
 message FileAsset {
   string file_id = 1;
-  string business_key = 2;
-  string file_name = 3;
-  string content_type = 4;
-  int64 file_size = 5;
-  string url = 6;
-  string remark = 7;
+  string environment_key = 2;
+  string pipeline_key = 3;
+  string file_name = 4;
+  string content_type = 5;
+  int64 file_size = 6;
+  string url = 7;
+  string remark = 8;
 }
 
 // OperateResponse is a common response for operations.

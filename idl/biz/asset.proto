@@ -6,7 +6,8 @@ import "common.proto";
 
 // ListAssetRequest is used to list assets.
 message ListAssetRequest {
-  string business_key = 1;
+  string environment_key = 1;
+  string pipeline_key = 2;
 }
 
 // AssetListResponse contains a list of assets.

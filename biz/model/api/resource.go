@@ -3,14 +3,15 @@ package api
 
 // ResourceConfig represents a configuration item.
 type ResourceConfig struct {
-	ResourceKey string `json:"resource_key,omitempty"`
-	Alias       string `json:"alias,omitempty"`
-	Name        string `json:"name,omitempty"`
-	BusinessKey string `json:"business_key,omitempty"`
-	Content     string `json:"content,omitempty"`
-	Type        string `json:"type,omitempty"`
-	Remark      string `json:"remark,omitempty"`
-	IsPerm      bool   `json:"is_perm,omitempty"`
+	ResourceKey    string `json:"resource_key,omitempty"`
+	Alias          string `json:"alias,omitempty"`
+	Name           string `json:"name,omitempty"`
+	EnvironmentKey string `json:"environment_key,omitempty"`
+	PipelineKey    string `json:"pipeline_key,omitempty"`
+	Content        string `json:"content,omitempty"`
+	Type           string `json:"type,omitempty"`
+	Remark         string `json:"remark,omitempty"`
+	IsPerm         bool   `json:"is_perm,omitempty"`
 }
 
 // Getter methods for ResourceConfig
@@ -35,9 +36,16 @@ func (x *ResourceConfig) GetName() string {
 	return ""
 }
 
-func (x *ResourceConfig) GetBusinessKey() string {
+func (x *ResourceConfig) GetEnvironmentKey() string {
 	if x != nil {
-		return x.BusinessKey
+		return x.EnvironmentKey
+	}
+	return ""
+}
+
+func (x *ResourceConfig) GetPipelineKey() string {
+	if x != nil {
+		return x.PipelineKey
 	}
 	return ""
 }
@@ -72,13 +80,14 @@ func (x *ResourceConfig) GetIsPerm() bool {
 
 // FileAsset represents an uploaded file asset.
 type FileAsset struct {
-	FileId      string `json:"file_id,omitempty"`
-	BusinessKey string `json:"business_key,omitempty"`
-	FileName    string `json:"file_name,omitempty"`
-	ContentType string `json:"content_type,omitempty"`
-	FileSize    int64  `json:"file_size,omitempty"`
-	Url         string `json:"url,omitempty"`
-	Remark      string `json:"remark,omitempty"`
+	FileId         string `json:"file_id,omitempty"`
+	EnvironmentKey string `json:"environment_key,omitempty"`
+	PipelineKey    string `json:"pipeline_key,omitempty"`
+	FileName       string `json:"file_name,omitempty"`
+	ContentType    string `json:"content_type,omitempty"`
+	FileSize       int64  `json:"file_size,omitempty"`
+	Url            string `json:"url,omitempty"`
+	Remark         string `json:"remark,omitempty"`
 }
 
 // Getter methods for FileAsset
@@ -89,9 +98,16 @@ func (x *FileAsset) GetFileId() string {
 	return ""
 }
 
-func (x *FileAsset) GetBusinessKey() string {
+func (x *FileAsset) GetEnvironmentKey() string {
 	if x != nil {
-		return x.BusinessKey
+		return x.EnvironmentKey
+	}
+	return ""
+}
+
+func (x *FileAsset) GetPipelineKey() string {
+	if x != nil {
+		return x.PipelineKey
 	}
 	return ""
 }
@@ -145,13 +161,21 @@ func (x *CreateOrUpdateConfigRequest) GetConfig() *ResourceConfig {
 
 // ResourceDeleteRequest is the request for deleting a config.
 type ResourceDeleteRequest struct {
-	BusinessKey string `json:"business_key"`
-	ResourceKey string `json:"resource_key"`
+	EnvironmentKey string `json:"environment_key"`
+	PipelineKey    string `json:"pipeline_key"`
+	ResourceKey    string `json:"resource_key"`
 }
 
-func (x *ResourceDeleteRequest) GetBusinessKey() string {
+func (x *ResourceDeleteRequest) GetEnvironmentKey() string {
 	if x != nil {
-		return x.BusinessKey
+		return x.EnvironmentKey
+	}
+	return ""
+}
+
+func (x *ResourceDeleteRequest) GetPipelineKey() string {
+	if x != nil {
+		return x.PipelineKey
 	}
 	return ""
 }
@@ -165,16 +189,24 @@ func (x *ResourceDeleteRequest) GetResourceKey() string {
 
 // ResourceQueryRequest is the request for querying configs.
 type ResourceQueryRequest struct {
-	BusinessKey string `json:"business_key"`
-	Type        string `json:"type,omitempty"`
-	MinVersion  string `json:"min_version,omitempty"`
-	MaxVersion  string `json:"max_version,omitempty"`
-	IsLatest    bool   `json:"is_latest,omitempty"`
+	EnvironmentKey string `json:"environment_key"`
+	PipelineKey    string `json:"pipeline_key"`
+	Type           string `json:"type,omitempty"`
+	MinVersion     string `json:"min_version,omitempty"`
+	MaxVersion     string `json:"max_version,omitempty"`
+	IsLatest       bool   `json:"is_latest,omitempty"`
 }
 
-func (x *ResourceQueryRequest) GetBusinessKey() string {
+func (x *ResourceQueryRequest) GetEnvironmentKey() string {
 	if x != nil {
-		return x.BusinessKey
+		return x.EnvironmentKey
+	}
+	return ""
+}
+
+func (x *ResourceQueryRequest) GetPipelineKey() string {
+	if x != nil {
+		return x.PipelineKey
 	}
 	return ""
 }
@@ -209,13 +241,21 @@ func (x *ResourceQueryRequest) GetIsLatest() bool {
 
 // ResourceDetailRequest is the request for getting config detail.
 type ResourceDetailRequest struct {
-	BusinessKey string `json:"business_key"`
-	ResourceKey string `json:"resource_key"`
+	EnvironmentKey string `json:"environment_key"`
+	PipelineKey    string `json:"pipeline_key"`
+	ResourceKey    string `json:"resource_key"`
 }
 
-func (x *ResourceDetailRequest) GetBusinessKey() string {
+func (x *ResourceDetailRequest) GetEnvironmentKey() string {
 	if x != nil {
-		return x.BusinessKey
+		return x.EnvironmentKey
+	}
+	return ""
+}
+
+func (x *ResourceDetailRequest) GetPipelineKey() string {
+	if x != nil {
+		return x.PipelineKey
 	}
 	return ""
 }
@@ -229,22 +269,22 @@ func (x *ResourceDetailRequest) GetResourceKey() string {
 
 // ResourceExportRequest is the request for exporting configs.
 type ResourceExportRequest struct {
-	BusinessKey   string `json:"business_key"`
-	IncludeSystem bool   `json:"include_system,omitempty"`
+	EnvironmentKey string `json:"environment_key"`
+	PipelineKey    string `json:"pipeline_key"`
 }
 
-func (x *ResourceExportRequest) GetBusinessKey() string {
+func (x *ResourceExportRequest) GetEnvironmentKey() string {
 	if x != nil {
-		return x.BusinessKey
+		return x.EnvironmentKey
 	}
 	return ""
 }
 
-func (x *ResourceExportRequest) GetIncludeSystem() bool {
+func (x *ResourceExportRequest) GetPipelineKey() string {
 	if x != nil {
-		return x.IncludeSystem
+		return x.PipelineKey
 	}
-	return false
+	return ""
 }
 
 // ResourceImportRequest is the request for importing configs.
@@ -297,18 +337,20 @@ type BusinessKeyListResponse struct {
 
 // ConfigSummary contains summary information for import/export operations.
 type ConfigSummary struct {
-	Total        int                 `json:"total"`
-	BusinessKeys []string            `json:"businessKeys"`
-	Items        []ConfigSummaryItem `json:"items"`
+	Total           int                 `json:"total"`
+	EnvironmentKeys []string            `json:"environmentKeys"`
+	PipelineKeys    []string            `json:"pipelineKeys"`
+	Items           []ConfigSummaryItem `json:"items"`
 }
 
 // ConfigSummaryItem represents a single item in the config summary.
 type ConfigSummaryItem struct {
-	ResourceKey string `json:"resourceKey"`
-	BusinessKey string `json:"businessKey"`
-	Name        string `json:"name"`
-	Alias       string `json:"alias"`
-	Type        string `json:"type"`
+	ResourceKey    string `json:"resourceKey"`
+	EnvironmentKey string `json:"environmentKey"`
+	PipelineKey    string `json:"pipelineKey"`
+	Name           string `json:"name"`
+	Alias          string `json:"alias"`
+	Type           string `json:"type"`
 }
 
 // OperateResponseWithSummary extends OperateResponse with a summary.

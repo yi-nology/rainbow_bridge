@@ -31,11 +31,12 @@ var (
 
 // FileUploadInput captures metadata and payload for asset uploads.
 type FileUploadInput struct {
-	BusinessKey string
-	Remark      string
-	FileName    string
-	ContentType string
-	Data        []byte
+	EnvironmentKey string
+	PipelineKey    string
+	Remark         string
+	FileName       string
+	ContentType    string
+	Data           []byte
 }
 
 // Service orchestrates config and asset operations using Logic.
@@ -58,14 +59,15 @@ func pbConfigToModel(cfg *api.ResourceConfig) *model.Config {
 		return &model.Config{}
 	}
 	return &model.Config{
-		ResourceKey: cfg.GetResourceKey(),
-		Alias:       cfg.GetAlias(),
-		Name:        cfg.GetName(),
-		BusinessKey: cfg.GetBusinessKey(),
-		Content:     cfg.GetContent(),
-		Type:        cfg.GetType(),
-		Remark:      cfg.GetRemark(),
-		IsPerm:      cfg.GetIsPerm(),
+		ResourceKey:    cfg.GetResourceKey(),
+		Alias:          cfg.GetAlias(),
+		Name:           cfg.GetName(),
+		EnvironmentKey: cfg.GetEnvironmentKey(),
+		PipelineKey:    cfg.GetPipelineKey(),
+		Content:        cfg.GetContent(),
+		Type:           cfg.GetType(),
+		Remark:         cfg.GetRemark(),
+		IsPerm:         cfg.GetIsPerm(),
 	}
 }
 
@@ -74,14 +76,15 @@ func modelConfigToPB(cfg *model.Config) *api.ResourceConfig {
 		return nil
 	}
 	return &api.ResourceConfig{
-		ResourceKey: cfg.ResourceKey,
-		Alias:       cfg.Alias,
-		Name:        cfg.Name,
-		BusinessKey: cfg.BusinessKey,
-		Content:     cfg.Content,
-		Type:        cfg.Type,
-		Remark:      cfg.Remark,
-		IsPerm:      cfg.IsPerm,
+		ResourceKey:    cfg.ResourceKey,
+		Alias:          cfg.Alias,
+		Name:           cfg.Name,
+		EnvironmentKey: cfg.EnvironmentKey,
+		PipelineKey:    cfg.PipelineKey,
+		Content:        cfg.Content,
+		Type:           cfg.Type,
+		Remark:         cfg.Remark,
+		IsPerm:         cfg.IsPerm,
 	}
 }
 
@@ -98,13 +101,14 @@ func assetModelToPB(asset *model.Asset) *api.FileAsset {
 		return nil
 	}
 	return &api.FileAsset{
-		FileId:      asset.FileID,
-		BusinessKey: asset.BusinessKey,
-		FileName:    asset.FileName,
-		ContentType: asset.ContentType,
-		FileSize:    asset.FileSize,
-		Url:         asset.URL,
-		Remark:      asset.Remark,
+		FileId:         asset.FileID,
+		EnvironmentKey: asset.EnvironmentKey,
+		PipelineKey:    asset.PipelineKey,
+		FileName:       asset.FileName,
+		ContentType:    asset.ContentType,
+		FileSize:       asset.FileSize,
+		Url:            asset.URL,
+		Remark:         asset.Remark,
 	}
 }
 

@@ -47,7 +47,8 @@ func BusinessKeys(ctx context.Context, c *app.RequestContext) {
 // Realtime .
 // @router /api/v1/system/realtime [GET]
 func Realtime(ctx context.Context, c *app.RequestContext) {
-	payload, err := svc.GetRealtimeStaticConfig(handler.EnrichContext(ctx, c))
+	// Use default environment and pipeline for realtime config
+	payload, err := svc.GetRealtimeStaticConfig(handler.EnrichContext(ctx, c), "default", "default")
 	if err != nil {
 		handler.WriteInternalError(c, err)
 		return

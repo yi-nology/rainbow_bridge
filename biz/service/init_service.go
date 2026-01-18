@@ -39,8 +39,8 @@ func (s *Service) GetInitData(ctx context.Context) (*InitData, error) {
 		return nil, err
 	}
 
-	// 3. Get realtime config (same as nginx-config)
-	realtimeConfig, err := s.GetRealtimeStaticConfig(ctx)
+	// 3. Get realtime config (using default environment and pipeline)
+	realtimeConfig, err := s.GetRealtimeStaticConfig(ctx, "default", "default")
 	if err != nil {
 		return nil, err
 	}

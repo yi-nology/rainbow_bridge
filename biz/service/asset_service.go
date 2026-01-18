@@ -15,12 +15,13 @@ import (
 
 // --------------------- Asset operations ---------------------
 
-func (s *Service) ListAssets(ctx context.Context, businessKey string) ([]*api.FileAsset, error) {
-	key := strings.TrimSpace(businessKey)
-	if key == "" {
-		return nil, errors.New("business_key is required")
+func (s *Service) ListAssets(ctx context.Context, environmentKey, pipelineKey string) ([]*api.FileAsset, error) {
+	envKey := strings.TrimSpace(environmentKey)
+	pipeKey := strings.TrimSpace(pipelineKey)
+	if envKey == "" || pipeKey == "" {
+		return nil, errors.New("environment_key and pipeline_key are required")
 	}
-	assets, err := s.logic.ListAssetsByBusinessKey(ctx, key)
+	assets, err := s.logic.ListAssetsByEnvironmentAndPipeline(ctx, envKey, pipeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +35,8 @@ func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*api
 	if len(input.Data) == 0 {
 		return nil, "", errors.New("file data is empty")
 	}
-	if input.BusinessKey == "" {
-		return nil, "", errors.New("business_key is required")
+	if input.EnvironmentKey == "" || input.PipelineKey == "" {
+		return nil, "", errors.New("environment_key and pipeline_key are required")
 	}
 
 	fileID := uuid.NewString()
@@ -55,14 +56,15 @@ func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*api
 	}
 
 	asset := &model.Asset{
-		FileID:      fileID,
-		BusinessKey: input.BusinessKey,
-		FileName:    fileName,
-		ContentType: detectContentType(input.ContentType, input.Data),
-		FileSize:    int64(len(input.Data)),
-		Path:        relativePath,
-		URL:         generateFileURL(fileID),
-		Remark:      input.Remark,
+		FileID:         fileID,
+		EnvironmentKey: input.EnvironmentKey,
+		PipelineKey:    input.PipelineKey,
+		FileName:       fileName,
+		ContentType:    detectContentType(input.ContentType, input.Data),
+		FileSize:       int64(len(input.Data)),
+		Path:           relativePath,
+		URL:            generateFileURL(fileID),
+		Remark:         input.Remark,
 	}
 	if err := s.logic.CreateAsset(ctx, asset); err != nil {
 		_ = os.Remove(fullPath)

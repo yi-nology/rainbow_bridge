@@ -28,7 +28,7 @@ func (s *Service) UpdateConfig(ctx context.Context, req *api.CreateOrUpdateConfi
 	if err := s.logic.UpdateConfig(ctx, model); err != nil {
 		return nil, err
 	}
-	updated, err := s.logic.GetConfig(ctx, model.BusinessKey, model.ResourceKey)
+	updated, err := s.logic.GetConfig(ctx, model.EnvironmentKey, model.PipelineKey, model.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -39,14 +39,14 @@ func (s *Service) DeleteConfig(ctx context.Context, req *api.ResourceDeleteReque
 	if req == nil {
 		return errors.New("request required")
 	}
-	return s.logic.DeleteConfig(ctx, req.GetBusinessKey(), req.GetResourceKey())
+	return s.logic.DeleteConfig(ctx, req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetResourceKey())
 }
 
 func (s *Service) ListConfigs(ctx context.Context, req *api.ResourceQueryRequest) ([]*api.ResourceConfig, error) {
 	if req == nil {
 		return nil, errors.New("request required")
 	}
-	configs, err := s.logic.ListConfigs(ctx, req.GetBusinessKey(), req.GetMinVersion(), req.GetMaxVersion(), req.GetType(), req.GetIsLatest())
+	configs, err := s.logic.ListConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetMinVersion(), req.GetMaxVersion(), req.GetType(), req.GetIsLatest())
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (s *Service) GetConfigDetail(ctx context.Context, req *api.ResourceDetailRe
 	if req == nil {
 		return nil, errors.New("request required")
 	}
-	cfg, err := s.logic.GetConfig(ctx, req.GetBusinessKey(), req.GetResourceKey())
+	cfg, err := s.logic.GetConfig(ctx, req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetResourceKey())
 	if err != nil {
 		return nil, err
 	}

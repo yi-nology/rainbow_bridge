@@ -24,7 +24,11 @@ func (s *Service) ExportConfigs(ctx context.Context, req *api.ResourceExportRequ
 	if req == nil {
 		return nil, errors.New("request required")
 	}
-	return s.ExportConfigsBatch(ctx, []string{req.GetBusinessKey()}, req.GetIncludeSystem())
+	configs, err := s.logic.ExportConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+	if err != nil {
+		return nil, err
+	}
+	return s.decorateConfigList(configSliceToPB(configs)), nil
 }
 
 func (s *Service) ImportConfigs(ctx context.Context, req *api.ResourceImportRequest) error {
@@ -38,76 +42,40 @@ func (s *Service) ImportConfigs(ctx context.Context, req *api.ResourceImportRequ
 	return s.logic.ImportConfigs(ctx, configs, req.GetOverwrite())
 }
 
-func (s *Service) collectExportConfigs(ctx context.Context, businessKeys []string, includeSystem bool) ([]model.Config, []string, error) {
-	keys := sanitizeBusinessKeys(businessKeys)
-	result := make([]model.Config, 0)
-	systemPending := includeSystem
-	systemIncluded := false
+// TODO: Deprecated - These batch export methods need to be refactored for environment_key + pipeline_key architecture
+// collectExportConfigs, ExportConfigsBatch, ExportConfigsArchiveBatch, ExportStaticBundleBatch,
+// ExportSystemSelectedStaticBundle, ExportStaticBundleAll are temporarily disabled
 
-	for _, key := range keys {
-		if key == "system" {
-			if systemIncluded {
-				continue
-			}
-			configs, err := s.logic.ExportConfigs(ctx, "system", false)
-			if err != nil {
-				return nil, nil, err
-			}
-			result = append(result, configs...)
-			systemIncluded = true
-			systemPending = false
-			continue
-		}
-
-		include := false
-		if systemPending {
-			include = true
-			systemPending = false
-		}
-		configs, err := s.logic.ExportConfigs(ctx, key, include)
-		if err != nil {
-			return nil, nil, err
-		}
-		if include {
-			systemIncluded = true
-		}
-		result = append(result, configs...)
-	}
-
-	if systemPending && !systemIncluded {
-		configs, err := s.logic.ExportConfigs(ctx, "system", false)
-		if err != nil {
-			return nil, nil, err
-		}
-		if len(configs) > 0 {
-			keys = append(keys, "system")
-		}
-		result = append(result, configs...)
-		systemIncluded = true
-	}
-
-	return result, keys, nil
+func (s *Service) collectExportConfigs(ctx context.Context, environmentKeys, pipelineKeys []string) ([]model.Config, error) {
+	// TODO: Implement new batch export logic
+	return nil, errors.New("batch export not yet implemented for environment+pipeline architecture")
 }
 
-func (s *Service) ExportConfigsBatch(ctx context.Context, businessKeys []string, includeSystem bool) ([]*api.ResourceConfig, error) {
-	configs, _, err := s.collectExportConfigs(ctx, businessKeys, includeSystem)
-	if err != nil {
-		return nil, err
-	}
-	return s.decorateConfigList(configSliceToPB(configs)), nil
+func (s *Service) ExportConfigsBatch(ctx context.Context, environmentKeys, pipelineKeys []string) ([]*api.ResourceConfig, error) {
+	return nil, errors.New("batch export not yet implemented")
 }
 
-// ExportConfigsArchive exports configs and referenced assets into a zip archive.
+func (s *Service) ExportConfigsArchiveBatch(ctx context.Context, environmentKeys, pipelineKeys []string) ([]byte, string, error) {
+	return nil, "", errors.New("batch archive export not yet implemented")
+}
+
+func (s *Service) ExportStaticBundleBatch(ctx context.Context, environmentKeys, pipelineKeys []string) ([]byte, string, error) {
+	return nil, "", errors.New("batch static bundle export not yet implemented")
+}
+
+func (s *Service) ExportSystemSelectedStaticBundle(ctx context.Context) ([]byte, string, error) {
+	return nil, "", errors.New("system selected bundle export not yet implemented")
+}
+
+func (s *Service) ExportStaticBundleAll(ctx context.Context) ([]byte, string, error) {
+	return nil, "", errors.New("export all not yet implemented")
+}
+
 func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExportRequest) ([]byte, string, error) {
 	if req == nil {
 		return nil, "", errors.New("request required")
 	}
-	return s.ExportConfigsArchiveBatch(ctx, []string{req.GetBusinessKey()}, req.GetIncludeSystem())
-}
-
-// ExportConfigsArchiveBatch exports multiple businesses into a single archive.
-func (s *Service) ExportConfigsArchiveBatch(ctx context.Context, businessKeys []string, includeSystem bool) ([]byte, string, error) {
-	configs, keys, err := s.collectExportConfigs(ctx, businessKeys, includeSystem)
+	configs, err := s.logic.ExportConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
 	if err != nil {
 		return nil, "", err
 	}
@@ -115,85 +83,16 @@ func (s *Service) ExportConfigsArchiveBatch(ctx context.Context, businessKeys []
 	if err != nil {
 		return nil, "", err
 	}
-	name := bundleBaseName(keys)
-	return data, fmt.Sprintf("%s_archive.zip", name), nil
+	name := fmt.Sprintf("%s_%s_archive.zip", req.GetEnvironmentKey(), req.GetPipelineKey())
+	return data, name, nil
 }
 
-// ExportStaticBundle exports configs and assets into a static-friendly zip bundle.
 func (s *Service) ExportStaticBundle(ctx context.Context, req *api.ResourceExportRequest) ([]byte, string, error) {
 	if req == nil {
 		return nil, "", errors.New("request required")
 	}
-	return s.ExportStaticBundleBatch(ctx, []string{req.GetBusinessKey()}, req.GetIncludeSystem())
-}
-
-// ExportStaticBundleBatch exports multiple businesses into a single static bundle.
-func (s *Service) ExportStaticBundleBatch(ctx context.Context, businessKeys []string, includeSystem bool) ([]byte, string, error) {
-	configs, keys, err := s.collectExportConfigs(ctx, businessKeys, includeSystem)
-	if err != nil {
-		return nil, "", err
-	}
-	data, err := s.writeStaticBundle(ctx, configs, keys, includeSystem)
-	if err != nil {
-		return nil, "", err
-	}
-	name := bundleBaseName(keys)
-	return data, fmt.Sprintf("%s_static_bundle.zip", name), nil
-}
-
-// ExportSystemSelectedStaticBundle exports the system business together with the business
-// referenced by system.business_select into a static bundle.
-func (s *Service) ExportSystemSelectedStaticBundle(ctx context.Context) ([]byte, string, error) {
-	systemConfigs, err := s.logic.ExportConfigs(ctx, "system", false)
-	if err != nil {
-		return nil, "", err
-	}
-	keys := []string{"system"}
-	configs := make([]model.Config, 0, len(systemConfigs)+4)
-	configs = append(configs, systemConfigs...)
-
-	selectedKey := strings.TrimSpace(extractBusinessSelectKey(systemConfigs))
-	if selectedKey != "" && selectedKey != "system" {
-		businessConfigs, err := s.logic.ExportConfigs(ctx, selectedKey, false)
-		if err != nil {
-			return nil, "", err
-		}
-		configs = append(configs, businessConfigs...)
-		keys = append(keys, selectedKey)
-	}
-
-	keys = sanitizeBusinessKeys(keys)
-	if len(keys) == 0 {
-		keys = []string{"system"}
-	}
-	data, err := s.writeStaticBundle(ctx, configs, keys, true)
-	if err != nil {
-		return nil, "", err
-	}
-	name := bundleBaseName(keys)
-	return data, fmt.Sprintf("%s_static_bundle.zip", name), nil
-}
-
-// ExportStaticBundleAll exports every business (including system) into one bundle.
-func (s *Service) ExportStaticBundleAll(ctx context.Context) ([]byte, string, error) {
-	allKeys, err := s.ListBusinessKeys(ctx)
-	if err != nil {
-		return nil, "", err
-	}
-	keys := sanitizeBusinessKeys(allKeys)
-	if len(keys) == 0 {
-		keys = []string{"system"}
-	}
-	configs, resolvedKeys, err := s.collectExportConfigs(ctx, keys, true)
-	if err != nil {
-		return nil, "", err
-	}
-	data, err := s.writeStaticBundle(ctx, configs, resolvedKeys, true)
-	if err != nil {
-		return nil, "", err
-	}
-	name := bundleBaseName(resolvedKeys)
-	return data, fmt.Sprintf("%s_static_bundle.zip", name), nil
+	// TODO: Implement static bundle export with new architecture
+	return nil, "", errors.New("static bundle export not yet implemented")
 }
 
 func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config) ([]byte, error) {
@@ -321,9 +220,13 @@ func buildStaticPayload(input staticPayloadInput) map[string]any {
 	businessSelect := ""
 
 	for _, cfg := range input.Configs {
-		businessKey := strings.TrimSpace(cfg.BusinessKey)
-		if businessKey == "" {
-			businessKey = "system"
+		envKey := strings.TrimSpace(cfg.EnvironmentKey)
+		pipeKey := strings.TrimSpace(cfg.PipelineKey)
+		if envKey == "" {
+			envKey = "default"
+		}
+		if pipeKey == "" {
+			pipeKey = "default"
 		}
 		content := cfg.Content
 		for assetID, staticPath := range input.Replacements {
@@ -331,8 +234,9 @@ func buildStaticPayload(input staticPayloadInput) map[string]any {
 			content = strings.ReplaceAll(content, fmt.Sprintf("/api/v1/files/%s", assetID), staticPath)
 		}
 
-		if _, ok := grouped[businessKey]; !ok {
-			grouped[businessKey] = make(map[string]any)
+		groupKey := envKey + "/" + pipeKey
+		if _, ok := grouped[groupKey]; !ok {
+			grouped[groupKey] = make(map[string]any)
 		}
 
 		alias := strings.TrimSpace(cfg.Alias)
@@ -344,7 +248,7 @@ func buildStaticPayload(input staticPayloadInput) map[string]any {
 			key = cfg.ResourceKey
 		}
 		if key == "" {
-			key = fmt.Sprintf("config_%d", len(grouped[businessKey])+1)
+			key = fmt.Sprintf("config_%d", len(grouped[groupKey])+1)
 		}
 		entry := map[string]any{
 			"resource_key": cfg.ResourceKey,
@@ -365,13 +269,7 @@ func buildStaticPayload(input staticPayloadInput) map[string]any {
 			entry["content"] = content
 		}
 
-		grouped[businessKey][key] = entry
-
-		if businessKey == "system" && alias == "business_select" {
-			if str, ok := entry["content"].(string); ok {
-				businessSelect = str
-			}
-		}
+		grouped[groupKey][key] = entry
 	}
 
 	payload := map[string]any{
@@ -469,12 +367,13 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 			if len(match) < 2 {
 				continue
 			}
-			businessKey := strings.TrimSpace(cfg.GetBusinessKey())
-			if businessKey == "" {
+			envKey := strings.TrimSpace(cfg.GetEnvironmentKey())
+			pipeKey := strings.TrimSpace(cfg.GetPipelineKey())
+			if envKey == "" || pipeKey == "" {
 				continue
 			}
 			if _, ok := assetBusiness[match[1]]; !ok {
-				assetBusiness[match[1]] = businessKey
+				assetBusiness[match[1]] = envKey + "/" + pipeKey
 			}
 		}
 		staticMatches := staticAssetPathRegexp.FindAllStringSubmatch(cfg.GetContent(), -1)
@@ -482,12 +381,13 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 			if len(match) < 2 {
 				continue
 			}
-			businessKey := strings.TrimSpace(cfg.GetBusinessKey())
-			if businessKey == "" {
+			envKey := strings.TrimSpace(cfg.GetEnvironmentKey())
+			pipeKey := strings.TrimSpace(cfg.GetPipelineKey())
+			if envKey == "" || pipeKey == "" {
 				continue
 			}
 			if _, ok := assetBusiness[match[1]]; !ok {
-				assetBusiness[match[1]] = businessKey
+				assetBusiness[match[1]] = envKey + "/" + pipeKey
 			}
 		}
 	}
@@ -518,14 +418,16 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 			return nil, err
 		}
 		asset := &model.Asset{
-			FileID:      fileID,
-			FileName:    fileName,
-			FileSize:    int64(len(data)),
-			ContentType: http.DetectContentType(data),
-			Path:        relativePath,
-			URL:         generateFileURL(fileID),
+			FileID:         fileID,
+			EnvironmentKey: "imported",
+			PipelineKey:    "default",
+			FileName:       fileName,
+			FileSize:       int64(len(data)),
+			ContentType:    http.DetectContentType(data),
+			Path:           relativePath,
+			URL:            generateFileURL(fileID),
 		}
-		asset.BusinessKey = inferAssetBusinessKey(fileID, assetBusiness, configModels)
+		// asset.BusinessKey = inferAssetBusinessKey(fileID, assetBusiness, configModels) // Deprecated
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
 			if !errors.Is(err, ErrAssetNotFound) {
 				return nil, err
@@ -608,25 +510,7 @@ func extractAssetIDs(configs []model.Config) []string {
 }
 
 func inferAssetBusinessKey(fileID string, explicit map[string]string, configs []model.Config) string {
-	if key := strings.TrimSpace(explicit[fileID]); key != "" {
-		return key
-	}
-	reference := fmt.Sprintf("%s%s", assetScheme, fileID)
-	fileReference := fmt.Sprintf("/api/v1/files/%s", fileID)
-	staticReference := fmt.Sprintf("static/assets/%s", fileID)
-	for _, cfg := range configs {
-		content := cfg.Content
-		if strings.Contains(content, reference) || strings.Contains(content, fileReference) || strings.Contains(content, staticReference) {
-			if bk := strings.TrimSpace(cfg.BusinessKey); bk != "" {
-				return bk
-			}
-		}
-	}
-	if len(configs) == 1 {
-		if bk := strings.TrimSpace(configs[0].BusinessKey); bk != "" {
-			return bk
-		}
-	}
+	// Deprecated: business_key no longer used
 	return ""
 }
 
@@ -728,13 +612,14 @@ func parseLegacyStaticBundle(raw map[string]any, legacy any) ([]*api.ResourceCon
 			businessKey = defaultKey
 		}
 		cfg := &api.ResourceConfig{
-			ResourceKey: item.ResourceKey,
-			BusinessKey: businessKey,
-			Alias:       item.Alias,
-			Name:        item.Name,
-			Type:        normalizeConfigTypeString(item.Type),
-			Remark:      item.Remark,
-			IsPerm:      item.IsPerm,
+			ResourceKey:    item.ResourceKey,
+			EnvironmentKey: "legacy",
+			PipelineKey:    "default",
+			Alias:          item.Alias,
+			Name:           item.Name,
+			Type:           normalizeConfigTypeString(item.Type),
+			Remark:         item.Remark,
+			IsPerm:         item.IsPerm,
 		}
 		cfg.Content = restoreStaticContent(item.Content)
 		result = append(result, cfg)
@@ -744,9 +629,10 @@ func parseLegacyStaticBundle(raw map[string]any, legacy any) ([]*api.ResourceCon
 
 func convertStaticEntry(alias, businessKey string, entryVal any) *api.ResourceConfig {
 	cfg := &api.ResourceConfig{
-		Alias:       alias,
-		BusinessKey: businessKey,
-		Type:        "config",
+		Alias:          alias,
+		EnvironmentKey: "imported",
+		PipelineKey:    "default",
+		Type:           "config",
 	}
 
 	entryMap, ok := entryVal.(map[string]any)

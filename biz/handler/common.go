@@ -142,50 +142,67 @@ func SanitizeBusinessKeys(keys []string) []string {
 func BuildConfigSummary(configs []*api.ResourceConfig) *api.ConfigSummary {
 	if len(configs) == 0 {
 		return &api.ConfigSummary{
-			BusinessKeys: []string{},
-			Items:        []api.ConfigSummaryItem{},
+			EnvironmentKeys: []string{},
+			PipelineKeys:    []string{},
+			Items:           []api.ConfigSummaryItem{},
 		}
 	}
 
-	businessSet := make(map[string]struct{})
+	envSet := make(map[string]struct{})
+	pipeSet := make(map[string]struct{})
 	items := make([]api.ConfigSummaryItem, 0, len(configs))
 
 	for _, cfg := range configs {
 		if cfg == nil {
 			continue
 		}
-		key := cfg.BusinessKey
-		if key != "" {
-			businessSet[key] = struct{}{}
+		envKey := cfg.EnvironmentKey
+		pipeKey := cfg.PipelineKey
+		if envKey != "" {
+			envSet[envKey] = struct{}{}
+		}
+		if pipeKey != "" {
+			pipeSet[pipeKey] = struct{}{}
 		}
 		items = append(items, api.ConfigSummaryItem{
-			ResourceKey: cfg.ResourceKey,
-			BusinessKey: key,
-			Name:        cfg.Name,
-			Alias:       cfg.Alias,
-			Type:        cfg.Type,
+			ResourceKey:    cfg.ResourceKey,
+			EnvironmentKey: envKey,
+			PipelineKey:    pipeKey,
+			Name:           cfg.Name,
+			Alias:          cfg.Alias,
+			Type:           cfg.Type,
 		})
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		if items[i].BusinessKey == items[j].BusinessKey {
-			if items[i].Name == items[j].Name {
-				return items[i].Alias < items[j].Alias
+		if items[i].EnvironmentKey == items[j].EnvironmentKey {
+			if items[i].PipelineKey == items[j].PipelineKey {
+				if items[i].Name == items[j].Name {
+					return items[i].Alias < items[j].Alias
+				}
+				return items[i].Name < items[j].Name
 			}
-			return items[i].Name < items[j].Name
+			return items[i].PipelineKey < items[j].PipelineKey
 		}
-		return items[i].BusinessKey < items[j].BusinessKey
+		return items[i].EnvironmentKey < items[j].EnvironmentKey
 	})
 
-	businessKeys := make([]string, 0, len(businessSet))
-	for key := range businessSet {
-		businessKeys = append(businessKeys, key)
+	envKeys := make([]string, 0, len(envSet))
+	for key := range envSet {
+		envKeys = append(envKeys, key)
 	}
-	sort.Strings(businessKeys)
+	sort.Strings(envKeys)
+
+	pipeKeys := make([]string, 0, len(pipeSet))
+	for key := range pipeSet {
+		pipeKeys = append(pipeKeys, key)
+	}
+	sort.Strings(pipeKeys)
 
 	return &api.ConfigSummary{
-		Total:        len(items),
-		BusinessKeys: businessKeys,
-		Items:        items,
+		Total:           len(items),
+		EnvironmentKeys: envKeys,
+		PipelineKeys:    pipeKeys,
+		Items:           items,
 	}
 }

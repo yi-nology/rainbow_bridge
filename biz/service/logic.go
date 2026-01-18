@@ -13,7 +13,6 @@ import (
 	"github.com/yi-nology/rainbow_bridge/pkg/common"
 	"github.com/yi-nology/rainbow_bridge/pkg/constants"
 	"github.com/yi-nology/rainbow_bridge/pkg/util"
-	"github.com/yi-nology/rainbow_bridge/pkg/validator"
 
 	"gorm.io/gorm"
 )
@@ -67,31 +66,32 @@ func (l *Logic) UpdateConfig(ctx context.Context, cfg *model.Config) error {
 	if err := validateConfigContent(cfg); err != nil {
 		return err
 	}
-	if _, err := l.configDAO.GetByResourceKey(ctx, l.db, cfg.BusinessKey, cfg.ResourceKey); err != nil {
+	if _, err := l.configDAO.GetByResourceKey(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, cfg.ResourceKey); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrResourceNotFound
 		}
 		return err
 	}
-	return l.configDAO.UpdateByBusinessKey(ctx, l.db, cfg.BusinessKey, cfg)
+	return l.configDAO.UpdateByEnvironmentAndPipeline(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, cfg)
 }
 
-func (l *Logic) DeleteConfig(ctx context.Context, businessKey, resourceKey string) error {
-	cfg, err := l.configDAO.GetByResourceKey(ctx, l.db, businessKey, resourceKey)
+func (l *Logic) DeleteConfig(ctx context.Context, environmentKey, pipelineKey, resourceKey string) error {
+	cfg, err := l.configDAO.GetByResourceKey(ctx, l.db, environmentKey, pipelineKey, resourceKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrResourceNotFound
 		}
 		return err
 	}
-	if businessKey == constants.SystemBusinessKey && constants.IsProtectedSystemConfig(cfg.Alias) {
+	// Remove business key check as it's no longer relevant
+	if constants.IsProtectedSystemConfig(cfg.Alias) {
 		return ErrProtectedSystemConfig
 	}
-	return l.configDAO.DeleteByBusinessKeyAndResourceKey(ctx, l.db, businessKey, resourceKey)
+	return l.configDAO.DeleteByEnvironmentPipelineAndResourceKey(ctx, l.db, environmentKey, pipelineKey, resourceKey)
 }
 
-func (l *Logic) GetConfig(ctx context.Context, businessKey, resourceKey string) (*model.Config, error) {
-	cfg, err := l.configDAO.GetByResourceKey(ctx, l.db, businessKey, resourceKey)
+func (l *Logic) GetConfig(ctx context.Context, environmentKey, pipelineKey, resourceKey string) (*model.Config, error) {
+	cfg, err := l.configDAO.GetByResourceKey(ctx, l.db, environmentKey, pipelineKey, resourceKey)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrResourceNotFound
 	}
@@ -106,31 +106,22 @@ func (l *Logic) GetConfigByKey(ctx context.Context, resourceKey string) (*model.
 	return cfg, err
 }
 
-func (l *Logic) ListConfigs(ctx context.Context, businessKey, minVersion, maxVersion, resourceType string, latestOnly bool) ([]model.Config, error) {
+func (l *Logic) ListConfigs(ctx context.Context, environmentKey, pipelineKey, minVersion, maxVersion, resourceType string, latestOnly bool) ([]model.Config, error) {
 	if latestOnly {
 		version := common.GetClientVersion(ctx)
-		return l.configDAO.ListByBusinessKeyAndVersion(ctx, l.db, businessKey, version)
+		return l.configDAO.ListByEnvironmentAndPipeline(ctx, l.db, environmentKey, pipelineKey, version)
 	}
-	return l.configDAO.ListByBusinessKey(ctx, l.db, businessKey, minVersion, maxVersion, resourceType)
+	return l.configDAO.ListByEnvironmentAndPipelineWithFilter(ctx, l.db, environmentKey, pipelineKey, minVersion, maxVersion, resourceType)
 }
 
-func (l *Logic) ListSystemConfigs(ctx context.Context) (map[string]any, error) {
-	aliasResource, err := l.configDAO.GetByAlias(ctx, l.db, constants.SystemBusinessKey, constants.SysConfigBusinessSelect)
+func (l *Logic) ListSystemConfigs(ctx context.Context, environmentKey, pipelineKey string) (map[string]any, error) {
+	_, err := l.configDAO.GetByAlias(ctx, l.db, environmentKey, pipelineKey, constants.SysConfigBusinessSelect)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	targetBusiness := constants.SystemBusinessKey
-	if aliasResource != nil && aliasResource.Content != "" {
-		candidate := strings.TrimSpace(aliasResource.Content)
-		// Validate the business key to prevent injection
-		if validator.ValidateBusinessKey(candidate) {
-			targetBusiness = candidate
-		}
-		// If invalid, fall back to system
-	}
-
-	data, err := l.configDAO.ListByBusinessKey(ctx, l.db, targetBusiness, "", "", "")
+	// No longer using targetBusiness, just use provided environment/pipeline
+	data, err := l.configDAO.ListByEnvironmentAndPipelineWithFilter(ctx, l.db, environmentKey, pipelineKey, "", "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -154,25 +145,15 @@ func (l *Logic) ListSystemConfigs(ctx context.Context) (map[string]any, error) {
 	return result, nil
 }
 
-func (l *Logic) ExportConfigs(ctx context.Context, businessKey string, includeSystem bool) ([]model.Config, error) {
-	data, err := l.configDAO.ListByBusinessKeyAndVersion(ctx, l.db, businessKey, common.GetClientVersion(ctx))
+func (l *Logic) ExportConfigs(ctx context.Context, environmentKey, pipelineKey string) ([]model.Config, error) {
+	data, err := l.configDAO.ListByEnvironmentAndPipeline(ctx, l.db, environmentKey, pipelineKey, common.GetClientVersion(ctx))
 	if err != nil {
 		return nil, err
 	}
 	for i := range data {
 		data[i].ResourceKey = ""
 	}
-	if !includeSystem {
-		return data, nil
-	}
-	system, err := l.configDAO.ListByBusinessKeyAndVersion(ctx, l.db, "system", common.GetClientVersion(ctx))
-	if err != nil {
-		return nil, err
-	}
-	for i := range system {
-		system[i].ResourceKey = ""
-	}
-	return append(data, system...), nil
+	return data, nil
 }
 
 func (l *Logic) ImportConfigs(ctx context.Context, configs []model.Config, overwrite bool) error {
@@ -188,12 +169,12 @@ func (l *Logic) ImportConfigs(ctx context.Context, configs []model.Config, overw
 		if err := validateConfigContent(&cfg); err != nil {
 			return err
 		}
-		existing, err := l.configDAO.GetByResourceKey(ctx, l.db, cfg.BusinessKey, cfg.ResourceKey)
+		existing, err := l.configDAO.GetByResourceKey(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, cfg.ResourceKey)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
 		if existing == nil && cfg.ResourceKey == "" && cfg.Alias != "" {
-			existing, err = l.configDAO.GetByAlias(ctx, l.db, cfg.BusinessKey, cfg.Alias)
+			existing, err = l.configDAO.GetByAlias(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, cfg.Alias)
 			if err != nil && err != gorm.ErrRecordNotFound {
 				return err
 			}
@@ -205,7 +186,7 @@ func (l *Logic) ImportConfigs(ctx context.Context, configs []model.Config, overw
 			continue
 		}
 		cfg.ResourceKey = existing.ResourceKey
-		if err := l.configDAO.UpdateByBusinessKey(ctx, l.db, cfg.BusinessKey, &cfg); err != nil {
+		if err := l.configDAO.UpdateByEnvironmentAndPipeline(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, &cfg); err != nil {
 			return err
 		}
 	}
@@ -216,7 +197,8 @@ func normalizeConfigPayload(cfg *model.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.BusinessKey = strings.TrimSpace(cfg.BusinessKey)
+	cfg.EnvironmentKey = strings.TrimSpace(cfg.EnvironmentKey)
+	cfg.PipelineKey = strings.TrimSpace(cfg.PipelineKey)
 	cfg.Alias = strings.TrimSpace(cfg.Alias)
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	cfg.Type = normalizeConfigType(cfg.Type)
@@ -296,7 +278,8 @@ func normalizeColorContent(value string) (string, error) {
 }
 
 func (l *Logic) ListBusinessKeys(ctx context.Context) ([]string, error) {
-	return l.configDAO.ListAllBusinessKeys(ctx, l.db)
+	// Deprecated: business_key is replaced by environment_key + pipeline_key
+	return []string{}, errors.New("business_key is deprecated")
 }
 
 // --------------------- Asset Operations ---------------------
@@ -327,8 +310,8 @@ func (l *Logic) GetAsset(ctx context.Context, fileID string) (*model.Asset, erro
 	return asset, err
 }
 
-func (l *Logic) ListAssetsByBusinessKey(ctx context.Context, businessKey string) ([]model.Asset, error) {
-	return l.assetDAO.ListByBusinessKey(ctx, l.db, businessKey)
+func (l *Logic) ListAssetsByEnvironmentAndPipeline(ctx context.Context, environmentKey, pipelineKey string) ([]model.Asset, error) {
+	return l.assetDAO.ListByEnvironmentAndPipeline(ctx, l.db, environmentKey, pipelineKey)
 }
 
 // --------------------- SystemConfig Operations ---------------------
@@ -353,8 +336,8 @@ func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, config
 		return "", err
 	}
 
-	// Step 2: Fallback to resource_config table
-	cfg, err := l.configDAO.GetByAlias(ctx, l.db, constants.SystemBusinessKey, configKey)
+	// Step 2: Fallback to resource_config table (use default pipeline for system configs)
+	cfg, err := l.configDAO.GetByAlias(ctx, l.db, environmentKey, "default", configKey)
 	if err == nil && cfg != nil {
 		return cfg.Content, nil
 	}
@@ -384,8 +367,8 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey s
 		return nil, err
 	}
 
-	// Step 2: Fallback to resource_config table
-	cfg, err := l.configDAO.GetByAlias(ctx, l.db, constants.SystemBusinessKey, configKey)
+	// Step 2: Fallback to resource_config table (use default pipeline for system configs)
+	cfg, err := l.configDAO.GetByAlias(ctx, l.db, environmentKey, "default", configKey)
 	if err == nil && cfg != nil {
 		return &model.SystemConfig{
 			EnvironmentKey: environmentKey,

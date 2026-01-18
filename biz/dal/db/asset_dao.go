@@ -53,10 +53,10 @@ func (dao *AssetDAO) GetByFileID(ctx context.Context, db *gorm.DB, fileID string
 	return &asset, nil
 }
 
-func (dao *AssetDAO) ListByBusinessKey(ctx context.Context, db *gorm.DB, businessKey string) ([]model.Asset, error) {
+func (dao *AssetDAO) ListByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string) ([]model.Asset, error) {
 	var assets []model.Asset
 	if err := db.WithContext(ctx).
-		Where("business_key = ?", businessKey).
+		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
 		Order("created_at DESC").
 		Find(&assets).Error; err != nil {
 		return nil, err

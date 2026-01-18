@@ -36,12 +36,12 @@
               </li>
               <li>
                 <strong>实时接口：</strong>
-                访问 <code data-endpoint="realtime">/api/v1/resources/nginx-config</code> 可同时获取 system 业务与默认业务合并的
+                访问 <code data-endpoint="realtime">/api/v1/system/realtime</code> 可同时获取 system 业务与默认业务合并的
                 <code>config.json</code> 结构，便于前端直接消费最新配置。
               </li>
               <li>
                 <strong>静态资源访问：</strong>
-                通过 <code data-endpoint="files">/api/v1/files/&lt;file_id&gt;</code> 访问已上传文件；也可在导出的 Nginx 包中使用
+                通过 <code data-endpoint="files">/api/v1/asset/file/&lt;file_id&gt;</code> 访问已上传文件；也可在导出的 Nginx 包中使用
                 <code>static/assets/&lt;file_id&gt;/... </code> 的形式直接引用。
               </li>
               <li>
@@ -62,7 +62,7 @@
                 <span>实时配置预览</span>
                 <p>
                   实时展示
-                  <code data-endpoint="realtime">/api/v1/resources/nginx-config</code>
+                  <code data-endpoint="realtime">/api/v1/system/realtime</code>
                   合成的最新配置
                 </p>
               </div>

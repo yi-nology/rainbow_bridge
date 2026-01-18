@@ -14,10 +14,10 @@ import (
 	"github.com/yi-nology/rainbow_bridge/biz/handler/transfer"
 	assetrouter "github.com/yi-nology/rainbow_bridge/biz/router/asset"
 	configrouter "github.com/yi-nology/rainbow_bridge/biz/router/config"
-	environment "github.com/yi-nology/rainbow_bridge/biz/router/environment"
-	pipeline "github.com/yi-nology/rainbow_bridge/biz/router/pipeline"
+	"github.com/yi-nology/rainbow_bridge/biz/router/environment"
+	"github.com/yi-nology/rainbow_bridge/biz/router/pipeline"
 	systemrouter "github.com/yi-nology/rainbow_bridge/biz/router/system"
-	system_config "github.com/yi-nology/rainbow_bridge/biz/router/system_config"
+	"github.com/yi-nology/rainbow_bridge/biz/router/system_config"
 	transferrouter "github.com/yi-nology/rainbow_bridge/biz/router/transfer"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
@@ -46,38 +46,7 @@ func GeneratedRegister(r *server.Hertz) {
 	configrouter.Register(r)
 	systemrouter.Register(r)
 	transferrouter.Register(r)
-}
 
-// RegisterLegacyRoutes registers backward-compatible routes for old API paths.
-func RegisterLegacyRoutes(r *server.Hertz) {
-	v1 := r.Group("/api/v1")
-
-	// ==================== Legacy Config Routes ====================
-	// Old paths using PUT/DELETE methods (backward compatibility)
-	resources := v1.Group("/resources")
-	resources.POST("", config.Create)
-	resources.PUT("", config.Update)
-	resources.DELETE("", config.Delete)
-	resources.GET("", config.List)
-	resources.GET("/detail", config.Detail)
-
-	// ==================== Legacy Asset Routes ====================
-	v1.GET("/assets", asset.List)
-	v1.POST("/assets/upload", asset.Upload)
-	resources.POST("/upload", asset.Upload)
-	v1.GET("/files/:fileID", asset.GetFile)
-
-	// ==================== Legacy Transfer Routes ====================
-	resources.POST("/import", transfer.Import)
-	resources.GET("/export", transfer.Export)
-	resources.GET("/export/system-selected-static", transfer.ExportStaticSelected)
-	resources.GET("/export/all-static", transfer.ExportStaticAll)
-
-	// ==================== Legacy System Routes ====================
-	v1.GET("/init", system.Init)
-	resources.GET("/business-keys", system.BusinessKeys)
-	resources.GET("/nginx-config", system.Realtime)
-
-	// ==================== Health Check ====================
+	// Health Check
 	r.GET("/ping", handler.Ping)
 }

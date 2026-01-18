@@ -10,7 +10,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/model/config"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
 
@@ -23,12 +23,12 @@ func SetService(s *service.Service) {
 // Create .
 // @router /api/v1/config/create [POST]
 func Create(ctx context.Context, c *app.RequestContext) {
-	req := &api.CreateOrUpdateConfigRequest{}
+	req := &config.CreateConfigRequest{}
 	if err := c.BindJSON(req); err != nil {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
 	}
-	cfg, err := svc.AddConfig(handler.EnrichContext(ctx, c), req)
+	cfg, err := svc.AddConfig(handler.EnrichContext(ctx, c), req.GetConfig())
 	if err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrConfigAliasExists) {
@@ -43,7 +43,7 @@ func Create(ctx context.Context, c *app.RequestContext) {
 // Update .
 // @router /api/v1/config/update [POST]
 func Update(ctx context.Context, c *app.RequestContext) {
-	req := &api.CreateOrUpdateConfigRequest{}
+	req := &config.UpdateConfigRequest{}
 	if err := c.BindJSON(req); err != nil {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
@@ -52,7 +52,7 @@ func Update(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("resource_key is required"))
 		return
 	}
-	cfg, err := svc.UpdateConfig(handler.EnrichContext(ctx, c), req)
+	cfg, err := svc.UpdateConfig(handler.EnrichContext(ctx, c), req.GetConfig())
 	if err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrResourceNotFound) {
@@ -67,7 +67,7 @@ func Update(ctx context.Context, c *app.RequestContext) {
 // Delete .
 // @router /api/v1/config/delete [POST]
 func Delete(ctx context.Context, c *app.RequestContext) {
-	req := &api.ResourceDeleteRequest{}
+	req := &config.DeleteConfigRequest{}
 	if err := c.BindJSON(req); err != nil {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
@@ -76,7 +76,7 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key, pipeline_key and resource_key are required"))
 		return
 	}
-	if err := svc.DeleteConfig(handler.EnrichContext(ctx, c), req); err != nil {
+	if err := svc.DeleteConfig(handler.EnrichContext(ctx, c), req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetResourceKey()); err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrResourceNotFound) {
 			status = consts.StatusNotFound
@@ -92,7 +92,7 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 // List .
 // @router /api/v1/config/list [GET]
 func List(ctx context.Context, c *app.RequestContext) {
-	req := &api.ResourceQueryRequest{
+	req := &config.ListConfigRequest{
 		EnvironmentKey: c.Query("environment_key"),
 		PipelineKey:    c.Query("pipeline_key"),
 		Type:           c.Query("type"),
@@ -112,18 +112,18 @@ func List(ctx context.Context, c *app.RequestContext) {
 		req.IsLatest = parsed
 	}
 
-	list, err := svc.ListConfigs(handler.EnrichContext(ctx, c), req)
+	list, err := svc.ListConfigs(handler.EnrichContext(ctx, c), req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetType(), req.GetMinVersion(), req.GetMaxVersion(), req.GetIsLatest())
 	if err != nil {
 		handler.RespondError(c, consts.StatusInternalServerError, err)
 		return
 	}
-	c.JSON(consts.StatusOK, &api.ResourceListResponse{List: list})
+	c.JSON(consts.StatusOK, &config.ConfigListResponse{List: list})
 }
 
 // Detail .
 // @router /api/v1/config/detail [GET]
 func Detail(ctx context.Context, c *app.RequestContext) {
-	req := &api.ResourceDetailRequest{
+	req := &config.ConfigDetailRequest{
 		EnvironmentKey: c.Query("environment_key"),
 		PipelineKey:    c.Query("pipeline_key"),
 		ResourceKey:    c.Query("resource_key"),
@@ -132,7 +132,7 @@ func Detail(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key, pipeline_key and resource_key are required"))
 		return
 	}
-	cfg, err := svc.GetConfigDetail(handler.EnrichContext(ctx, c), req)
+	cfg, err := svc.GetConfigDetail(handler.EnrichContext(ctx, c), req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetResourceKey())
 	if err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrResourceNotFound) {
@@ -141,5 +141,5 @@ func Detail(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, status, err)
 		return
 	}
-	c.JSON(consts.StatusOK, &api.ResourceDetailResponse{Detail: cfg})
+	c.JSON(consts.StatusOK, &config.ConfigDetailResponse{Detail: cfg})
 }

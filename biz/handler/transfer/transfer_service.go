@@ -12,7 +12,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/model/transfer"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
 
@@ -54,7 +54,7 @@ func Import(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	req := &api.ResourceImportRequest{}
+	req := &transfer.ImportRequest{}
 	if err := c.BindJSON(req); err != nil {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
@@ -63,7 +63,7 @@ func Import(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("configs cannot be empty"))
 		return
 	}
-	if err := svc.ImportConfigs(handler.EnrichContext(ctx, c), req); err != nil {
+	if err := svc.ImportConfigs(handler.EnrichContext(ctx, c), req.GetConfigs(), req.GetOverwrite()); err != nil {
 		handler.RespondError(c, consts.StatusInternalServerError, err)
 		return
 	}
@@ -103,14 +103,9 @@ func Export(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	req := &api.ResourceExportRequest{
-		EnvironmentKey: environmentKey,
-		PipelineKey:    pipelineKey,
-	}
-
 	switch format {
 	case "zip":
-		data, filename, err := svc.ExportConfigsArchive(handler.EnrichContext(ctx, c), req, includeSystemConfig, systemConfigOnly)
+		data, filename, err := svc.ExportConfigsArchive(handler.EnrichContext(ctx, c), environmentKey, pipelineKey, includeSystemConfig, systemConfigOnly)
 		if err != nil {
 			handler.RespondError(c, consts.StatusInternalServerError, err)
 			return
@@ -120,7 +115,7 @@ func Export(ctx context.Context, c *app.RequestContext) {
 		c.Data(consts.StatusOK, "application/zip", data)
 
 	default: // json
-		configs, err := svc.ExportConfigs(handler.EnrichContext(ctx, c), req, includeSystemConfig, systemConfigOnly)
+		configs, err := svc.ExportConfigs(handler.EnrichContext(ctx, c), environmentKey, pipelineKey, includeSystemConfig, systemConfigOnly)
 		if err != nil {
 			handler.RespondError(c, consts.StatusInternalServerError, err)
 			return

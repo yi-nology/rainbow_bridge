@@ -17,6 +17,7 @@ import (
 	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service"
 	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
+	"gorm.io/gorm"
 )
 
 //go:embed web/*
@@ -35,6 +36,11 @@ func main() {
 
 	if err := db.AutoMigrate(&resourcemodel.Config{}, &resourcemodel.Asset{}, &resourcemodel.Environment{}, &resourcemodel.Pipeline{}, &resourcemodel.SystemConfig{}); err != nil {
 		log.Fatalf("auto migrate: %v", err)
+	}
+
+	// Drop old unique index on pipeline table if it exists
+	if err := dropOldPipelineIndex(db); err != nil {
+		log.Fatalf("drop old pipeline index: %v", err)
 	}
 
 	// Migrate existing configs with default environment_key and pipeline_key
@@ -129,4 +135,55 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
 	serve("/lib/api.js", "lib/api.js", "application/javascript")
 	serve("/lib/toast.js", "lib/toast.js", "application/javascript")
 	serve("/lib/init.js", "lib/init.js", "application/javascript")
+}
+
+// dropOldPipelineIndex removes the old uk_pipeline_key unique index if it exists.
+// This is needed because we changed from single-key to composite unique index.
+func dropOldPipelineIndex(db *gorm.DB) error {
+	// Check if the old index exists
+	var indexExists bool
+	switch db.Dialector.Name() {
+	case "sqlite":
+		// SQLite: Check sqlite_master table
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='uk_pipeline_key'").Scan(&count).Error; err != nil {
+			return err
+		}
+		indexExists = count > 0
+	case "mysql":
+		// MySQL: Check information_schema
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM information_schema.statistics WHERE table_name='pipeline' AND index_name='uk_pipeline_key'").Scan(&count).Error; err != nil {
+			return err
+		}
+		indexExists = count > 0
+	case "postgres":
+		// PostgreSQL: Check pg_indexes
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM pg_indexes WHERE tablename='pipeline' AND indexname='uk_pipeline_key'").Scan(&count).Error; err != nil {
+			return err
+		}
+		indexExists = count > 0
+	default:
+		// Unknown database, skip
+		return nil
+	}
+
+	if !indexExists {
+		// Index doesn't exist, nothing to do
+		return nil
+	}
+
+	log.Println("[Migration] Dropping old uk_pipeline_key index...")
+
+	// Drop the old index
+	migrator := db.Migrator()
+	if err := migrator.DropIndex(&resourcemodel.Pipeline{}, "uk_pipeline_key"); err != nil {
+		log.Printf("[Migration] Warning: Failed to drop old index: %v", err)
+		// Don't fail the startup, just warn
+		return nil
+	}
+
+	log.Println("[Migration] ✓ Dropped old uk_pipeline_key index")
+	return nil
 }

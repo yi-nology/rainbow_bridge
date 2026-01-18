@@ -121,8 +121,8 @@
 `web/` 目录包含基于原生 JS 的管理界面：  
 - `index.html/js`：业务配置管理；  
 - `system.html/js`：系统业务配置；  
-- `assets.html/js`：静态资源库（依赖 `/api/v1/resources/upload` 和 `/api/v1/assets`）；  
-- `export.html/js`、`import.html/js`：导出与导入交互界面。
+- `assets.html/js`：静态资源库（依赖 `/api/v1/asset/upload` 和 `/api/v1/asset/list`）；  
+- `transfer.html/js`：配置迁移界面（使用标签页区分导出和导入功能）。
 
 
 ## 数据模型
@@ -208,59 +208,93 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 ## 关键业务流程
 
-### 1. 配置实时获取
+### 1. 运行时配置获取
 
-1. 客户端访问 `GET /api/v1/resources?business_key={key}`；  
-2. Handler 解析参数，调用 Service -> Logic 查询配置列表；  
-3. Logic 根据业务 Key、版本、`is_perm` 等过滤；  
+1. 客户端访问 `GET /api/v1/runtime/config`，通过 Header 传递 `x-environment` 和 `x-pipeline`；  
+2. Handler 解析 Header 参数，调用 Service 查询配置列表；  
+3. Service 根据环境和流水线查询系统配置和业务配置；  
 4. DAO 利用 GORM 访问数据库，返回最新配置；  
-5. Handler 将结果包装成 protobuf JSON 响应。
+5. Handler 将结果包装成 JSON 响应，包含配置列表和环境信息。
 
 ### 2. 静态资源上传
 
-1. 前端通过 `POST /api/v1/resources/upload` 提交 multipart-form；  
+1. 前端通过 `POST /api/v1/asset/upload` 提交 multipart-form，携带 `environment_key` 和 `pipeline_key`；  
 2. Handler 读取文件数据，调用 `Service.UploadAsset`；  
 3. Service 将文件写入 `data/uploads/{file_id}/` 并创建数据库记录；  
 4. 返回 `asset://{file_id}` 引用及资源元数据；  
 5. 配置内容中可引用 `asset://` 前缀，导出时会自动替换为静态文件路径。
 
-### 3. Nginx 静态包导出
+### 3. 静态包导出
 
-1. 前端触发 `GET /api/v1/resources/export?format=nginx&business_keys=...`；  
+1. 前端触发 `GET /api/v1/runtime/static?environment_key=xxx&pipeline_key=xxx`；  
 2. Service 拉取配置与资源，生成 zip 包：  
-   - `static/config.json`：业务配置合并的 JSON；  
-   - `static/assets/{file_id}/{filename}`：静态资源；  
-3. 返回 zip 文件供用户下载。  
-
-此外，新增的 `GET /api/v1/resources/nginx-config` 会实时返回 `static/config.json` 同等结构，方便前端直接消费。
+   - `config.json`：系统配置和业务配置合并的 JSON；  
+   - `assets/{file_id}/{filename}`：静态资源文件；  
+3. 返回 zip 文件供用户下载，可直接部署到 Nginx 或 CDN。
 
 ## 接口与协议
 
-### 1. REST 接口（部分）
+### 1. REST 接口
 
-| 路径 | 方法 | 描述 |
-|------|------|------|
-| `/api/v1/resources` | GET / POST / PUT / DELETE | 配置的列表、创建、更新、删除 |
-| `/api/v1/resources/detail` | GET | 单条配置详情 |
-| `/api/v1/resources/export` | GET | 导出配置（JSON/ZIP/Nginx） |
-| `/api/v1/resources/import` | POST | 导入配置（JSON/ZIP） |
-| `/api/v1/resources/business-keys` | GET | 业务 Key 列表 |
-| `/api/v1/resources/upload` | POST | 上传静态资源 |
-| `/api/v1/files/{fileID}` | GET | 下载静态资源文件 |
-| `/api/v1/assets` | GET | 列出业务下的静态资源 |
-| `/api/v1/resources/nginx-config` | GET | 实时返回 `static/config.json` 数据 |
-| `/api/v1/resources/export/system-selected-static` | GET | 导出 system 与默认业务的静态包 |
-| `/api/v1/resources/export/all-static` | GET | 导出所有业务（含 system）的静态包 |
+项目接口按功能模块划分，每个模块由独立的 protobuf 定义：
 
-接口实现参考：
-- `biz/handler/resourcepb/resource_service_impl.go`  
-- `biz/handler/resource.go`
+#### 环境管理 (`/api/v1/environment/*`)
+- `GET /api/v1/environment/list` - 获取环境列表
+- `POST /api/v1/environment/create` - 创建环境
+- `POST /api/v1/environment/update` - 更新环境
+- `POST /api/v1/environment/delete` - 删除环境
 
-protobuf 定义位于 `proto/resource.proto`，由 `script/gen.sh` 生成代码至 `biz/model/api/resourcepb/`。
+#### 流水线管理 (`/api/v1/pipeline/*`)
+- `GET /api/v1/pipeline/list` - 获取流水线列表（需传 `environment_key`）
+- `POST /api/v1/pipeline/create` - 创建流水线
+- `POST /api/v1/pipeline/update` - 更新流水线
+- `POST /api/v1/pipeline/delete` - 删除流水线
 
-### 2. 鉴权头部
+#### 系统配置 (`/api/v1/system_config/*`)
+- `GET /api/v1/system_config/list` - 获取系统配置列表
+- `POST /api/v1/system_config/create` - 创建系统配置
+- `POST /api/v1/system_config/update` - 更新系统配置
+- `POST /api/v1/system_config/delete` - 删除系统配置
+- `GET /api/v1/system_config/detail` - 获取系统配置详情
 
-`ResourceHandler` 与 `resourcepb` Handler 中通过 `X-User-Id`、`X-Client-Version` 头部（或 query）传递上下文信息，未来可扩展统一鉴权。
+#### 业务配置 (`/api/v1/config/*`)
+- `GET /api/v1/config/list` - 获取业务配置列表
+- `POST /api/v1/config/create` - 创建业务配置
+- `POST /api/v1/config/update` - 更新业务配置
+- `POST /api/v1/config/delete` - 删除业务配置
+- `GET /api/v1/config/detail` - 获取业务配置详情
+
+#### 静态资源 (`/api/v1/asset/*`)
+- `GET /api/v1/asset/list` - 获取资源列表（需传 `environment_key` 和 `pipeline_key`）
+- `POST /api/v1/asset/upload` - 上传静态资源（multipart-form）
+- `GET /api/v1/asset/file/{file_id}` - 下载静态资源文件
+
+#### 运行时配置 (`/api/v1/runtime/*`)
+- `GET /api/v1/runtime/config` - 获取运行时配置（通过 Header `x-environment` 和 `x-pipeline`）
+- `GET /api/v1/runtime/static` - 导出静态包（需传 `environment_key` 和 `pipeline_key`）
+
+#### 配置迁移 (`/api/v1/transfer/*`)
+- `GET /api/v1/transfer/export` - 导出配置（支持 json、zip、static 格式）
+- `POST /api/v1/transfer/import` - 导入配置（支持 JSON 和 ZIP）
+
+### 2. Protobuf 定义
+
+接口实现基于 CloudWeGo Hertz + Protobuf，定义位于 `idl/biz/` 目录：
+- `environment.proto` - 环境管理
+- `pipeline.proto` - 流水线管理
+- `system_config.proto` - 系统配置
+- `config.proto` - 业务配置
+- `asset.proto` - 静态资源
+- `runtime.proto` - 运行时配置
+- `transfer.proto` - 配置导入导出
+
+生成代码：`hz update -idl idl/biz/*.proto`
+
+### 3. 鉴权与扩展
+
+- 运行时配置接口通过 `x-environment` 和 `x-pipeline` Header 传递环境和流水线信息
+- 其他接口通过 Query 参数或 Request Body 传递 `environment_key` 和 `pipeline_key`
+- 未来可扩展统一鉴权中间件（Token / OAuth2 / API Key 等）
 
 ## 配置与环境
 

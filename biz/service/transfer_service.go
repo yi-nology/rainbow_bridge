@@ -68,7 +68,42 @@ func (s *Service) ExportSystemSelectedStaticBundle(ctx context.Context) ([]byte,
 }
 
 func (s *Service) ExportStaticBundleAll(ctx context.Context) ([]byte, string, error) {
-	return nil, "", errors.New("export all not yet implemented")
+	// Get all environments and pipelines
+	environments, err := s.logic.ListEnvironments(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	pipelines, err := s.logic.ListPipelines(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Collect all configs from all environment+pipeline combinations
+	allConfigs := make([]model.Config, 0)
+	businessKeys := make([]string, 0)
+
+	for _, env := range environments {
+		for _, pipe := range pipelines {
+			configs, err := s.logic.ExportConfigs(ctx, env.EnvironmentKey, pipe.PipelineKey)
+			if err != nil {
+				continue // Skip if error
+			}
+			allConfigs = append(allConfigs, configs...)
+			businessKeys = append(businessKeys, fmt.Sprintf("%s/%s", env.EnvironmentKey, pipe.PipelineKey))
+		}
+	}
+
+	if len(allConfigs) == 0 {
+		return nil, "", errors.New("no configs found")
+	}
+
+	data, err := s.writeStaticBundle(ctx, allConfigs, businessKeys, true)
+	if err != nil {
+		return nil, "", err
+	}
+
+	name := "all_static_bundle.zip"
+	return data, name, nil
 }
 
 func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExportRequest) ([]byte, string, error) {
@@ -91,8 +126,23 @@ func (s *Service) ExportStaticBundle(ctx context.Context, req *api.ResourceExpor
 	if req == nil {
 		return nil, "", errors.New("request required")
 	}
-	// TODO: Implement static bundle export with new architecture
-	return nil, "", errors.New("static bundle export not yet implemented")
+	configs, err := s.logic.ExportConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Build business keys for this environment+pipeline combination
+	businessKeys := []string{
+		fmt.Sprintf("%s/%s", req.GetEnvironmentKey(), req.GetPipelineKey()),
+	}
+
+	data, err := s.writeStaticBundle(ctx, configs, businessKeys, false)
+	if err != nil {
+		return nil, "", err
+	}
+
+	name := fmt.Sprintf("%s_%s_static_bundle.zip", req.GetEnvironmentKey(), req.GetPipelineKey())
+	return data, name, nil
 }
 
 func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config) ([]byte, error) {

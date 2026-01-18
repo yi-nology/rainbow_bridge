@@ -45,6 +45,16 @@ func NewLogic(dbConn *gorm.DB) *Logic {
 	}
 }
 
+// --------------------- Environment Operations ---------------------
+
+func (l *Logic) ListEnvironments(ctx context.Context) ([]model.Environment, error) {
+	return l.environmentDAO.List(ctx, l.db, nil)
+}
+
+func (l *Logic) ListPipelines(ctx context.Context) ([]model.Pipeline, error) {
+	return l.pipelineDAO.List(ctx, l.db, nil)
+}
+
 // --------------------- Config Operations ---------------------
 
 func (l *Logic) AddConfig(ctx context.Context, cfg *model.Config) error {

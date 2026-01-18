@@ -123,6 +123,7 @@ func List(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// Note: pipeline_key is accepted but not used, as SystemConfig is environment-scoped only
 	configs, err := svc.ListSystemConfigsByEnv(handler.EnrichContext(ctx, c), req.EnvironmentKey)
 	if err != nil {
 		handler.RespondError(c, consts.StatusInternalServerError, err)

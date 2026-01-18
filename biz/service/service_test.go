@@ -316,7 +316,7 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 		t.Fatalf("GetRealtimeStaticConfig: %v", err)
 	}
 
-	selectKey, _ := payload["business_select"].(string)
+	selectKey, ok := payload["default_key"].(string)
 	if selectKey != "biz-realtime" {
 		t.Fatalf("unexpected business_select %q", selectKey)
 	}

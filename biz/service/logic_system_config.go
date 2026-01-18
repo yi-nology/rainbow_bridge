@@ -42,8 +42,6 @@ func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, config
 
 	// Step 3: Return default value
 	switch configKey {
-	case constants.SysConfigBusinessSelect:
-		return constants.DefaultBusinessSelect, nil
 	case constants.SysConfigSystemOptions:
 		return constants.DefaultSystemOptions, nil
 	default:
@@ -78,13 +76,6 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey s
 
 	// Step 3: Return default value
 	switch configKey {
-	case constants.SysConfigBusinessSelect:
-		return &model.SystemConfig{
-			EnvironmentKey: environmentKey,
-			ConfigKey:      configKey,
-			ConfigValue:    constants.DefaultBusinessSelect,
-			Remark:         constants.DefaultSystemConfigRemark[configKey],
-		}, nil
 	case constants.SysConfigSystemOptions:
 		return &model.SystemConfig{
 			EnvironmentKey: environmentKey,
@@ -109,12 +100,6 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 		return []model.SystemConfig{
 			{
 				EnvironmentKey: environmentKey,
-				ConfigKey:      constants.SysConfigBusinessSelect,
-				ConfigValue:    constants.DefaultBusinessSelect,
-				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigBusinessSelect],
-			},
-			{
-				EnvironmentKey: environmentKey,
 				ConfigKey:      constants.SysConfigSystemOptions,
 				ConfigValue:    constants.DefaultSystemOptions,
 				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemOptions],
@@ -126,7 +111,7 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 }
 
 // UpdateSystemConfig updates a system config value.
-// Only business_select and system_options are allowed to be updated.
+// Only system_options is allowed to be updated.
 func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKey, configValue string) error {
 	// Validate config key
 	if !constants.IsProtectedSystemConfig(configKey) {
@@ -156,12 +141,6 @@ func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKe
 // InitSystemConfigsForEnvironment initializes default system configs for a new environment.
 func (l *Logic) InitSystemConfigsForEnvironment(ctx context.Context, db *gorm.DB, environmentKey string) error {
 	configs := []model.SystemConfig{
-		{
-			EnvironmentKey: environmentKey,
-			ConfigKey:      constants.SysConfigBusinessSelect,
-			ConfigValue:    constants.DefaultBusinessSelect,
-			Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigBusinessSelect],
-		},
 		{
 			EnvironmentKey: environmentKey,
 			ConfigKey:      constants.SysConfigSystemOptions,

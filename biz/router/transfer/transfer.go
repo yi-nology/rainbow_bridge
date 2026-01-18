@@ -24,12 +24,6 @@ func Register(r *server.Hertz) {
 			{
 				_transfer := _v1.Group("/transfer", _transferMw()...)
 				_transfer.GET("/export", append(_export0Mw(), transfer.Export)...)
-				_export := _transfer.Group("/export", _exportMw()...)
-				{
-					_static := _export.Group("/static", _staticMw()...)
-					_static.GET("/all", append(_exportstaticallMw(), transfer.ExportStaticAll)...)
-					_static.GET("/selected", append(_exportstaticselectedMw(), transfer.ExportStaticSelected)...)
-				}
 				_transfer.POST("/import", append(_importMw(), transfer.Import)...)
 			}
 		}

@@ -76,6 +76,27 @@ func Export(ctx context.Context, c *app.RequestContext) {
 	environmentKey := strings.TrimSpace(c.Query("environment_key"))
 	pipelineKey := strings.TrimSpace(c.Query("pipeline_key"))
 	format := strings.ToLower(strings.TrimSpace(c.Query("format")))
+	includeSystemConfig := strings.ToLower(strings.TrimSpace(c.Query("include_system_config"))) == "true"
+	systemConfigOnly := strings.ToLower(strings.TrimSpace(c.Query("system_config_only"))) == "true"
+
+	// 如果 environment_key 和 pipeline_key 都为空或为 "all"，导出所有环境和流水线
+	if (environmentKey == "" || environmentKey == "all") && (pipelineKey == "" || pipelineKey == "all") {
+		switch format {
+		case "zip":
+			data, filename, err := svc.ExportConfigsArchiveAll(handler.EnrichContext(ctx, c), includeSystemConfig)
+			if err != nil {
+				handler.RespondError(c, consts.StatusInternalServerError, err)
+				return
+			}
+			c.Header("Content-Type", "application/zip")
+			c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+			c.Data(consts.StatusOK, "application/zip", data)
+			return
+		default:
+			handler.RespondError(c, consts.StatusBadRequest, errors.New("export all only supports zip format"))
+			return
+		}
+	}
 
 	if environmentKey == "" || pipelineKey == "" {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key and pipeline_key are required"))
@@ -89,17 +110,7 @@ func Export(ctx context.Context, c *app.RequestContext) {
 
 	switch format {
 	case "zip":
-		data, filename, err := svc.ExportConfigsArchive(handler.EnrichContext(ctx, c), req)
-		if err != nil {
-			handler.RespondError(c, consts.StatusInternalServerError, err)
-			return
-		}
-		c.Header("Content-Type", "application/zip")
-		c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-		c.Data(consts.StatusOK, "application/zip", data)
-
-	case "nginx", "static":
-		data, filename, err := svc.ExportStaticBundle(handler.EnrichContext(ctx, c), req)
+		data, filename, err := svc.ExportConfigsArchive(handler.EnrichContext(ctx, c), req, includeSystemConfig, systemConfigOnly)
 		if err != nil {
 			handler.RespondError(c, consts.StatusInternalServerError, err)
 			return
@@ -109,7 +120,7 @@ func Export(ctx context.Context, c *app.RequestContext) {
 		c.Data(consts.StatusOK, "application/zip", data)
 
 	default: // json
-		configs, err := svc.ExportConfigs(handler.EnrichContext(ctx, c), req)
+		configs, err := svc.ExportConfigs(handler.EnrichContext(ctx, c), req, includeSystemConfig, systemConfigOnly)
 		if err != nil {
 			handler.RespondError(c, consts.StatusInternalServerError, err)
 			return
@@ -118,47 +129,4 @@ func Export(ctx context.Context, c *app.RequestContext) {
 			"list": configs,
 		})
 	}
-}
-
-// ExportStaticSelected .
-// @router /api/v1/transfer/export/static/selected [GET]
-func ExportStaticSelected(ctx context.Context, c *app.RequestContext) {
-	environmentKey := strings.TrimSpace(c.Query("environment_key"))
-	pipelineKey := strings.TrimSpace(c.Query("pipeline_key"))
-
-	if environmentKey == "" {
-		environmentKey = "default"
-	}
-	if pipelineKey == "" {
-		pipelineKey = "default"
-	}
-
-	req := &api.ResourceExportRequest{
-		EnvironmentKey: environmentKey,
-		PipelineKey:    pipelineKey,
-	}
-
-	data, filename, err := svc.ExportStaticBundle(handler.EnrichContext(ctx, c), req)
-	if err != nil {
-		handler.WriteInternalError(c, err)
-		return
-	}
-
-	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-	c.Data(consts.StatusOK, "application/zip", data)
-}
-
-// ExportStaticAll .
-// @router /api/v1/transfer/export/static/all [GET]
-func ExportStaticAll(ctx context.Context, c *app.RequestContext) {
-	data, filename, err := svc.ExportStaticBundleAll(handler.EnrichContext(ctx, c))
-	if err != nil {
-		handler.WriteInternalError(c, err)
-		return
-	}
-
-	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-	c.Data(consts.StatusOK, "application/zip", data)
 }

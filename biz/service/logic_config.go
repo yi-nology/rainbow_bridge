@@ -145,12 +145,23 @@ func (l *Logic) ImportConfigs(ctx context.Context, configs []model.Config, overw
 		}
 	}
 
+	// 用于跟踪已导入的 alias，避免重复
+	importedAliases := make(map[string]bool)
+
 	for idx := range configs {
 		cfg := configs[idx]
 		normalizeConfigPayload(&cfg)
 		if err := validateConfigContent(&cfg); err != nil {
 			return err
 		}
+
+		// 检查是否已经导入过相同的 alias
+		aliasKey := fmt.Sprintf("%s/%s/%s", cfg.EnvironmentKey, cfg.PipelineKey, cfg.Alias)
+		if cfg.Alias != "" && importedAliases[aliasKey] {
+			// 跳过重复的 alias
+			continue
+		}
+
 		existing, err := l.configDAO.GetByResourceKey(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, cfg.ResourceKey)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
@@ -165,11 +176,19 @@ func (l *Logic) ImportConfigs(ctx context.Context, configs []model.Config, overw
 			if err := l.configDAO.Create(ctx, l.db, &cfg); err != nil {
 				return err
 			}
+			// 记录已导入的 alias
+			if cfg.Alias != "" {
+				importedAliases[aliasKey] = true
+			}
 			continue
 		}
 		cfg.ResourceKey = existing.ResourceKey
 		if err := l.configDAO.UpdateByEnvironmentAndPipeline(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, &cfg); err != nil {
 			return err
+		}
+		// 记录已导入的 alias
+		if cfg.Alias != "" {
+			importedAliases[aliasKey] = true
 		}
 	}
 	return nil

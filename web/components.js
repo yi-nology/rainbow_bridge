@@ -48,20 +48,12 @@ const NAV_ITEMS = [
     tagline: "规范资源入口，统一引用规范",
   },
   {
-    key: "export",
-    href: "export.html",
-    icon: "📤",
-    label: "配置导出",
-    description: "批量导出配置与静态资源",
-    tagline: "标准化导出，方便分发部署",
-  },
-  {
-    key: "import",
-    href: "import.html",
-    icon: "⇅",
-    label: "配置导入",
-    description: "上传 ZIP 还原配置与资源",
-    tagline: "一键导入，保障多环境一致性",
+    key: "transfer",
+    href: "transfer.html",
+    icon: "⇄",
+    label: "配置迁移",
+    description: "导出备份或导入配置与资源",
+    tagline: "备份、迁移、多环境同步",
   },
 ];
 

@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package runtime;
+import "api.proto";
+import "common.proto";
+
+// EnvironmentInfo contains environment and pipeline information.
+message EnvironmentInfo {
+  string environment_key = 1;
+  string environment_name = 2;
+  string pipeline_key = 3;
+  string pipeline_name = 4;
+}
+
+// RuntimeConfigRequest is used to get runtime config via headers.
+message RuntimeConfigRequest {
+  string x_environment = 1 [(api.header) = "x-environment"];
+  string x_pipeline = 2 [(api.header) = "x-pipeline"];
+}
+
+// RuntimeConfigResponse contains configs and environment info.
+message RuntimeConfigResponse {
+  repeated common.ResourceConfig configs = 1;
+  EnvironmentInfo environment = 2;
+}
+
+// StaticPackageRequest is used to export static package.
+message StaticPackageRequest {
+  string environment_key = 1 [(api.query) = "environment_key"];
+  string pipeline_key = 2 [(api.query) = "pipeline_key"];
+}
+
+// RuntimeService handles runtime configuration operations.
+service RuntimeService {
+  // GetConfig returns runtime configuration from headers.
+  rpc GetConfig(RuntimeConfigRequest) returns (RuntimeConfigResponse) {
+    option (api.get) = "/api/v1/runtime/config";
+  }
+
+  // ExportStatic exports static package as zip file.
+  rpc ExportStatic(StaticPackageRequest) returns (common.Empty) {
+    option (api.get) = "/api/v1/runtime/static";
+  }
+}

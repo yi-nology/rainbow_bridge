@@ -26,14 +26,14 @@ func (dao *ConfigDAO) Create(ctx context.Context, db *gorm.DB, entity *model.Con
 	return db.WithContext(ctx).Create(entity).Error
 }
 
-// UpdateByBusinessKey updates an existing configuration identified by business_key + resource_key.
-func (dao *ConfigDAO) UpdateByBusinessKey(ctx context.Context, db *gorm.DB, businessKey string, entity *model.Config) error {
+// UpdateByEnvironmentAndPipeline updates an existing configuration identified by environment_key + pipeline_key + resource_key.
+func (dao *ConfigDAO) UpdateByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, entity *model.Config) error {
 	if entity == nil {
 		return errors.New("config must not be nil")
 	}
 	return db.WithContext(ctx).
 		Model(&model.Config{}).
-		Where("business_key = ? AND resource_key = ?", businessKey, entity.ResourceKey).
+		Where("environment_key = ? AND pipeline_key = ? AND resource_key = ?", environmentKey, pipelineKey, entity.ResourceKey).
 		Updates(entity).
 		Error
 }
@@ -43,19 +43,19 @@ func (dao *ConfigDAO) ClearAll(ctx context.Context, db *gorm.DB) error {
 	return db.WithContext(ctx).Where("1 = 1").Unscoped().Delete(&model.Config{}).Error
 }
 
-// DeleteByBusinessKeyAndResourceKey performs a hard delete by composite key.
-func (dao *ConfigDAO) DeleteByBusinessKeyAndResourceKey(ctx context.Context, db *gorm.DB, businessKey string, resourceKey string) error {
+// DeleteByEnvironmentPipelineAndResourceKey performs a hard delete by composite key.
+func (dao *ConfigDAO) DeleteByEnvironmentPipelineAndResourceKey(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, resourceKey string) error {
 	return db.WithContext(ctx).
 		Unscoped().
-		Where("business_key = ? AND resource_key = ?", businessKey, resourceKey).
+		Where("environment_key = ? AND pipeline_key = ? AND resource_key = ?", environmentKey, pipelineKey, resourceKey).
 		Delete(&model.Config{}).Error
 }
 
-// GetByResourceKey fetches a single config by business key + resource key.
-func (dao *ConfigDAO) GetByResourceKey(ctx context.Context, db *gorm.DB, businessKey string, resourceKey string) (*model.Config, error) {
+// GetByResourceKey fetches a single config by environment + pipeline + resource key.
+func (dao *ConfigDAO) GetByResourceKey(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, resourceKey string) (*model.Config, error) {
 	var entity model.Config
 	if err := db.WithContext(ctx).
-		Where("business_key = ? AND resource_key = ?", businessKey, resourceKey).
+		Where("environment_key = ? AND pipeline_key = ? AND resource_key = ?", environmentKey, pipelineKey, resourceKey).
 		First(&entity).Error; err != nil {
 		return nil, err
 	}
@@ -73,11 +73,11 @@ func (dao *ConfigDAO) GetByResourceKeyOnly(ctx context.Context, db *gorm.DB, res
 	return &entity, nil
 }
 
-// GetByAlias fetches the latest config by alias.
-func (dao *ConfigDAO) GetByAlias(ctx context.Context, db *gorm.DB, businessKey string, alias string) (*model.Config, error) {
+// GetByAlias fetches the latest config by environment + pipeline + alias.
+func (dao *ConfigDAO) GetByAlias(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, alias string) (*model.Config, error) {
 	var entity model.Config
 	if err := db.WithContext(ctx).
-		Where("business_key = ? AND alias = ?", businessKey, alias).
+		Where("environment_key = ? AND pipeline_key = ? AND alias = ?", environmentKey, pipelineKey, alias).
 		Order("updated_at DESC").
 		First(&entity).Error; err != nil {
 		return nil, err
@@ -85,11 +85,11 @@ func (dao *ConfigDAO) GetByAlias(ctx context.Context, db *gorm.DB, businessKey s
 	return &entity, nil
 }
 
-// ListByBusinessKeyAndVersion returns the most recently updated configs per alias.
-func (dao *ConfigDAO) ListByBusinessKeyAndVersion(ctx context.Context, db *gorm.DB, businessKey string, _ string) ([]model.Config, error) {
+// ListByEnvironmentAndPipeline returns the most recently updated configs per alias.
+func (dao *ConfigDAO) ListByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, _ string) ([]model.Config, error) {
 	var entities []model.Config
 	if err := db.WithContext(ctx).
-		Where("business_key = ?", businessKey).
+		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
 		Order("updated_at DESC").
 		Find(&entities).Error; err != nil {
 		return nil, err
@@ -107,9 +107,9 @@ func (dao *ConfigDAO) ListByBusinessKeyAndVersion(ctx context.Context, db *gorm.
 	return filtered, nil
 }
 
-// ListByBusinessKey retrieves configs optionally filtering by type.
-func (dao *ConfigDAO) ListByBusinessKey(ctx context.Context, db *gorm.DB, businessKey string, _ string, _ string, resourceType string) ([]model.Config, error) {
-	tx := db.WithContext(ctx).Where("business_key = ?", businessKey)
+// ListByEnvironmentAndPipelineWithFilter retrieves configs optionally filtering by type.
+func (dao *ConfigDAO) ListByEnvironmentAndPipelineWithFilter(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, _ string, _ string, resourceType string) ([]model.Config, error) {
+	tx := db.WithContext(ctx).Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey)
 
 	if resourceType != "" {
 		tx = tx.Where("type = ?", resourceType)
@@ -122,14 +122,8 @@ func (dao *ConfigDAO) ListByBusinessKey(ctx context.Context, db *gorm.DB, busine
 	return entities, nil
 }
 
-// ListAllBusinessKeys returns all distinct business keys.
+// ListAllBusinessKeys is deprecated, use environment/pipeline queries instead.
+// Kept for backward compatibility during migration.
 func (dao *ConfigDAO) ListAllBusinessKeys(ctx context.Context, db *gorm.DB) ([]string, error) {
-	var businessKeys []string
-	if err := db.WithContext(ctx).
-		Model(&model.Config{}).
-		Distinct().
-		Pluck("business_key", &businessKeys).Error; err != nil {
-		return nil, err
-	}
-	return businessKeys, nil
+	return []string{}, errors.New("business_key is deprecated, use environment_key and pipeline_key instead")
 }

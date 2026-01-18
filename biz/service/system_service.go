@@ -12,8 +12,8 @@ import (
 
 // --------------------- System operations ---------------------
 
-func (s *Service) ListSystemConfigs(ctx context.Context) (map[string]string, string, error) {
-	data, err := s.logic.ListSystemConfigs(ctx)
+func (s *Service) ListSystemConfigs(ctx context.Context, environmentKey, pipelineKey string) (map[string]string, string, error) {
+	data, err := s.logic.ListSystemConfigs(ctx, environmentKey, pipelineKey)
 	if err != nil {
 		return nil, "", err
 	}
@@ -36,46 +36,32 @@ func (s *Service) ListSystemConfigs(ctx context.Context) (map[string]string, str
 	return result, common.GetMD5Hash(builder.String()), nil
 }
 
-// GetRealtimeStaticConfig returns a config payload shaped like static/config.json
-// containing the latest system configs and the configs of the business selected
-// via system.business_select.
-func (s *Service) GetRealtimeStaticConfig(ctx context.Context) (map[string]any, error) {
-	systemConfigs, err := s.logic.ExportConfigs(ctx, "system", false)
+// GetRealtimeStaticConfig returns a config payload containing the latest configs
+// for the specified environment and pipeline.
+func (s *Service) GetRealtimeStaticConfig(ctx context.Context, environmentKey, pipelineKey string) (map[string]any, error) {
+	configs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
 	if err != nil {
 		return nil, err
 	}
 
-	selectedKey := extractBusinessSelectKey(systemConfigs)
-	trimmedSelected := strings.TrimSpace(selectedKey)
+	// Simplified payload without nested business logic
+	payload := make(map[string]any)
+	payload["environment_key"] = environmentKey
+	payload["pipeline_key"] = pipelineKey
+	payload["total"] = len(configs)
 
-	configs := make([]model.Config, 0, len(systemConfigs)+4)
-	configs = append(configs, systemConfigs...)
-
-	targetKeys := []string{"system"}
-	if trimmedSelected != "" && trimmedSelected != "system" {
-		businessConfigs, err := s.logic.ExportConfigs(ctx, trimmedSelected, false)
-		if err != nil {
-			return nil, err
+	result := make(map[string]any)
+	for _, cfg := range configs {
+		key := cfg.Alias
+		if key == "" {
+			key = cfg.Name
 		}
-		configs = append(configs, businessConfigs...)
-		targetKeys = append(targetKeys, trimmedSelected)
+		if key == "" {
+			key = cfg.ResourceKey
+		}
+		result[key] = cfg.Content
 	}
-
-	targetKeys = sanitizeBusinessKeys(targetKeys)
-
-	payload := buildStaticPayload(staticPayloadInput{
-		Configs:       configs,
-		BusinessKeys:  targetKeys,
-		IncludeSystem: true,
-		Replacements:  nil,
-	})
-
-	if val, ok := payload["business_select"].(string); !ok || strings.TrimSpace(val) == "" {
-		payload["business_select"] = trimmedSelected
-	}
-	if _, ok := payload["business_keys"]; !ok {
-		payload["business_keys"] = targetKeys
-	}
+	payload["configs"] = result
 
 	return s.decorateRealtimePayload(payload), nil
 }

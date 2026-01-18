@@ -18,45 +18,48 @@ func (dao *PipelineDAO) Create(ctx context.Context, db *gorm.DB, entity *model.P
 	if entity == nil {
 		return errors.New("pipeline must not be nil")
 	}
+	if entity.EnvironmentKey == "" {
+		return errors.New("environment_key is required")
+	}
 	if entity.PipelineKey == "" {
 		return errors.New("pipeline_key is required")
 	}
 	return db.WithContext(ctx).Create(entity).Error
 }
 
-// Update updates an existing pipeline identified by pipeline_key.
+// Update updates an existing pipeline identified by environment_key and pipeline_key.
 func (dao *PipelineDAO) Update(ctx context.Context, db *gorm.DB, entity *model.Pipeline) error {
 	if entity == nil {
 		return errors.New("pipeline must not be nil")
 	}
 	return db.WithContext(ctx).
 		Model(&model.Pipeline{}).
-		Where("pipeline_key = ?", entity.PipelineKey).
+		Where("environment_key = ? AND pipeline_key = ?", entity.EnvironmentKey, entity.PipelineKey).
 		Updates(entity).
 		Error
 }
 
-// Delete performs a soft delete by pipeline_key.
-func (dao *PipelineDAO) Delete(ctx context.Context, db *gorm.DB, pipelineKey string) error {
+// Delete performs a soft delete by environment_key and pipeline_key.
+func (dao *PipelineDAO) Delete(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string) error {
 	return db.WithContext(ctx).
-		Where("pipeline_key = ?", pipelineKey).
+		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
 		Delete(&model.Pipeline{}).Error
 }
 
-// GetByKey fetches a single pipeline by pipeline_key.
-func (dao *PipelineDAO) GetByKey(ctx context.Context, db *gorm.DB, pipelineKey string) (*model.Pipeline, error) {
+// GetByKey fetches a single pipeline by environment_key and pipeline_key.
+func (dao *PipelineDAO) GetByKey(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string) (*model.Pipeline, error) {
 	var entity model.Pipeline
 	if err := db.WithContext(ctx).
-		Where("pipeline_key = ?", pipelineKey).
+		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
 		First(&entity).Error; err != nil {
 		return nil, err
 	}
 	return &entity, nil
 }
 
-// List returns all pipelines with optional active filter.
-func (dao *PipelineDAO) List(ctx context.Context, db *gorm.DB, isActive *bool) ([]model.Pipeline, error) {
-	tx := db.WithContext(ctx)
+// List returns all pipelines for an environment with optional active filter.
+func (dao *PipelineDAO) List(ctx context.Context, db *gorm.DB, environmentKey string, isActive *bool) ([]model.Pipeline, error) {
+	tx := db.WithContext(ctx).Where("environment_key = ?", environmentKey)
 	if isActive != nil {
 		tx = tx.Where("is_active = ?", *isActive)
 	}
@@ -68,12 +71,12 @@ func (dao *PipelineDAO) List(ctx context.Context, db *gorm.DB, isActive *bool) (
 	return entities, nil
 }
 
-// ExistsByKey checks if a pipeline with the given key exists.
-func (dao *PipelineDAO) ExistsByKey(ctx context.Context, db *gorm.DB, pipelineKey string) (bool, error) {
+// ExistsByKey checks if a pipeline with the given environment_key and pipeline_key exists.
+func (dao *PipelineDAO) ExistsByKey(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string) (bool, error) {
 	var count int64
 	if err := db.WithContext(ctx).
 		Model(&model.Pipeline{}).
-		Where("pipeline_key = ?", pipelineKey).
+		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
 		Count(&count).Error; err != nil {
 		return false, err
 	}

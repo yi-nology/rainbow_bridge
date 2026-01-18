@@ -33,8 +33,12 @@ func Create(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
 		return
 	}
+	if req.EnvironmentKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		return
+	}
 
-	if err := svc.AddPipeline(handler.EnrichContext(ctx, c), req.Pipeline); err != nil {
+	if err := svc.AddPipeline(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.Pipeline); err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrPipelineKeyExists) {
 			status = consts.StatusBadRequest
@@ -66,8 +70,12 @@ func Update(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
 		return
 	}
+	if req.EnvironmentKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		return
+	}
 
-	if err := svc.UpdatePipeline(handler.EnrichContext(ctx, c), req.Pipeline); err != nil {
+	if err := svc.UpdatePipeline(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.Pipeline); err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrPipelineNotFound) {
 			status = consts.StatusNotFound
@@ -99,8 +107,12 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
 		return
 	}
+	if req.EnvironmentKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		return
+	}
 
-	if err := svc.DeletePipeline(handler.EnrichContext(ctx, c), req.PipelineKey); err != nil {
+	if err := svc.DeletePipeline(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.PipelineKey); err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrPipelineNotFound) {
 			status = consts.StatusNotFound
@@ -125,13 +137,18 @@ func List(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	// Note: environment_key is accepted for consistency but not used, as Pipeline is global
+	// Pipeline data is now environment-scoped
+	if req.EnvironmentKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		return
+	}
+
 	var isActivePtr *bool
 	if req.IsActive {
 		isActivePtr = &req.IsActive
 	}
 
-	list, err := svc.ListPipelines(handler.EnrichContext(ctx, c), isActivePtr)
+	list, err := svc.ListPipelines(handler.EnrichContext(ctx, c), req.EnvironmentKey, isActivePtr)
 	if err != nil {
 		handler.RespondError(c, consts.StatusInternalServerError, err)
 		return
@@ -156,8 +173,12 @@ func Detail(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
 		return
 	}
+	if req.EnvironmentKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		return
+	}
 
-	pl, err := svc.GetPipeline(handler.EnrichContext(ctx, c), req.PipelineKey)
+	pl, err := svc.GetPipeline(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.PipelineKey)
 	if err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrPipelineNotFound) {

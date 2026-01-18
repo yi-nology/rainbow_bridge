@@ -6,26 +6,30 @@ import "common.proto";
 
 // Pipeline represents a pipeline entity.
 message Pipeline {
-  string pipeline_key = 1;
-  string pipeline_name = 2;
-  string description = 3;
-  int32 sort_order = 4;
-  bool is_active = 5;
+  string environment_key = 1;
+  string pipeline_key = 2;
+  string pipeline_name = 3;
+  string description = 4;
+  int32 sort_order = 5;
+  bool is_active = 6;
 }
 
 // CreatePipelineRequest is used for creating a pipeline.
 message CreatePipelineRequest {
-  Pipeline pipeline = 1;
+  string environment_key = 1;
+  Pipeline pipeline = 2;
 }
 
 // UpdatePipelineRequest is used for updating a pipeline.
 message UpdatePipelineRequest {
-  Pipeline pipeline = 1;
+  string environment_key = 1;
+  Pipeline pipeline = 2;
 }
 
 // DeletePipelineRequest is used for deleting a pipeline.
 message DeletePipelineRequest {
-  string pipeline_key = 1;
+  string environment_key = 1;
+  string pipeline_key = 2;
 }
 
 // ListPipelineRequest is used to list pipelines with filters.
@@ -36,7 +40,8 @@ message ListPipelineRequest {
 
 // PipelineDetailRequest is used to get a specific pipeline.
 message PipelineDetailRequest {
-  string pipeline_key = 1;
+  string environment_key = 1;
+  string pipeline_key = 2;
 }
 
 // PipelineResponse is a response containing a pipeline.

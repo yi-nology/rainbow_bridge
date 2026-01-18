@@ -16,12 +16,15 @@ var (
 )
 
 // AddPipeline creates a new pipeline.
-func (s *Service) AddPipeline(ctx context.Context, pl *plpb.Pipeline) error {
+func (s *Service) AddPipeline(ctx context.Context, environmentKey string, pl *plpb.Pipeline) error {
 	if pl == nil || pl.GetPipelineKey() == "" {
 		return ErrPipelineKeyRequired
 	}
+	if environmentKey == "" {
+		return errors.New("environment_key is required")
+	}
 
-	exists, err := s.logic.pipelineDAO.ExistsByKey(ctx, s.logic.db, pl.GetPipelineKey())
+	exists, err := s.logic.pipelineDAO.ExistsByKey(ctx, s.logic.db, environmentKey, pl.GetPipelineKey())
 	if err != nil {
 		return err
 	}
@@ -30,22 +33,26 @@ func (s *Service) AddPipeline(ctx context.Context, pl *plpb.Pipeline) error {
 	}
 
 	entity := &model.Pipeline{
-		PipelineKey:  pl.GetPipelineKey(),
-		PipelineName: pl.GetPipelineName(),
-		Description:  pl.GetDescription(),
-		SortOrder:    int(pl.GetSortOrder()),
-		IsActive:     pl.GetIsActive(),
+		EnvironmentKey: environmentKey,
+		PipelineKey:    pl.GetPipelineKey(),
+		PipelineName:   pl.GetPipelineName(),
+		Description:    pl.GetDescription(),
+		SortOrder:      int(pl.GetSortOrder()),
+		IsActive:       pl.GetIsActive(),
 	}
 	return s.logic.pipelineDAO.Create(ctx, s.logic.db, entity)
 }
 
 // UpdatePipeline updates an existing pipeline.
-func (s *Service) UpdatePipeline(ctx context.Context, pl *plpb.Pipeline) error {
+func (s *Service) UpdatePipeline(ctx context.Context, environmentKey string, pl *plpb.Pipeline) error {
 	if pl == nil || pl.GetPipelineKey() == "" {
 		return ErrPipelineKeyRequired
 	}
+	if environmentKey == "" {
+		return errors.New("environment_key is required")
+	}
 
-	_, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, pl.GetPipelineKey())
+	_, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, environmentKey, pl.GetPipelineKey())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrPipelineNotFound
@@ -54,22 +61,26 @@ func (s *Service) UpdatePipeline(ctx context.Context, pl *plpb.Pipeline) error {
 	}
 
 	entity := &model.Pipeline{
-		PipelineKey:  pl.GetPipelineKey(),
-		PipelineName: pl.GetPipelineName(),
-		Description:  pl.GetDescription(),
-		SortOrder:    int(pl.GetSortOrder()),
-		IsActive:     pl.GetIsActive(),
+		EnvironmentKey: environmentKey,
+		PipelineKey:    pl.GetPipelineKey(),
+		PipelineName:   pl.GetPipelineName(),
+		Description:    pl.GetDescription(),
+		SortOrder:      int(pl.GetSortOrder()),
+		IsActive:       pl.GetIsActive(),
 	}
 	return s.logic.pipelineDAO.Update(ctx, s.logic.db, entity)
 }
 
 // DeletePipeline deletes a pipeline by key.
-func (s *Service) DeletePipeline(ctx context.Context, pipelineKey string) error {
+func (s *Service) DeletePipeline(ctx context.Context, environmentKey, pipelineKey string) error {
 	if pipelineKey == "" {
 		return ErrPipelineKeyRequired
 	}
+	if environmentKey == "" {
+		return errors.New("environment_key is required")
+	}
 
-	_, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, pipelineKey)
+	_, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, environmentKey, pipelineKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrPipelineNotFound
@@ -77,16 +88,19 @@ func (s *Service) DeletePipeline(ctx context.Context, pipelineKey string) error 
 		return err
 	}
 
-	return s.logic.pipelineDAO.Delete(ctx, s.logic.db, pipelineKey)
+	return s.logic.pipelineDAO.Delete(ctx, s.logic.db, environmentKey, pipelineKey)
 }
 
 // GetPipeline returns a pipeline by key.
-func (s *Service) GetPipeline(ctx context.Context, pipelineKey string) (*plpb.Pipeline, error) {
+func (s *Service) GetPipeline(ctx context.Context, environmentKey, pipelineKey string) (*plpb.Pipeline, error) {
 	if pipelineKey == "" {
 		return nil, ErrPipelineKeyRequired
 	}
+	if environmentKey == "" {
+		return nil, errors.New("environment_key is required")
+	}
 
-	entity, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, pipelineKey)
+	entity, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, environmentKey, pipelineKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPipelineNotFound
@@ -98,8 +112,12 @@ func (s *Service) GetPipeline(ctx context.Context, pipelineKey string) (*plpb.Pi
 }
 
 // ListPipelines returns all pipelines with optional active filter.
-func (s *Service) ListPipelines(ctx context.Context, isActive *bool) ([]*plpb.Pipeline, error) {
-	entities, err := s.logic.pipelineDAO.List(ctx, s.logic.db, isActive)
+func (s *Service) ListPipelines(ctx context.Context, environmentKey string, isActive *bool) ([]*plpb.Pipeline, error) {
+	if environmentKey == "" {
+		return nil, errors.New("environment_key is required")
+	}
+
+	entities, err := s.logic.pipelineDAO.List(ctx, s.logic.db, environmentKey, isActive)
 	if err != nil {
 		return nil, err
 	}
@@ -112,11 +130,12 @@ func modelPipelineToPB(pl *model.Pipeline) *plpb.Pipeline {
 		return nil
 	}
 	return &plpb.Pipeline{
-		PipelineKey:  pl.PipelineKey,
-		PipelineName: pl.PipelineName,
-		Description:  pl.Description,
-		SortOrder:    int32(pl.SortOrder),
-		IsActive:     pl.IsActive,
+		EnvironmentKey: pl.EnvironmentKey,
+		PipelineKey:    pl.PipelineKey,
+		PipelineName:   pl.PipelineName,
+		Description:    pl.Description,
+		SortOrder:      int32(pl.SortOrder),
+		IsActive:       pl.IsActive,
 	}
 }
 

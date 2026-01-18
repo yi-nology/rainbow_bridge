@@ -26,6 +26,7 @@ message UpdateSystemConfigRequest {
 // ListSystemConfigRequest is used to list system configs for an environment.
 message ListSystemConfigRequest {
   string environment_key = 1;
+  string pipeline_key = 2;
 }
 
 // SystemConfigResponse contains a single system config.

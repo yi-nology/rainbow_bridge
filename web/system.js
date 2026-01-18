@@ -1,4 +1,4 @@
-import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment } from "./components.js";
+import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment, getCurrentPipeline } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr } from "./lib/utils.js";
@@ -19,6 +19,7 @@ const state = {
   search: "",
   editing: null,
   currentEnvironment: "default",
+  currentPipeline: "default",
 };
 
 const elements = {
@@ -63,7 +64,10 @@ const systemModal = createModal("systemModal", {
     state.currentEnvironment = envKey;
     fetchConfigs();
   });
-  await initPipelineSelector(state.apiBase, () => {});
+  await initPipelineSelector(state.apiBase, (pipelineKey) => {
+    state.currentPipeline = pipelineKey;
+    fetchConfigs();
+  });
 })();
 
 if (elements.search) {
@@ -130,7 +134,9 @@ document.addEventListener("click", (evt) => {
 
 async function fetchConfigs() {
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/system-config/list?environment_key=${state.currentEnvironment}`);
+    const env = state.currentEnvironment || getCurrentEnvironment() || "default";
+    const pipeline = state.currentPipeline || getCurrentPipeline() || "default";
+    const res = await fetch(`${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(env)}&pipeline_key=${encodeURIComponent(pipeline)}`);
     const json = await res.json();
     state.configs = json?.list || [];
     renderTable();

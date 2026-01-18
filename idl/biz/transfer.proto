@@ -14,17 +14,19 @@ message ImportRequest {
 // ImportSummaryItem represents a single item in the import summary.
 message ImportSummaryItem {
   string resource_key = 1;
-  string business_key = 2;
-  string name = 3;
-  string alias = 4;
-  string type = 5;
+  string environment_key = 2;
+  string pipeline_key = 3;
+  string name = 4;
+  string alias = 5;
+  string type = 6;
 }
 
 // ImportSummary contains summary information for import operations.
 message ImportSummary {
   int32 total = 1;
-  repeated string business_keys = 2;
-  repeated ImportSummaryItem items = 3;
+  repeated string environment_keys = 2;
+  repeated string pipeline_keys = 3;
+  repeated ImportSummaryItem items = 4;
 }
 
 // ImportResponse is a response for import operations.
@@ -37,8 +39,8 @@ message ImportResponse {
 
 // ExportRequest is used to export configurations.
 message ExportRequest {
-  repeated string business_keys = 1;
-  bool include_system = 2;
+  string environment_key = 1;
+  string pipeline_key = 2;
   string format = 3; // json, zip, static
 }
 

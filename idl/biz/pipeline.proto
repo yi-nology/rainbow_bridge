@@ -30,7 +30,8 @@ message DeletePipelineRequest {
 
 // ListPipelineRequest is used to list pipelines with filters.
 message ListPipelineRequest {
-  bool is_active = 1;
+  string environment_key = 1;
+  bool is_active = 2;
 }
 
 // PipelineDetailRequest is used to get a specific pipeline.

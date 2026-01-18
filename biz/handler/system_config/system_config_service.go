@@ -9,8 +9,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
-	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
-	system_config "github.com/yi-nology/rainbow_bridge/biz/model/system_config"
+	"github.com/yi-nology/rainbow_bridge/biz/model/common"
+	systemConfig "github.com/yi-nology/rainbow_bridge/biz/model/system_config"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
 
@@ -23,7 +23,7 @@ func SetService(s *service.Service) {
 // Get .
 // @router /api/v1/system-config/get [GET]
 func Get(ctx context.Context, c *app.RequestContext) {
-	var req system_config.GetSystemConfigRequest
+	var req systemConfig.GetSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
@@ -48,12 +48,12 @@ func Get(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	resp := &system_config.SystemConfigResponse{
+	resp := &systemConfig.SystemConfigResponse{
 		OperateResponse: &common.OperateResponse{
 			Code: consts.StatusOK,
 			Msg:  "success",
 		},
-		SystemConfig: &system_config.SystemConfig{
+		SystemConfig: &systemConfig.SystemConfig{
 			EnvironmentKey: cfg.EnvironmentKey,
 			ConfigKey:      cfg.ConfigKey,
 			ConfigValue:    cfg.ConfigValue,
@@ -66,14 +66,14 @@ func Get(ctx context.Context, c *app.RequestContext) {
 // Update .
 // @router /api/v1/system-config/update [POST]
 func Update(ctx context.Context, c *app.RequestContext) {
-	var req system_config.UpdateSystemConfigRequest
+	var req systemConfig.UpdateSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
 	}
 
 	if req.SystemConfig == nil {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("system_config is required"))
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("systemConfig is required"))
 		return
 	}
 	if req.SystemConfig.EnvironmentKey == "" {
@@ -99,7 +99,7 @@ func Update(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	resp := &system_config.SystemConfigResponse{
+	resp := &systemConfig.SystemConfigResponse{
 		OperateResponse: &common.OperateResponse{
 			Code: consts.StatusOK,
 			Msg:  "success",
@@ -112,7 +112,7 @@ func Update(ctx context.Context, c *app.RequestContext) {
 // List .
 // @router /api/v1/system-config/list [GET]
 func List(ctx context.Context, c *app.RequestContext) {
-	var req system_config.ListSystemConfigRequest
+	var req systemConfig.ListSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
@@ -129,9 +129,9 @@ func List(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	list := make([]*system_config.SystemConfig, 0, len(configs))
+	list := make([]*systemConfig.SystemConfig, 0, len(configs))
 	for _, cfg := range configs {
-		list = append(list, &system_config.SystemConfig{
+		list = append(list, &systemConfig.SystemConfig{
 			EnvironmentKey: cfg.EnvironmentKey,
 			ConfigKey:      cfg.ConfigKey,
 			ConfigValue:    cfg.ConfigValue,
@@ -139,7 +139,7 @@ func List(ctx context.Context, c *app.RequestContext) {
 		})
 	}
 
-	resp := &system_config.SystemConfigListResponse{
+	resp := &systemConfig.SystemConfigListResponse{
 		List: list,
 	}
 	c.JSON(consts.StatusOK, resp)

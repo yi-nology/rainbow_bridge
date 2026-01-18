@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
+	"github.com/yi-nology/rainbow_bridge/biz/dal/db"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	"github.com/yi-nology/rainbow_bridge/biz/dal/resource"
 	"github.com/yi-nology/rainbow_bridge/pkg/constants"
 	"gorm.io/gorm"
 )
@@ -105,13 +105,13 @@ func MigrateConfigDefaults(db *gorm.DB) error {
 
 // EnsureSystemDefaults initializes default environment, pipeline, and system configs at startup.
 // This is a package-level function that can be called before Service is created.
-func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
-	envDAO := resource.NewEnvironmentDAO()
-	plDAO := resource.NewPipelineDAO()
-	sysConfigDAO := resource.NewSystemConfigDAO()
+func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
+	envDAO := db.NewEnvironmentDAO()
+	plDAO := db.NewPipelineDAO()
+	sysConfigDAO := db.NewSystemConfigDAO()
 
 	// Create default environment
-	envExists, err := envDAO.ExistsByKey(ctx, db, DefaultEnvironmentKey)
+	envExists, err := envDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey)
 	if err != nil {
 		return err
 	}
@@ -123,14 +123,14 @@ func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
 			SortOrder:       0,
 			IsActive:        true,
 		}
-		if err := envDAO.Create(ctx, db, env); err != nil {
+		if err := envDAO.Create(ctx, dbConn, env); err != nil {
 			return err
 		}
 		log.Printf("[Init] Created default environment: %s", DefaultEnvironmentKey)
 	}
 
 	// Initialize system configs for default environment if not exists
-	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, db, DefaultEnvironmentKey, constants.SysConfigBusinessSelect)
+	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey, constants.SysConfigBusinessSelect)
 	if err != nil {
 		return err
 	}
@@ -149,14 +149,14 @@ func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
 				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemKeys],
 			},
 		}
-		if err := sysConfigDAO.BatchCreate(ctx, db, configs); err != nil {
+		if err := sysConfigDAO.BatchCreate(ctx, dbConn, configs); err != nil {
 			return err
 		}
 		log.Printf("[Init] Created default system configs for environment: %s", DefaultEnvironmentKey)
 	}
 
 	// Create default pipeline
-	plExists, err := plDAO.ExistsByKey(ctx, db, DefaultPipelineKey)
+	plExists, err := plDAO.ExistsByKey(ctx, dbConn, DefaultPipelineKey)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func EnsureSystemDefaults(ctx context.Context, db *gorm.DB) error {
 			SortOrder:    0,
 			IsActive:     true,
 		}
-		if err := plDAO.Create(ctx, db, pl); err != nil {
+		if err := plDAO.Create(ctx, dbConn, pl); err != nil {
 			return err
 		}
 		log.Printf("[Init] Created default pipeline: %s", DefaultPipelineKey)

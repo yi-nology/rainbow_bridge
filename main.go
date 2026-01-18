@@ -63,9 +63,8 @@ func main() {
 	h.Use(middleware.Logging())
 	h.Use(middleware.CORS(&cfg.CORS))
 	h.Use(middleware.Auth())
-	// Register generated routes and legacy routes
+	// Register generated routes
 	bizrouter.GeneratedRegister(h)
-	bizrouter.RegisterLegacyRoutes(h)
 
 	webFS, err := fs.Sub(embeddedWeb, "web")
 	if err != nil {

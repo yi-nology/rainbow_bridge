@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	resourcedal "github.com/yi-nology/rainbow_bridge/biz/dal/resource"
+	"github.com/yi-nology/rainbow_bridge/biz/dal/db"
+	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/pkg/common"
 	"github.com/yi-nology/rainbow_bridge/pkg/constants"
 	"github.com/yi-nology/rainbow_bridge/pkg/util"
@@ -28,27 +28,27 @@ var (
 // Logic contains business rules on top of data persistence.
 type Logic struct {
 	db              *gorm.DB
-	configDAO       *resourcedal.ConfigDAO
-	assetDAO        *resourcedal.AssetDAO
-	environmentDAO  *resourcedal.EnvironmentDAO
-	pipelineDAO     *resourcedal.PipelineDAO
-	systemConfigDAO *resourcedal.SystemConfigDAO
+	configDAO       *db.ConfigDAO
+	assetDAO        *db.AssetDAO
+	environmentDAO  *db.EnvironmentDAO
+	pipelineDAO     *db.PipelineDAO
+	systemConfigDAO *db.SystemConfigDAO
 }
 
-func NewLogic(db *gorm.DB) *Logic {
+func NewLogic(dbConn *gorm.DB) *Logic {
 	return &Logic{
-		db:              db,
-		configDAO:       resourcedal.NewConfigDAO(),
-		assetDAO:        resourcedal.NewAssetDAO(),
-		environmentDAO:  resourcedal.NewEnvironmentDAO(),
-		pipelineDAO:     resourcedal.NewPipelineDAO(),
-		systemConfigDAO: resourcedal.NewSystemConfigDAO(),
+		db:              dbConn,
+		configDAO:       db.NewConfigDAO(),
+		assetDAO:        db.NewAssetDAO(),
+		environmentDAO:  db.NewEnvironmentDAO(),
+		pipelineDAO:     db.NewPipelineDAO(),
+		systemConfigDAO: db.NewSystemConfigDAO(),
 	}
 }
 
 // --------------------- Config Operations ---------------------
 
-func (l *Logic) AddConfig(ctx context.Context, cfg *resourcemodel.Config) error {
+func (l *Logic) AddConfig(ctx context.Context, cfg *model.Config) error {
 	if cfg == nil {
 		return nil
 	}
@@ -59,7 +59,7 @@ func (l *Logic) AddConfig(ctx context.Context, cfg *resourcemodel.Config) error 
 	return l.configDAO.Create(ctx, l.db, cfg)
 }
 
-func (l *Logic) UpdateConfig(ctx context.Context, cfg *resourcemodel.Config) error {
+func (l *Logic) UpdateConfig(ctx context.Context, cfg *model.Config) error {
 	if cfg == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (l *Logic) DeleteConfig(ctx context.Context, businessKey, resourceKey strin
 	return l.configDAO.DeleteByBusinessKeyAndResourceKey(ctx, l.db, businessKey, resourceKey)
 }
 
-func (l *Logic) GetConfig(ctx context.Context, businessKey, resourceKey string) (*resourcemodel.Config, error) {
+func (l *Logic) GetConfig(ctx context.Context, businessKey, resourceKey string) (*model.Config, error) {
 	cfg, err := l.configDAO.GetByResourceKey(ctx, l.db, businessKey, resourceKey)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrResourceNotFound
@@ -98,7 +98,7 @@ func (l *Logic) GetConfig(ctx context.Context, businessKey, resourceKey string) 
 	return cfg, err
 }
 
-func (l *Logic) GetConfigByKey(ctx context.Context, resourceKey string) (*resourcemodel.Config, error) {
+func (l *Logic) GetConfigByKey(ctx context.Context, resourceKey string) (*model.Config, error) {
 	cfg, err := l.configDAO.GetByResourceKeyOnly(ctx, l.db, resourceKey)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrResourceNotFound
@@ -106,7 +106,7 @@ func (l *Logic) GetConfigByKey(ctx context.Context, resourceKey string) (*resour
 	return cfg, err
 }
 
-func (l *Logic) ListConfigs(ctx context.Context, businessKey, minVersion, maxVersion, resourceType string, latestOnly bool) ([]resourcemodel.Config, error) {
+func (l *Logic) ListConfigs(ctx context.Context, businessKey, minVersion, maxVersion, resourceType string, latestOnly bool) ([]model.Config, error) {
 	if latestOnly {
 		version := common.GetClientVersion(ctx)
 		return l.configDAO.ListByBusinessKeyAndVersion(ctx, l.db, businessKey, version)
@@ -137,7 +137,7 @@ func (l *Logic) ListSystemConfigs(ctx context.Context) (map[string]any, error) {
 
 	userID, ok := common.GetUserID(ctx)
 	if !ok || userID == 0 {
-		filtered := make([]resourcemodel.Config, 0, len(data))
+		filtered := make([]model.Config, 0, len(data))
 		for _, res := range data {
 			if res.IsPerm {
 				continue
@@ -154,7 +154,7 @@ func (l *Logic) ListSystemConfigs(ctx context.Context) (map[string]any, error) {
 	return result, nil
 }
 
-func (l *Logic) ExportConfigs(ctx context.Context, businessKey string, includeSystem bool) ([]resourcemodel.Config, error) {
+func (l *Logic) ExportConfigs(ctx context.Context, businessKey string, includeSystem bool) ([]model.Config, error) {
 	data, err := l.configDAO.ListByBusinessKeyAndVersion(ctx, l.db, businessKey, common.GetClientVersion(ctx))
 	if err != nil {
 		return nil, err
@@ -175,7 +175,7 @@ func (l *Logic) ExportConfigs(ctx context.Context, businessKey string, includeSy
 	return append(data, system...), nil
 }
 
-func (l *Logic) ImportConfigs(ctx context.Context, configs []resourcemodel.Config, overwrite bool) error {
+func (l *Logic) ImportConfigs(ctx context.Context, configs []model.Config, overwrite bool) error {
 	if overwrite {
 		if err := l.configDAO.ClearAll(ctx, l.db); err != nil {
 			return err
@@ -212,7 +212,7 @@ func (l *Logic) ImportConfigs(ctx context.Context, configs []resourcemodel.Confi
 	return nil
 }
 
-func normalizeConfigPayload(cfg *resourcemodel.Config) {
+func normalizeConfigPayload(cfg *model.Config) {
 	if cfg == nil {
 		return
 	}
@@ -228,7 +228,7 @@ func normalizeConfigType(t string) string {
 	return util.NormalizeConfigType(t)
 }
 
-func validateConfigContent(cfg *resourcemodel.Config) error {
+func validateConfigContent(cfg *model.Config) error {
 	if cfg == nil {
 		return errors.New("config payload required")
 	}
@@ -301,11 +301,11 @@ func (l *Logic) ListBusinessKeys(ctx context.Context) ([]string, error) {
 
 // --------------------- Asset Operations ---------------------
 
-func (l *Logic) CreateAsset(ctx context.Context, asset *resourcemodel.Asset) error {
+func (l *Logic) CreateAsset(ctx context.Context, asset *model.Asset) error {
 	return l.assetDAO.Create(ctx, l.db, asset)
 }
 
-func (l *Logic) UpdateAsset(ctx context.Context, asset *resourcemodel.Asset) error {
+func (l *Logic) UpdateAsset(ctx context.Context, asset *model.Asset) error {
 	if err := l.assetDAO.Update(ctx, l.db, asset); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrAssetNotFound
@@ -319,7 +319,7 @@ func (l *Logic) DeleteAsset(ctx context.Context, fileID string) error {
 	return l.assetDAO.DeleteByFileID(ctx, l.db, fileID)
 }
 
-func (l *Logic) GetAsset(ctx context.Context, fileID string) (*resourcemodel.Asset, error) {
+func (l *Logic) GetAsset(ctx context.Context, fileID string) (*model.Asset, error) {
 	asset, err := l.assetDAO.GetByFileID(ctx, l.db, fileID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrAssetNotFound
@@ -327,7 +327,7 @@ func (l *Logic) GetAsset(ctx context.Context, fileID string) (*resourcemodel.Ass
 	return asset, err
 }
 
-func (l *Logic) ListAssetsByBusinessKey(ctx context.Context, businessKey string) ([]resourcemodel.Asset, error) {
+func (l *Logic) ListAssetsByBusinessKey(ctx context.Context, businessKey string) ([]model.Asset, error) {
 	return l.assetDAO.ListByBusinessKey(ctx, l.db, businessKey)
 }
 
@@ -374,7 +374,7 @@ func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, config
 }
 
 // GetSystemConfig retrieves a system config entity with fallback strategy.
-func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey string) (*resourcemodel.SystemConfig, error) {
+func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey string) (*model.SystemConfig, error) {
 	// Step 1: Try system_config table
 	sysConfig, err := l.systemConfigDAO.GetByKey(ctx, l.db, environmentKey, configKey)
 	if err == nil && sysConfig != nil {
@@ -387,7 +387,7 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey s
 	// Step 2: Fallback to resource_config table
 	cfg, err := l.configDAO.GetByAlias(ctx, l.db, constants.SystemBusinessKey, configKey)
 	if err == nil && cfg != nil {
-		return &resourcemodel.SystemConfig{
+		return &model.SystemConfig{
 			EnvironmentKey: environmentKey,
 			ConfigKey:      configKey,
 			ConfigValue:    cfg.Content,
@@ -401,14 +401,14 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey s
 	// Step 3: Return default value
 	switch configKey {
 	case constants.SysConfigBusinessSelect:
-		return &resourcemodel.SystemConfig{
+		return &model.SystemConfig{
 			EnvironmentKey: environmentKey,
 			ConfigKey:      configKey,
 			ConfigValue:    constants.DefaultBusinessSelect,
 			Remark:         constants.DefaultSystemConfigRemark[configKey],
 		}, nil
 	case constants.SysConfigSystemKeys:
-		return &resourcemodel.SystemConfig{
+		return &model.SystemConfig{
 			EnvironmentKey: environmentKey,
 			ConfigKey:      configKey,
 			ConfigValue:    constants.DefaultSystemKeys,
@@ -420,7 +420,7 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey s
 }
 
 // ListSystemConfigsByEnvironment returns all system configs for an environment.
-func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentKey string) ([]resourcemodel.SystemConfig, error) {
+func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentKey string) ([]model.SystemConfig, error) {
 	configs, err := l.systemConfigDAO.ListByEnvironment(ctx, l.db, environmentKey)
 	if err != nil {
 		return nil, err
@@ -428,7 +428,7 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 
 	// If no configs found, return defaults
 	if len(configs) == 0 {
-		return []resourcemodel.SystemConfig{
+		return []model.SystemConfig{
 			{
 				EnvironmentKey: environmentKey,
 				ConfigKey:      constants.SysConfigBusinessSelect,
@@ -467,7 +467,7 @@ func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKe
 	}
 
 	// Create new config if not exists
-	return l.systemConfigDAO.Create(ctx, l.db, &resourcemodel.SystemConfig{
+	return l.systemConfigDAO.Create(ctx, l.db, &model.SystemConfig{
 		EnvironmentKey: environmentKey,
 		ConfigKey:      configKey,
 		ConfigValue:    configValue,
@@ -477,7 +477,7 @@ func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKe
 
 // InitSystemConfigsForEnvironment initializes default system configs for a new environment.
 func (l *Logic) InitSystemConfigsForEnvironment(ctx context.Context, db *gorm.DB, environmentKey string) error {
-	configs := []resourcemodel.SystemConfig{
+	configs := []model.SystemConfig{
 		{
 			EnvironmentKey: environmentKey,
 			ConfigKey:      constants.SysConfigBusinessSelect,

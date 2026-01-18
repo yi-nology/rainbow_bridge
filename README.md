@@ -26,7 +26,7 @@
 
 系统基于 **CloudWeGo Hertz**（HTTP 网关）+ **GORM**（ORM）+ **SQLite/MySQL/PostgreSQL**（关系型数据库）构建，提供以下核心能力：
 
-- **多维度配置管理**：按环境（Environment）+ 流水线（Pipeline）双维度隔离配置，支持业务配置和系统配置；  
+- **多维度配置管理**：按环境（Environment）+ 渠道（Pipeline）双维度隔离配置，支持业务配置和系统配置；  
 - **多种数据类型**：支持键值对（KV）、JSON 对象、纯文本、图片、色彩标签等 5 种配置类型；  
 - **在线资源管理**：上传、预览、导出、导入静态资源；  
 - **静态站点生成**：将配置打包成 Nginx 静态站点或 zip 包；  
@@ -40,7 +40,7 @@
 
 ## 系统目标
 
-1. **多维度配置管理**：以环境（Environment）+ 流水线（Pipeline）为维度管理配置，支持业务配置和系统配置；  
+1. **多维度配置管理**：以环境（Environment）+ 渠道（Pipeline）为维度管理配置，支持业务配置和系统配置；  
 2. **统一交付产物**：支持导出 `static/config.json`、zip 包和 Docker 镜像，方便静态部署；  
 3. **多种数据类型**：支持键值对、JSON 对象、文本、图片、颜色等多种配置类型，满足不同场景需求；  
 4. **兼容多存储后端**：默认内置 SQLite，易于扩展到 MySQL/PGSQL 或对象存储；  
@@ -137,13 +137,13 @@
 | `created_at`      | datetime | 创建时间                                      |
 | `updated_at`      | datetime | 更新时间                                      |
 
-### 2. 流水线表 `Pipeline`
+### 2. 渠道表 `Pipeline`
 
 | 字段              | 类型     | 说明                                      |
 |-------------------|----------|-------------------------------------------------|
 | `environment_key` | string   | 所属环境                                      |
-| `pipeline_key`    | string   | 流水线唯一标识，例如 `main`、`feature-x` |
-| `pipeline_name`   | string   | 流水线名称                                  |
+| `pipeline_key`    | string   | 渠道唯一标识，例如 `main`、`feature-x` |
+| `pipeline_name`   | string   | 渠道名称                                  |
 | `remark`          | string   | 备注信息                                      |
 | `created_at`      | datetime | 创建时间                                      |
 | `updated_at`      | datetime | 更新时间                                      |
@@ -155,7 +155,7 @@
 | 字段              | 类型     | 说明                                      |
 |-------------------|----------|-------------------------------------------------|
 | `environment_key` | string   | 所属环境                                      |
-| `pipeline_key`    | string   | 所属流水线                                  |
+| `pipeline_key`    | string   | 所属渠道                                  |
 | `config_key`      | string   | 配置键，例如 `system_options`              |
 | `config_value`    | text     | 配置内容（JSON 字符串 / 文本 / 引用）      |
 | `config_type`     | varchar  | 数据类型：`kv`、`json`、`text`、`image`、`color` |
@@ -178,8 +178,8 @@
 |---------------|-----------|-------------------------------------|
 | `resource_key`| string    | 资源唯一标识，默认 UUID             |
 | `environment_key` | string | 所属环境                          |
-| `pipeline_key`    | string | 所属流水线                        |
-| `alias`       | string    | 别名，同一环境+流水线下唯一        |
+| `pipeline_key`    | string | 所属渠道                        |
+| `alias`       | string    | 别名，同一环境+渠道下唯一        |
 | `name`        | string    | 配置名称                            |
 | `type`        | enum      | 数据类型：`kv`、`config`、`text`、`image`、`color`|
 | `content`     | text      | 配置内容（JSON 字符串 / 文本 / 引用）|
@@ -212,7 +212,7 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 1. 客户端访问 `GET /api/v1/runtime/config`，通过 Header 传递 `x-environment` 和 `x-pipeline`；  
 2. Handler 解析 Header 参数，调用 Service 查询配置列表；  
-3. Service 根据环境和流水线查询系统配置和业务配置；  
+3. Service 根据环境和渠道查询系统配置和业务配置；  
 4. DAO 利用 GORM 访问数据库，返回最新配置；  
 5. Handler 将结果包装成 JSON 响应，包含配置列表和环境信息。
 
@@ -244,11 +244,11 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 - `POST /api/v1/environment/update` - 更新环境
 - `POST /api/v1/environment/delete` - 删除环境
 
-#### 流水线管理 (`/api/v1/pipeline/*`)
-- `GET /api/v1/pipeline/list` - 获取流水线列表（需传 `environment_key`）
-- `POST /api/v1/pipeline/create` - 创建流水线
-- `POST /api/v1/pipeline/update` - 更新流水线
-- `POST /api/v1/pipeline/delete` - 删除流水线
+#### 渠道管理 (`/api/v1/pipeline/*`)
+- `GET /api/v1/pipeline/list` - 获取渠道列表（需传 `environment_key`）
+- `POST /api/v1/pipeline/create` - 创建渠道
+- `POST /api/v1/pipeline/update` - 更新渠道
+- `POST /api/v1/pipeline/delete` - 删除渠道
 
 #### 系统配置 (`/api/v1/system_config/*`)
 - `GET /api/v1/system_config/list` - 获取系统配置列表
@@ -281,7 +281,7 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 接口实现基于 CloudWeGo Hertz + Protobuf，定义位于 `idl/biz/` 目录：
 - `environment.proto` - 环境管理
-- `pipeline.proto` - 流水线管理
+- `pipeline.proto` - 渠道管理
 - `system_config.proto` - 系统配置
 - `config.proto` - 业务配置
 - `asset.proto` - 静态资源
@@ -292,7 +292,7 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 ### 3. 鉴权与扩展
 
-- 运行时配置接口通过 `x-environment` 和 `x-pipeline` Header 传递环境和流水线信息
+- 运行时配置接口通过 `x-environment` 和 `x-pipeline` Header 传递环境和渠道信息
 - 其他接口通过 Query 参数或 Request Body 传递 `environment_key` 和 `pipeline_key`
 - 未来可扩展统一鉴权中间件（Token / OAuth2 / API Key 等）
 
@@ -397,7 +397,7 @@ chmod +x .githooks/post-commit script/auto_tag.sh
 
 1. **对象存储适配**：支持 AWS S3/阿里云 OSS 等，提升高可用；  
 2. **鉴权与审计**：与公司统一的 IAM/权限系统集成；  
-3. **多环境流水线**：支持资源多环境同步、差异比对；  
+3. **多环境渠道**：支持资源多环境同步、差异比对；  
 4. **更友好的前端体验**：配置 Diff、资产预览、批量操作；  
 5. **自动化测试覆盖**：完善端到端测试、性能测试；  
 6. **消息通知**：导入导出结果通过邮件/IM 通知。

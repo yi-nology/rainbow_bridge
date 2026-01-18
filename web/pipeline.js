@@ -57,7 +57,7 @@ async function loadPipelines() {
     pipelines = json.list || [];
     renderTable();
   } catch (err) {
-    showToast(`加载流水线列表失败: ${err.message}`);
+    showToast(`加载渠道列表失败: ${err.message}`);
   }
 }
 
@@ -71,7 +71,7 @@ function renderTable() {
     );
   });
 
-  plCount.textContent = `流水线列表 (${filtered.length})`;
+  plCount.textContent = `渠道列表 (${filtered.length})`;
 
   if (filtered.length === 0) {
     plTbody.innerHTML = "";
@@ -105,7 +105,7 @@ function renderTable() {
 
 function openModal(pl = null) {
   const isEdit = !!pl;
-  plModalTitle.textContent = isEdit ? "编辑流水线" : "新建流水线";
+  plModalTitle.textContent = isEdit ? "编辑渠道" : "新建渠道";
   plModalForm.reset();
 
   const keyInput = plModalForm.querySelector('[name="pipelineKey"]');
@@ -163,7 +163,7 @@ async function handleSubmit(e) {
     if (json.code && json.code !== 200) {
       throw new Error(json.error || json.msg || "保存失败");
     }
-    showToast(isEdit ? "流水线更新成功" : "流水线创建成功");
+    showToast(isEdit ? "渠道更新成功" : "渠道创建成功");
     closeModal();
     await loadPipelines();
   } catch (err) {
@@ -177,7 +177,7 @@ window.editPl = function (key) {
 };
 
 window.deletePl = async function (key) {
-  if (!confirm(`确定要删除流水线 "${key}" 吗？\n\n注意：删除后相关配置可能无法正常访问。`)) {
+  if (!confirm(`确定要删除渠道 "${key}" 吗？\n\n注意：删除后相关配置可能无法正常访问。`)) {
     return;
   }
   try {
@@ -193,7 +193,7 @@ window.deletePl = async function (key) {
     if (json.code && json.code !== 200) {
       throw new Error(json.error || json.msg || "删除失败");
     }
-    showToast("流水线删除成功");
+    showToast("渠道删除成功");
     await loadPipelines();
   } catch (err) {
     showToast(`删除失败: ${err.message}`);

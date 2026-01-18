@@ -224,7 +224,7 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 	buf := &bytes.Buffer{}
 	zipWriter := zip.NewWriter(buf)
 
-	// 收集环境和流水线信息
+	// 收集环境和渠道信息
 	envSet := make(map[string]bool)
 	pipelineSet := make(map[string]map[string]bool) // environment_key -> pipeline_key -> true
 	systemConfigMap := make(map[string][]model.SystemConfig)
@@ -252,7 +252,7 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 		}
 	}
 
-	// 获取流水线详细信息
+	// 获取渠道详细信息
 	pipelineList := make([]model.Pipeline, 0)
 	for envKey := range pipelineSet {
 		envPipelines, err := s.ListPipelines(ctx, envKey, nil)
@@ -413,7 +413,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 
 	// Import configs
 	configModels := make([]model.Config, 0, len(configs))
-	// 构建 fileID 到 环境/流水线 的映射
+	// 构建 fileID 到 环境/渠道 的映射
 	assetEnvPipeMap := make(map[string]struct {
 		EnvironmentKey string
 		PipelineKey    string
@@ -469,7 +469,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 			return nil, err
 		}
 
-		// 从映射中获取环境和流水线信息
+		// 从映射中获取环境和渠道信息
 		envKey := ""
 		pipeKey := ""
 		if info, exists := assetEnvPipeMap[fileID]; exists {
@@ -538,7 +538,7 @@ func (s *Service) importEnvironments(ctx context.Context, data any) error {
 	return nil
 }
 
-// importPipelines 导入流水线信息
+// importPipelines 导入渠道信息
 func (s *Service) importPipelines(ctx context.Context, data any) error {
 	// 将 data 转换为 JSON 再解析
 	pipeBytes, err := json.Marshal(data)
@@ -552,21 +552,21 @@ func (s *Service) importPipelines(ctx context.Context, data any) error {
 	}
 
 	for _, pipe := range pipelines {
-		// 检查流水线是否已存在
+		// 检查渠道是否已存在
 		existing, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, pipe.EnvironmentKey, pipe.PipelineKey)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
 		if existing != nil {
-			// 更新已存在的流水线
+			// 更新已存在的渠道
 			pipe.ID = existing.ID
 			pipe.CreatedAt = existing.CreatedAt
 			if err := s.logic.pipelineDAO.Update(ctx, s.logic.db, &pipe); err != nil {
 				return err
 			}
 		} else {
-			// 创建新流水线
+			// 创建新渠道
 			if err := s.logic.pipelineDAO.Create(ctx, s.logic.db, &pipe); err != nil {
 				return err
 			}

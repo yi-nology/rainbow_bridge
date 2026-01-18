@@ -35,9 +35,9 @@ const NAV_ITEMS = [
     key: "pipeline",
     href: "pipeline.html",
     icon: "🔄",
-    label: "流水线管理",
-    description: "管理配置的流水线维度，支持多流程隔离",
-    tagline: "按流水线隔离配置，支持多流程并行",
+    label: "渠道管理",
+    description: "管理配置的渠道维度，支持多渠道隔离",
+    tagline: "按渠道隔离配置，支持多渠道并行",
   },
   {
     key: "assets",
@@ -177,9 +177,9 @@ function renderContextSelectors({ showEnvSelector, showPipelineSelector }) {
       <div class="context-selector" data-type="pipeline">
         <span class="context-selector-icon">🔄</span>
         <select id="globalPipelineSelector" class="context-select">
-          <option value="default">默认流水线</option>
+          <option value="default">默认渠道</option>
         </select>
-        <a href="pipeline.html" class="context-selector-link" title="管理流水线">⚙️</a>
+        <a href="pipeline.html" class="context-selector-link" title="管理渠道">⚙️</a>
       </div>
     `);
   }
@@ -198,13 +198,13 @@ export function setCurrentEnvironment(envKey) {
   localStorage.setItem(CONTEXT_STORAGE_KEY.environment, envKey);
 }
 
-// 获取当前选中的流水线
+// 获取当前选中的渠道
 export function getCurrentPipeline() {
   const stored = localStorage.getItem(CONTEXT_STORAGE_KEY.pipeline);
   return stored || "default";
 }
 
-// 设置当前选中的流水线
+// 设置当前选中的渠道
 export function setCurrentPipeline(pipelineKey) {
   localStorage.setItem(CONTEXT_STORAGE_KEY.pipeline, pipelineKey);
 }
@@ -240,7 +240,7 @@ export async function initEnvSelector(apiBase, onChange) {
   }
 }
 
-// 初始化流水线选择器
+// 初始化渠道选择器
 export async function initPipelineSelector(apiBase, onChange) {
   const select = document.getElementById("globalPipelineSelector");
   if (!select) return;

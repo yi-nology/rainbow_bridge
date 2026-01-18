@@ -47,8 +47,8 @@ func (s *Service) AddEnvironment(ctx context.Context, env *envpb.Environment) er
 		defaultPipeline := &model.Pipeline{
 			EnvironmentKey: env.GetEnvironmentKey(),
 			PipelineKey:    "default",
-			PipelineName:   "默认流水线",
-			Description:    "系统默认流水线",
+			PipelineName:   "默认渠道",
+			Description:    "系统默认渠道",
 			SortOrder:      0,
 			IsActive:       true,
 		}

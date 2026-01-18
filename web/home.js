@@ -140,11 +140,11 @@ async function fetchPipelines() {
         .join("");
       state.runtime.selectedPipeline = state.runtime.pipelines[0].pipeline_key;
     } else if (elements.pipelineSelector) {
-      elements.pipelineSelector.innerHTML = '<option value="">暂无流水线</option>';
+      elements.pipelineSelector.innerHTML = '<option value="">暂无渠道</option>';
       state.runtime.selectedPipeline = null;
     }
   } catch (err) {
-    setRuntimeStatus(`获取流水线列表失败：${err.message}`, true);
+    setRuntimeStatus(`获取渠道列表失败：${err.message}`, true);
   }
 }
 
@@ -153,7 +153,7 @@ async function fetchRuntimeConfig(manual = false) {
     return;
   }
   if (!state.runtime.selectedEnv || !state.runtime.selectedPipeline) {
-    setRuntimeStatus("请选择环境和流水线", true);
+    setRuntimeStatus("请选择环境和渠道", true);
     return;
   }
   
@@ -246,7 +246,7 @@ function formatConfigContent(value) {
 
 async function exportStaticPackage() {
   if (!state.runtime.selectedEnv || !state.runtime.selectedPipeline) {
-    setRuntimeStatus("请先选择环境和流水线", true);
+    setRuntimeStatus("请先选择环境和渠道", true);
     return;
   }
   

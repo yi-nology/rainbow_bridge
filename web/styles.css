@@ -1059,7 +1059,7 @@ button.danger {
   display: none !important;
 }
 
-/* Context Selectors - 环境/流水线切换器 */
+/* Context Selectors - 环境/渠道切换器 */
 .context-selectors {
   display: flex;
   gap: 16px;
@@ -1113,7 +1113,7 @@ button.danger {
   color: var(--primary);
 }
 
-/* Export Selectors - 导出页面环境/流水线选择器 */
+/* Export Selectors - 导出页面环境/渠道选择器 */
 .export-selectors {
   display: flex;
   flex-direction: column;

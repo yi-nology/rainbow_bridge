@@ -10,12 +10,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 )
 
 // --------------------- Asset operations ---------------------
 
-func (s *Service) ListAssets(ctx context.Context, environmentKey, pipelineKey string) ([]*api.FileAsset, error) {
+func (s *Service) ListAssets(ctx context.Context, environmentKey, pipelineKey string) ([]*common.FileAsset, error) {
 	envKey := strings.TrimSpace(environmentKey)
 	pipeKey := strings.TrimSpace(pipelineKey)
 	if envKey == "" || pipeKey == "" {
@@ -28,7 +28,7 @@ func (s *Service) ListAssets(ctx context.Context, environmentKey, pipelineKey st
 	return s.decorateAssetList(assetSliceToPB(assets)), nil
 }
 
-func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*api.FileAsset, string, error) {
+func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*common.FileAsset, string, error) {
 	if input == nil {
 		return nil, "", errors.New("input required")
 	}

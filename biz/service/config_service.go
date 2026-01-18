@@ -4,27 +4,27 @@ import (
 	"context"
 	"errors"
 
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 )
 
 // --------------------- Config operations ---------------------
 
-func (s *Service) AddConfig(ctx context.Context, req *api.CreateOrUpdateConfigRequest) (*api.ResourceConfig, error) {
-	if req == nil || req.Config == nil {
+func (s *Service) AddConfig(ctx context.Context, req *common.ResourceConfig) (*common.ResourceConfig, error) {
+	if req == nil {
 		return nil, errors.New("config payload required")
 	}
-	model := pbConfigToModel(req.Config)
+	model := pbConfigToModel(req)
 	if err := s.logic.AddConfig(ctx, model); err != nil {
 		return nil, err
 	}
 	return s.decorateConfig(modelConfigToPB(model)), nil
 }
 
-func (s *Service) UpdateConfig(ctx context.Context, req *api.CreateOrUpdateConfigRequest) (*api.ResourceConfig, error) {
-	if req == nil || req.Config == nil {
+func (s *Service) UpdateConfig(ctx context.Context, req *common.ResourceConfig) (*common.ResourceConfig, error) {
+	if req == nil {
 		return nil, errors.New("config payload required")
 	}
-	model := pbConfigToModel(req.Config)
+	model := pbConfigToModel(req)
 	if err := s.logic.UpdateConfig(ctx, model); err != nil {
 		return nil, err
 	}
@@ -35,29 +35,20 @@ func (s *Service) UpdateConfig(ctx context.Context, req *api.CreateOrUpdateConfi
 	return s.decorateConfig(modelConfigToPB(updated)), nil
 }
 
-func (s *Service) DeleteConfig(ctx context.Context, req *api.ResourceDeleteRequest) error {
-	if req == nil {
-		return errors.New("request required")
-	}
-	return s.logic.DeleteConfig(ctx, req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetResourceKey())
+func (s *Service) DeleteConfig(ctx context.Context, environmentKey, pipelineKey, resourceKey string) error {
+	return s.logic.DeleteConfig(ctx, environmentKey, pipelineKey, resourceKey)
 }
 
-func (s *Service) ListConfigs(ctx context.Context, req *api.ResourceQueryRequest) ([]*api.ResourceConfig, error) {
-	if req == nil {
-		return nil, errors.New("request required")
-	}
-	configs, err := s.logic.ListConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetMinVersion(), req.GetMaxVersion(), req.GetType(), req.GetIsLatest())
+func (s *Service) ListConfigs(ctx context.Context, environmentKey, pipelineKey, typ, minVer, maxVer string, isLatest bool) ([]*common.ResourceConfig, error) {
+	configs, err := s.logic.ListConfigs(ctx, environmentKey, pipelineKey, typ, minVer, maxVer, isLatest)
 	if err != nil {
 		return nil, err
 	}
 	return s.decorateConfigList(configSliceToPB(configs)), nil
 }
 
-func (s *Service) GetConfigDetail(ctx context.Context, req *api.ResourceDetailRequest) (*api.ResourceConfig, error) {
-	if req == nil {
-		return nil, errors.New("request required")
-	}
-	cfg, err := s.logic.GetConfig(ctx, req.GetEnvironmentKey(), req.GetPipelineKey(), req.GetResourceKey())
+func (s *Service) GetConfigDetail(ctx context.Context, environmentKey, pipelineKey, resourceKey string) (*common.ResourceConfig, error) {
+	cfg, err := s.logic.GetConfig(ctx, environmentKey, pipelineKey, resourceKey)
 	if err != nil {
 		return nil, err
 	}

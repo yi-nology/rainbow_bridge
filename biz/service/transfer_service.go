@@ -15,15 +15,15 @@ import (
 	"strings"
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 	"gorm.io/gorm"
 )
 
 // --------------------- Export/Import operations ---------------------
 
-func (s *Service) ExportConfigs(ctx context.Context, req *api.ResourceExportRequest, includeSystemConfig, systemConfigOnly bool) ([]*api.ResourceConfig, error) {
-	if req == nil {
-		return nil, errors.New("request required")
+func (s *Service) ExportConfigs(ctx context.Context, environmentKey, pipelineKey string, includeSystemConfig, systemConfigOnly bool) ([]*common.ResourceConfig, error) {
+	if environmentKey == "" || pipelineKey == "" {
+		return nil, errors.New("environment_key and pipeline_key required")
 	}
 
 	var configs []model.Config
@@ -31,7 +31,7 @@ func (s *Service) ExportConfigs(ctx context.Context, req *api.ResourceExportRequ
 
 	if systemConfigOnly {
 		// 只导出系统配置
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
 		if err != nil {
 			return nil, err
 		}
@@ -49,11 +49,11 @@ func (s *Service) ExportConfigs(ctx context.Context, req *api.ResourceExportRequ
 		}
 	} else if includeSystemConfig {
 		// 导出业务配置 + 系统配置
-		bizConfigs, err := s.logic.ExportConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		bizConfigs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
 		if err != nil {
 			return nil, err
 		}
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func (s *Service) ExportConfigs(ctx context.Context, req *api.ResourceExportRequ
 		}
 	} else {
 		// 仅导出业务配置
-		configs, err = s.logic.ExportConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		configs, err = s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
 	}
 
 	if err != nil {
@@ -82,20 +82,20 @@ func (s *Service) ExportConfigs(ctx context.Context, req *api.ResourceExportRequ
 	return s.decorateConfigList(configSliceToPB(configs)), nil
 }
 
-func (s *Service) ImportConfigs(ctx context.Context, req *api.ResourceImportRequest) error {
-	if req == nil {
-		return errors.New("request required")
+func (s *Service) ImportConfigs(ctx context.Context, configs []*common.ResourceConfig, overwrite bool) error {
+	if configs == nil {
+		return errors.New("configs required")
 	}
-	configs := make([]model.Config, 0, len(req.Configs))
-	for _, cfg := range req.Configs {
-		configs = append(configs, *pbConfigToModel(cfg))
+	modelConfigs := make([]model.Config, 0, len(configs))
+	for _, cfg := range configs {
+		modelConfigs = append(modelConfigs, *pbConfigToModel(cfg))
 	}
-	return s.logic.ImportConfigs(ctx, configs, req.GetOverwrite())
+	return s.logic.ImportConfigs(ctx, modelConfigs, overwrite)
 }
 
-func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExportRequest, includeSystemConfig, systemConfigOnly bool) ([]byte, string, error) {
-	if req == nil {
-		return nil, "", errors.New("request required")
+func (s *Service) ExportConfigsArchive(ctx context.Context, environmentKey, pipelineKey string, includeSystemConfig, systemConfigOnly bool) ([]byte, string, error) {
+	if environmentKey == "" || pipelineKey == "" {
+		return nil, "", errors.New("environment_key and pipeline_key required")
 	}
 
 	var configs []model.Config
@@ -103,7 +103,7 @@ func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExp
 
 	if systemConfigOnly {
 		// 只导出系统配置
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
 		if err != nil {
 			return nil, "", err
 		}
@@ -120,11 +120,11 @@ func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExp
 		}
 	} else if includeSystemConfig {
 		// 导出业务配置 + 系统配置
-		bizConfigs, err := s.logic.ExportConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		bizConfigs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
 		if err != nil {
 			return nil, "", err
 		}
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
 		if err != nil {
 			return nil, "", err
 		}
@@ -142,7 +142,7 @@ func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExp
 		}
 	} else {
 		// 仅导出业务配置
-		configs, err = s.logic.ExportConfigs(ctx, req.GetEnvironmentKey(), req.GetPipelineKey())
+		configs, err = s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
 	}
 
 	if err != nil {
@@ -155,9 +155,9 @@ func (s *Service) ExportConfigsArchive(ctx context.Context, req *api.ResourceExp
 
 	var name string
 	if systemConfigOnly {
-		name = fmt.Sprintf("%s_%s_system_config.zip", req.GetEnvironmentKey(), req.GetPipelineKey())
+		name = fmt.Sprintf("%s_%s_system_config.zip", environmentKey, pipelineKey)
 	} else {
-		name = fmt.Sprintf("%s_%s_archive.zip", req.GetEnvironmentKey(), req.GetPipelineKey())
+		name = fmt.Sprintf("%s_%s_archive.zip", environmentKey, pipelineKey)
 	}
 	return data, name, nil
 }
@@ -338,13 +338,13 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 	return buf.Bytes(), nil
 }
 
-func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwrite bool) ([]*api.ResourceConfig, error) {
+func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwrite bool) ([]*common.ResourceConfig, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
 	}
 
-	var configs []*api.ResourceConfig
+	var configs []*common.ResourceConfig
 	assetFiles := make(map[string]*zip.File)
 
 	for _, f := range reader.File {

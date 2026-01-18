@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
 	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 	"github.com/yi-nology/rainbow_bridge/biz/model/runtime"
 	"gorm.io/gorm"
@@ -57,12 +56,9 @@ func (s *Service) GetRuntimeConfig(ctx context.Context, environmentKey, pipeline
 	// 装饰配置列表（处理资源引用）
 	decoratedConfigs := s.decorateConfigList(configSliceToPB(configs))
 
-	// 转换为 common.ResourceConfig
-	commonConfigs := apiResourceConfigsToCommon(decoratedConfigs)
-
 	// 组装响应
 	return &runtime.RuntimeConfigResponse{
-		Configs: commonConfigs,
+		Configs: decoratedConfigs,
 		Environment: &runtime.EnvironmentInfo{
 			EnvironmentKey:  env.EnvironmentKey,
 			EnvironmentName: env.EnvironmentName,
@@ -72,34 +68,7 @@ func (s *Service) GetRuntimeConfig(ctx context.Context, environmentKey, pipeline
 	}, nil
 }
 
-// apiResourceConfigToCommon 将 api.ResourceConfig 转换为 common.ResourceConfig
-func apiResourceConfigToCommon(cfg *api.ResourceConfig) *common.ResourceConfig {
-	if cfg == nil {
-		return nil
-	}
-	return &common.ResourceConfig{
-		ResourceKey:    cfg.ResourceKey,
-		Alias:          cfg.Alias,
-		Name:           cfg.Name,
-		EnvironmentKey: cfg.EnvironmentKey,
-		PipelineKey:    cfg.PipelineKey,
-		Content:        cfg.Content,
-		Type:           cfg.Type,
-		Remark:         cfg.Remark,
-		IsPerm:         cfg.IsPerm,
-	}
-}
-
-// apiResourceConfigsToCommon 批量转换配置列表
-func apiResourceConfigsToCommon(configs []*api.ResourceConfig) []*common.ResourceConfig {
-	result := make([]*common.ResourceConfig, 0, len(configs))
-	for _, cfg := range configs {
-		result = append(result, apiResourceConfigToCommon(cfg))
-	}
-	return result
-}
-
-// ExportStaticPackage exports static package as zip with JSON config and assets.
+// writeRuntimeConfigArchive creates a zip archive with config.json and asset files.
 // The config.json structure matches the RuntimeConfigResponse format.
 func (s *Service) ExportStaticPackage(ctx context.Context, environmentKey, pipelineKey string) ([]byte, string, error) {
 	if environmentKey == "" {
@@ -136,12 +105,9 @@ func (s *Service) ExportStaticPackage(ctx context.Context, environmentKey, pipel
 	// 装饰配置列表（处理资源引用，添加 basePath 前缀）
 	decoratedConfigs := s.decorateConfigList(configSliceToPB(configs))
 
-	// 转换为 common.ResourceConfig
-	commonConfigs := apiResourceConfigsToCommon(decoratedConfigs)
-
 	// 构建与 RuntimeConfigResponse 一致的数据结构
 	runtimeResponse := &runtime.RuntimeConfigResponse{
-		Configs: commonConfigs,
+		Configs: decoratedConfigs,
 		Environment: &runtime.EnvironmentInfo{
 			EnvironmentKey:  env.EnvironmentKey,
 			EnvironmentName: env.EnvironmentName,

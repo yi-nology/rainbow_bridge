@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 
 	"gorm.io/gorm"
 )
@@ -54,7 +54,7 @@ func NewService(db *gorm.DB, basePath string) *Service {
 
 // --------------------- Model conversion helpers ---------------------
 
-func pbConfigToModel(cfg *api.ResourceConfig) *model.Config {
+func pbConfigToModel(cfg *common.ResourceConfig) *model.Config {
 	if cfg == nil {
 		return &model.Config{}
 	}
@@ -71,11 +71,11 @@ func pbConfigToModel(cfg *api.ResourceConfig) *model.Config {
 	}
 }
 
-func modelConfigToPB(cfg *model.Config) *api.ResourceConfig {
+func modelConfigToPB(cfg *model.Config) *common.ResourceConfig {
 	if cfg == nil {
 		return nil
 	}
-	return &api.ResourceConfig{
+	return &common.ResourceConfig{
 		ResourceKey:    cfg.ResourceKey,
 		Alias:          cfg.Alias,
 		Name:           cfg.Name,
@@ -88,19 +88,19 @@ func modelConfigToPB(cfg *model.Config) *api.ResourceConfig {
 	}
 }
 
-func configSliceToPB(configs []model.Config) []*api.ResourceConfig {
-	list := make([]*api.ResourceConfig, 0, len(configs))
+func configSliceToPB(configs []model.Config) []*common.ResourceConfig {
+	list := make([]*common.ResourceConfig, 0, len(configs))
 	for i := range configs {
 		list = append(list, modelConfigToPB(&configs[i]))
 	}
 	return list
 }
 
-func assetModelToPB(asset *model.Asset) *api.FileAsset {
+func assetModelToPB(asset *model.Asset) *common.FileAsset {
 	if asset == nil {
 		return nil
 	}
-	return &api.FileAsset{
+	return &common.FileAsset{
 		FileId:         asset.FileID,
 		EnvironmentKey: asset.EnvironmentKey,
 		PipelineKey:    asset.PipelineKey,
@@ -112,8 +112,8 @@ func assetModelToPB(asset *model.Asset) *api.FileAsset {
 	}
 }
 
-func assetSliceToPB(assets []model.Asset) []*api.FileAsset {
-	list := make([]*api.FileAsset, 0, len(assets))
+func assetSliceToPB(assets []model.Asset) []*common.FileAsset {
+	list := make([]*common.FileAsset, 0, len(assets))
 	for i := range assets {
 		list = append(list, assetModelToPB(&assets[i]))
 	}
@@ -181,7 +181,7 @@ func (s *Service) expandNestedValue(value any) any {
 	}
 }
 
-func (s *Service) decorateConfig(cfg *api.ResourceConfig) *api.ResourceConfig {
+func (s *Service) decorateConfig(cfg *common.ResourceConfig) *common.ResourceConfig {
 	if cfg == nil || s == nil || s.basePath == "" {
 		return cfg
 	}
@@ -190,7 +190,7 @@ func (s *Service) decorateConfig(cfg *api.ResourceConfig) *api.ResourceConfig {
 	return cfg
 }
 
-func (s *Service) decorateConfigList(list []*api.ResourceConfig) []*api.ResourceConfig {
+func (s *Service) decorateConfigList(list []*common.ResourceConfig) []*common.ResourceConfig {
 	if s == nil || s.basePath == "" {
 		return list
 	}
@@ -200,7 +200,7 @@ func (s *Service) decorateConfigList(list []*api.ResourceConfig) []*api.Resource
 	return list
 }
 
-func (s *Service) decorateAsset(asset *api.FileAsset) *api.FileAsset {
+func (s *Service) decorateAsset(asset *common.FileAsset) *common.FileAsset {
 	if asset == nil || s == nil || s.basePath == "" {
 		return asset
 	}
@@ -208,7 +208,7 @@ func (s *Service) decorateAsset(asset *api.FileAsset) *api.FileAsset {
 	return asset
 }
 
-func (s *Service) decorateAssetList(list []*api.FileAsset) []*api.FileAsset {
+func (s *Service) decorateAssetList(list []*common.FileAsset) []*common.FileAsset {
 	if s == nil || s.basePath == "" {
 		return list
 	}

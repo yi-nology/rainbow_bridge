@@ -43,8 +43,20 @@ func (s *Service) AddEnvironment(ctx context.Context, env *envpb.Environment) er
 		if err := s.logic.environmentDAO.Create(ctx, tx, entity); err != nil {
 			return err
 		}
-		// 2. Initialize system configs for the new environment
-		if err := s.logic.InitSystemConfigsForEnvironment(ctx, tx, env.GetEnvironmentKey()); err != nil {
+		// 2. Create default pipeline
+		defaultPipeline := &model.Pipeline{
+			EnvironmentKey: env.GetEnvironmentKey(),
+			PipelineKey:    "default",
+			PipelineName:   "默认流水线",
+			Description:    "系统默认流水线",
+			SortOrder:      0,
+			IsActive:       true,
+		}
+		if err := s.logic.pipelineDAO.Create(ctx, tx, defaultPipeline); err != nil {
+			return err
+		}
+		// 3. Initialize system configs for the new environment and default pipeline
+		if err := s.logic.InitSystemConfigsForEnvironment(ctx, tx, env.GetEnvironmentKey(), "default"); err != nil {
 			return err
 		}
 		return nil

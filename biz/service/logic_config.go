@@ -30,6 +30,18 @@ func (l *Logic) AddConfig(ctx context.Context, cfg *model.Config) error {
 	if err := validateConfigContent(cfg); err != nil {
 		return err
 	}
+
+	// Check if alias already exists in the same environment and pipeline
+	if cfg.Alias != "" {
+		existing, err := l.configDAO.GetByAlias(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, cfg.Alias)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if existing != nil {
+			return ErrConfigAliasExists
+		}
+	}
+
 	return l.configDAO.Create(ctx, l.db, cfg)
 }
 

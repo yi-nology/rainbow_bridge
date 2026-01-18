@@ -30,7 +30,11 @@ func Create(ctx context.Context, c *app.RequestContext) {
 	}
 	cfg, err := svc.AddConfig(handler.EnrichContext(ctx, c), req)
 	if err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
+		status := consts.StatusInternalServerError
+		if errors.Is(err, service.ErrConfigAliasExists) {
+			status = consts.StatusBadRequest
+		}
+		handler.RespondError(c, status, err)
 		return
 	}
 	handler.RespondConfig(c, cfg)

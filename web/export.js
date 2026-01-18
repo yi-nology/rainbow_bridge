@@ -48,7 +48,11 @@ if (!el.envList || !el.pipelineList || !el.exportZipBtn || !el.exportStaticBtn) 
 }
 
 async function init() {
-  await Promise.all([fetchEnvironments(), fetchPipelines()]);
+  await fetchEnvironments();
+  // 等待环境加载完成后再加载流水线
+  if (state.selectedEnv) {
+    await fetchPipelines();
+  }
   el.envList.addEventListener("click", onEnvSelect);
   el.pipelineList.addEventListener("click", onPipelineSelect);
   el.exportZipBtn.addEventListener("click", onExportZip);
@@ -86,12 +90,19 @@ async function fetchEnvironments() {
 }
 
 async function fetchPipelines() {
+  if (!state.selectedEnv) {
+    state.pipelines = [];
+    renderPipelineTabs();
+    return;
+  }
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list`);
+    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(state.selectedEnv)}`);
     const json = await res.json();
     state.pipelines = json?.list || json?.data?.list || [];
     if (state.pipelines.length > 0) {
       state.selectedPipeline = state.pipelines[0].pipeline_key;
+    } else {
+      state.selectedPipeline = null;
     }
     renderPipelineTabs();
   } catch (err) {
@@ -132,6 +143,8 @@ function onEnvSelect(evt) {
   if (!tab) return;
   state.selectedEnv = tab.dataset.key;
   renderEnvTabs();
+  // 环境切换时重新加载流水线
+  fetchPipelines();
 }
 
 function onPipelineSelect(evt) {

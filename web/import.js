@@ -38,7 +38,11 @@ if (!el.importForm || !el.importSummary) {
 }
 
 async function init() {
-  await Promise.all([fetchEnvironments(), fetchPipelines()]);
+  await fetchEnvironments();
+  // 等待环境加载完成后再加载流水线
+  if (state.selectedEnv) {
+    await fetchPipelines();
+  }
   if (el.envList) {
     el.envList.addEventListener("click", onEnvSelect);
   }
@@ -65,12 +69,19 @@ async function fetchEnvironments() {
 }
 
 async function fetchPipelines() {
+  if (!state.selectedEnv) {
+    state.pipelines = [];
+    renderPipelineTabs();
+    return;
+  }
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list`);
+    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(state.selectedEnv)}`);
     const json = await res.json();
     state.pipelines = json?.list || json?.data?.list || [];
     if (state.pipelines.length > 0) {
       state.selectedPipeline = state.pipelines[0].pipeline_key;
+    } else {
+      state.selectedPipeline = null;
     }
     renderPipelineTabs();
   } catch (err) {
@@ -111,6 +122,8 @@ function onEnvSelect(evt) {
   if (!tab) return;
   state.selectedEnv = tab.dataset.key;
   renderEnvTabs();
+  // 环境切换时重新加载流水线
+  fetchPipelines();
 }
 
 function onPipelineSelect(evt) {

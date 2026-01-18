@@ -8,6 +8,7 @@ const (
 	ConfigTypeText   = "text"
 	ConfigTypeColor  = "color"
 	ConfigTypeConfig = "config"
+	ConfigTypeKV     = "kv"
 )
 
 // NormalizeConfigType normalizes various input type strings to standard types.
@@ -20,6 +21,9 @@ func NormalizeConfigType(t string) string {
 		return ConfigTypeText
 	case "color", "colour", "color_tag", "color-tag", "色彩", "色彩标签":
 		return ConfigTypeColor
+	case "kv", "key-value", "键值对":
+		return ConfigTypeKV
+
 	default:
 		return ConfigTypeConfig
 	}

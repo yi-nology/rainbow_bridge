@@ -41,6 +41,7 @@
                   <tr>
                     <th>名称</th>
                     <th>配置键</th>
+                    <th>类型</th>
                     <th>配置值</th>
                     <th>操作</th>
                   </tr>
@@ -71,21 +72,41 @@
           <div class="form-grid">
             <label>名称<input name="name" readonly /></label>
             <label>配置键<input name="alias" readonly /></label>
-            <label class="full hidden">类型
+            <label class="full" id="systemTypeLabel">类型
               <select name="type" id="systemTypeSelect">
-                <option value="config">配置对象</option>
-                <option value="text">文案</option>
+                <option value="kv">键值对</option>
+                <option value="json">对象</option>
+                <option value="text">文本</option>
+                <option value="image">图片</option>
+                <option value="color">色彩标签</option>
               </select>
             </label>
             <label class="full">配置值
               <div id="systemContentConfig" class="content-group hidden">
                 <textarea id="systemContentJson" rows="5" placeholder='请输入合法的 JSON 对象'></textarea>
+                <p class="hint small">内容需为 JSON 对象，系统会在保存时校验格式。</p>
               </div>
               <div id="systemContentText" class="content-group hidden">
                 <textarea id="systemContentTextInput" rows="4" placeholder="请输入配置值"></textarea>
               </div>
-              <div id="systemContentImage" class="content-group hidden"></div>
-              <div id="systemContentColor" class="content-group hidden"></div>
+              <div id="systemContentImage" class="content-group hidden">
+                <div class="image-upload">
+                  <input type="file" id="systemContentImageFile" accept="image/*" />
+                  <button type="button" id="systemContentImageUploadBtn" class="ghost mini">上传图片</button>
+                </div>
+                <p id="systemContentImageStatus" class="hint small"></p>
+                <div id="systemContentImagePreview" class="image-preview hidden">
+                  <img alt="图片预览" />
+                </div>
+              </div>
+              <div id="systemContentColor" class="content-group hidden">
+                <div class="color-picker">
+                  <input type="color" id="systemContentColorPicker" value="#1677ff" />
+                  <input type="text" id="systemContentColorValue" placeholder="#1677FF" maxlength="20" />
+                  <span id="systemContentColorSwatch" class="color-preview" aria-hidden="true"></span>
+                </div>
+                <p class="hint small">可直接拾色或输入 16 进制色值，例如 #1677FF。</p>
+              </div>
               <input type="hidden" name="content" id="systemContentInput" />
               <select id="systemBusinessSelect" class="hidden"></select>
               <div id="systemKeyValueEditor" class="kv-editor hidden">

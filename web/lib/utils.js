@@ -1,3 +1,5 @@
+import { CONFIG_TYPES, getConfigTypeName } from "./types.js";
+
 /**
  * HTML escape utility to prevent XSS
  * @param {string} str - String to escape
@@ -24,14 +26,16 @@ export function escapeAttr(str = "") {
 /**
  * Normalize data type to internal format
  * @param {string} value - Input type value
- * @returns {string} Normalized type: 'image', 'text', 'color', or 'config'
+ * @returns {string} Normalized type: 'image', 'text', 'color', 'json', or 'kv'
  */
 export function normalizeDataType(value = "") {
   const str = value.toString().toLowerCase();
-  if (str === "image") return "image";
-  if (["text", "string", "copy", "\u6587\u6848"].includes(str)) return "text";
-  if (["color", "colour", "color_tag", "color-tag", "\u8272\u5f69", "\u8272\u5f69\u6807\u7b7e"].includes(str)) return "color";
-  return "config";
+  if (str === CONFIG_TYPES.IMAGE || str === "image") return CONFIG_TYPES.IMAGE;
+  if (["text", "string", "copy", "文案", "文本"].includes(str)) return CONFIG_TYPES.TEXT;
+  if (["color", "colour", "color_tag", "color-tag", "色彩", "色彩标签"].includes(str)) return CONFIG_TYPES.COLOR;
+  if (["kv", "keyvalue", "key-value", "键值对"].includes(str)) return CONFIG_TYPES.KV;
+  if (["json", "config", "对象", "配置对象"].includes(str)) return CONFIG_TYPES.JSON;
+  return CONFIG_TYPES.JSON; // default
 }
 
 /**
@@ -41,10 +45,7 @@ export function normalizeDataType(value = "") {
  */
 export function displayDataType(value = "") {
   const normalized = normalizeDataType(value);
-  if (normalized === "image") return "\u56fe\u7247";
-  if (normalized === "text") return "\u6587\u6848";
-  if (normalized === "color") return "\u8272\u5f69\u6807\u7b7e";
-  return "\u914d\u7f6e\u5bf9\u8c61";
+  return getConfigTypeName(normalized);
 }
 
 /**

@@ -43,6 +43,11 @@ func main() {
 		log.Fatalf("drop old pipeline index: %v", err)
 	}
 
+	// Drop old unique index on system_config table if it exists
+	if err := dropOldSystemConfigIndex(db); err != nil {
+		log.Fatalf("drop old system_config index: %v", err)
+	}
+
 	// Migrate existing configs with default environment_key and pipeline_key
 	if err := resourceservice.MigrateConfigDefaults(db); err != nil {
 		log.Fatalf("migrate config defaults: %v", err)
@@ -132,6 +137,7 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
 	serve("/pipeline.js", "pipeline.js", "application/javascript")
 	serve("/runtime.js", "runtime.js", "application/javascript")
 	serve("/lib/utils.js", "lib/utils.js", "application/javascript")
+	serve("/lib/types.js", "lib/types.js", "application/javascript")
 	serve("/lib/api.js", "lib/api.js", "application/javascript")
 	serve("/lib/toast.js", "lib/toast.js", "application/javascript")
 	serve("/lib/init.js", "lib/init.js", "application/javascript")
@@ -185,5 +191,54 @@ func dropOldPipelineIndex(db *gorm.DB) error {
 	}
 
 	log.Println("[Migration] ✓ Dropped old uk_pipeline_key index")
+	return nil
+}
+
+// dropOldSystemConfigIndex removes the old uk_system_config unique index if it exists.
+// This is needed because we changed from (environment_key, config_key) to (environment_key, pipeline_key, config_key).
+func dropOldSystemConfigIndex(db *gorm.DB) error {
+	var indexExists bool
+	switch db.Dialector.Name() {
+	case "sqlite":
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='uk_system_config' AND sql LIKE '%environment_key%' AND sql NOT LIKE '%pipeline_key%'").Scan(&count).Error; err != nil {
+			return err
+		}
+		indexExists = count > 0
+	case "mysql":
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM information_schema.statistics WHERE table_name='system_config' AND index_name='uk_system_config'").Scan(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			var colCount int64
+			if err := db.Raw("SELECT COUNT(*) FROM information_schema.statistics WHERE table_name='system_config' AND index_name='uk_system_config' AND column_name='pipeline_key'").Scan(&colCount).Error; err != nil {
+				return err
+			}
+			indexExists = colCount == 0
+		}
+	case "postgres":
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM pg_indexes WHERE tablename='system_config' AND indexname='uk_system_config'").Scan(&count).Error; err != nil {
+			return err
+		}
+		indexExists = count > 0
+	default:
+		return nil
+	}
+
+	if !indexExists {
+		return nil
+	}
+
+	log.Println("[Migration] Dropping old uk_system_config index...")
+
+	migrator := db.Migrator()
+	if err := migrator.DropIndex(&resourcemodel.SystemConfig{}, "uk_system_config"); err != nil {
+		log.Printf("[Migration] Warning: Failed to drop old system_config index: %v", err)
+		return nil
+	}
+
+	log.Println("[Migration] ✓ Dropped old uk_system_config index")
 	return nil
 }

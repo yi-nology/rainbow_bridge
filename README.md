@@ -14,28 +14,31 @@
 10. [部署与运行](#部署与运行)  
 11. [安全与权限](#安全与权限)  
 12. [日志、监控与告警](#日志监控与告警)  
-13. [未来规划](#未来规划)  
-14. [License](#license)
+13. [AI 辅助开发](#ai-辅助开发)  
+14. [未来规划](#未来规划)  
+15. [License](#license)
 
 ---
 
 ## 项目概述
 
-虹桥计划（Rainbow Bridge）是一套自部署的“静态资源与配置管理”中台。项目名称灵感源自连接人界与天界的七彩虹桥，寓意为前端/客户端团队搭建一座高效、安全的资源传输通道。  
+虹桥计划（Rainbow Bridge）是一套自部署的"静态资源与配置管理"中台。项目名称灵感源自连接人界与天界的七彩虹桥，寓意为前端/客户端团队搭建一座高效、安全的资源传输通道。  
 
 系统基于 **CloudWeGo Hertz**（HTTP 网关）+ **GORM**（ORM）+ **SQLite/MySQL/PostgreSQL**（关系型数据库）构建，提供以下核心能力：
 
-- 按业务维度（Business Key）维护配置与静态资源；  
-- 在线上传、预览、导出、导入资源；  
-- 将配置打包成 Nginx 静态站点或 zip 包；  
-- 通过 REST/gRPC(Proto) 接口供业务系统实时读取。  
+- **多维度配置管理**：按环境（Environment）+ 流水线（Pipeline）双维度隔离配置，支持业务配置和系统配置；  
+- **多种数据类型**：支持键值对（KV）、JSON 对象、纯文本、图片、色彩标签等 5 种配置类型；  
+- **在线资源管理**：上传、预览、导出、导入静态资源；  
+- **静态站点生成**：将配置打包成 Nginx 静态站点或 zip 包；  
+- **实时 API 接口**：通过 REST 接口供业务系统实时读取配置。  
 
 ## 系统目标
 
-1. **降低多项目配置管理成本**：以业务 Key 为维度管理配置、文案、资源；  
-2. **提供统一交付产物**：支持导出 `static/config.json`、zip 包和 Docker 镜像，方便静态部署；  
-3. **兼容多存储后端**：默认内置 SQLite，易于扩展到 MySQL/PGSQL 或对象存储；  
-4. **具备可观测性和权限扩展能力**：预留鉴权、审计、监控接口。  
+1. **多维度配置管理**：以环境（Environment）+ 流水线（Pipeline）为维度管理配置，支持业务配置和系统配置；  
+2. **统一交付产物**：支持导出 `static/config.json`、zip 包和 Docker 镜像，方便静态部署；  
+3. **多种数据类型**：支持键值对、JSON 对象、文本、图片、颜色等多种配置类型，满足不同场景需求；  
+4. **兼容多存储后端**：默认内置 SQLite，易于扩展到 MySQL/PGSQL 或对象存储；  
+5. **可观测性**：预留鉴权、审计、监控接口，支持权限扩展能力。  
 
 ## 架构总览
 
@@ -118,22 +121,70 @@
 
 ## 数据模型
 
-### 1. 配置表 `Config`
+### 1. 环境表 `Environment`
+
+| 字段              | 类型     | 说明                                      |
+|-------------------|----------|-------------------------------------------------|
+| `environment_key` | string   | 环境唯一标识，例如 `dev`、`prod`            |
+| `environment_name`| string   | 环境名称，例如 "开发环境"、"生产环境"        |
+| `remark`          | string   | 备注信息                                      |
+| `created_at`      | datetime | 创建时间                                      |
+| `updated_at`      | datetime | 更新时间                                      |
+
+### 2. 流水线表 `Pipeline`
+
+| 字段              | 类型     | 说明                                      |
+|-------------------|----------|-------------------------------------------------|
+| `environment_key` | string   | 所属环境                                      |
+| `pipeline_key`    | string   | 流水线唯一标识，例如 `main`、`feature-x` |
+| `pipeline_name`   | string   | 流水线名称                                  |
+| `remark`          | string   | 备注信息                                      |
+| `created_at`      | datetime | 创建时间                                      |
+| `updated_at`      | datetime | 更新时间                                      |
+
+**联合唯一约束**：`(environment_key, pipeline_key)`
+
+### 3. 系统配置表 `SystemConfig`
+
+| 字段              | 类型     | 说明                                      |
+|-------------------|----------|-------------------------------------------------|
+| `environment_key` | string   | 所属环境                                      |
+| `pipeline_key`    | string   | 所属流水线                                  |
+| `config_key`      | string   | 配置键，例如 `system_options`              |
+| `config_value`    | text     | 配置内容（JSON 字符串 / 文本 / 引用）      |
+| `config_type`     | varchar  | 数据类型：`kv`、`json`、`text`、`image`、`color` |
+| `remark`          | string   | 备注信息                                      |
+| `created_at`      | datetime | 创建时间                                      |
+| `updated_at`      | datetime | 更新时间                                      |
+
+**联合唯一约束**：`(environment_key, pipeline_key, config_key)`
+
+**数据类型说明**：
+- `kv`：键值对，存储为 JSON 对象，适用于 `system_options`
+- `json`：JSON 对象，复杂配置数据
+- `text`：纯文本，文案内容
+- `image`：图片资源引用
+- `color`：颜色值（如 `#1677FF`）
+
+### 4. 业务配置表 `Config`
 
 | 字段          | 类型      | 说明                                |
 |---------------|-----------|-------------------------------------|
 | `resource_key`| string    | 资源唯一标识，默认 UUID             |
-| `business_key`| string    | 业务维度，例如 `system`、`marketing`|
-| `alias`       | string    | 别名，同一业务下唯一                |
+| `environment_key` | string | 所属环境                          |
+| `pipeline_key`    | string | 所属流水线                        |
+| `alias`       | string    | 别名，同一环境+流水线下唯一        |
 | `name`        | string    | 配置名称                            |
-| `type`        | enum      | `config`（JSON对象）、`text`、`image`|
+| `type`        | enum      | 数据类型：`kv`、`config`、`text`、`image`、`color`|
 | `content`     | text      | 配置内容（JSON 字符串 / 文本 / 引用）|
 | `remark`      | string    | 备注信息                            |
 | `is_perm`     | bool      | 是否属于权限配置                    |
 | `created_at`  | datetime  | 创建时间                            |
 | `updated_at`  | datetime  | 更新时间                            |
 
-### 2. 资源表 `Asset`
+**联合唯一约束**：`(environment_key, pipeline_key, alias)`
+
+### 5. 资源表 `Asset`
 
 | 字段          | 类型    | 说明                                   |
 |---------------|---------|----------------------------------------|
@@ -300,6 +351,47 @@ chmod +x .githooks/post-commit script/auto_tag.sh
 - Hertz 默认提供基础日志，可结合 `logrus`/`zap` 接入结构化日志；  
 - 数据库错误、文件系统异常均会返回 500，建议对接 Prometheus/Grafana 监控；  
 - 可引入 Sentry/ELK stack 捕获 panic 或错误日志。
+
+## AI 辅助开发
+
+虹桥计划项目的核心功能由 AI Agent（Qoder）辅助完成。AI 在项目中承担了以下角色：
+
+### 主要贡献
+
+1. **架构设计**：
+   - 环境 + 流水线双维度隔离架构设计
+   - 系统配置与业务配置分离设计
+   - 多种数据类型支持的类型系统设计
+
+2. **代码实现**：
+   - 后端 API：环境、流水线、系统配置、业务配置的 CRUD 接口
+   - 前端界面：5 个管理页面（首页、系统配置、业务配置、导出、导入）
+   - 组件封装：环境/流水线选择器、多种数据类型编辑器
+
+3. **功能完善**：
+   - 键值对编辑器：支持动态增删键值对
+   - 系统配置引用：业务配置可引用系统配置，自动填充字段
+   - 数据验证：各种类型的数据格式校验和错误提示
+
+4. **问题修复**：
+   - 流水线按环境隔离的 API 参数修复
+   - 类型枚举系统的向后兼容处理
+   - 各种边界情况和异常场景处理
+
+### 开发流程
+
+AI Agent 遵循以下流程协助开发：
+
+1. **需求理解**：分析用户描述，明确功能要求
+2. **代码检索**：通过语义搜索定位相关代码文件
+3. **方案设计**：根据项目架构设计实现方案
+4. **代码编写**：同时修改前后端代码，保证一致性
+5. **测试验证**：启动服务验证功能正常
+6. **问题修复**：根据用户反馈快速迭代修复
+
+### 详细记录
+
+完整的 AI 开发历史、技术决策和实现细节请参阅 [AGENT.md](AGENT.md)。
 
 ## 未来规划
 

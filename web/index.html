@@ -15,7 +15,6 @@
         <main class="main">
           <section class="panel">
             <div class="panel-header">
-              <div class="business-tabs" id="businessTabs"></div>
               <div class="panel-actions">
                 <button id="newConfigBtn" class="primary">新建配置</button>
               </div>
@@ -33,7 +32,6 @@
                 <thead>
                   <tr>
                     <th>名称</th>
-                    <th>业务</th>
                     <th>别名</th>
                     <th>类型</th>
                     <th>内容</th>
@@ -67,8 +65,8 @@
           <div class="form-grid">
             <label class="full">名称 / 别名来源
               <div class="identity-mode">
-                <label><input type="radio" name="identityMode" value="custom" checked /> 自定义填写</label>
-                <label><input type="radio" name="identityMode" value="system" /> 引用 system_options</label>
+                <label><input type="radio" name="identityMode" value="custom" checked /> 用户自定义配置</label>
+                <label><input type="radio" name="identityMode" value="system" /> 系统基础配置</label>
                 <button type="button" id="refreshSystemOptions" class="ghost mini hidden">刷新</button>
               </div>
               <select id="systemKeySelect" class="hidden"></select>
@@ -77,20 +75,21 @@
             <label>别名 *<input name="alias" id="modalAliasInput" required /></label>
             <label>类型 *
               <select name="type" id="modalTypeSelect" required>
+                <option value="kv">键值对</option>
                 <option value="config">配置对象</option>
                 <option value="image">图片</option>
                 <option value="text">文案</option>
                 <option value="color">色彩标签</option>
               </select>
             </label>
-            <label>业务 *
-              <div class="combo">
-                <input name="businessKey" id="modalBusinessInput" list="businessOptions" required />
-                <datalist id="businessOptions"></datalist>
-                <button type="button" id="refreshBusiness" class="ghost mini">刷新</button>
-              </div>
-            </label>
             <label class="full">内容 *
+              <div id="contentKvGroup" class="content-group hidden">
+                <div class="key-value-editor">
+                  <div id="kvList" class="kv-list"></div>
+                  <button type="button" id="addKvRowBtn" class="ghost mini">新增键值对</button>
+                </div>
+                <p class="hint small">设置键值对，系统会以 JSON 对象格式保存。</p>
+              </div>
               <div id="contentConfigGroup" class="content-group">
                 <textarea id="contentJsonInput" rows="5" placeholder='请输入合法的 JSON 对象，例如 {"foo":"bar"}'></textarea>
                 <p class="hint small">内容需为 JSON 对象，系统会在保存时校验格式。</p>

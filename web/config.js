@@ -4,10 +4,11 @@ import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr, normalizeDataType, displayDataType, summarizeContent, normalizeColorValue } from "./lib/utils.js";
 import { extractError } from "./lib/api.js";
 import { createToast } from "./lib/toast.js";
+import { CONFIG_TYPES, normalizeConfigType } from "./lib/types.js";
 
 initPageLayout({
   activeKey: "config",
-  title: "业务配置中心",
+  title: "业务配置",
   caption: "按业务维度管理资源配置与版本，保持配置变更透明可追踪",
   showEnvSelector: true,
   showPipelineSelector: true,
@@ -51,10 +52,13 @@ const elements = {
   identityModeRadios: document.querySelectorAll("input[name='identityMode']"),
   systemKeySelect: document.getElementById("systemKeySelect"),
   refreshSystemOptionsBtn: document.getElementById("refreshSystemOptions"),
+  contentKvGroup: document.getElementById("contentKvGroup"),
   contentJsonGroup: document.getElementById("contentConfigGroup"),
   contentTextGroup: document.getElementById("contentTextGroup"),
   contentImageGroup: document.getElementById("contentImageGroup"),
   contentColorGroup: document.getElementById("contentColorGroup"),
+  kvList: document.getElementById("kvList"),
+  addKvRowBtn: document.getElementById("addKvRowBtn"),
   contentJsonInput: document.getElementById("contentJsonInput"),
   contentTextInput: document.getElementById("contentTextInput"),
   contentImageFile: document.getElementById("contentImageFile"),
@@ -89,8 +93,20 @@ const configModal = createModal("modalOverlay", {
 // ------------------------- Initialization -------------------------
 
 (async function init() {
-  await initEnvSelector(state.apiBase, () => fetchConfigs());
-  await initPipelineSelector(state.apiBase, () => fetchConfigs());
+  let pipelineReloader = null;
+  
+  await initEnvSelector(state.apiBase, async () => {
+    // 环境切换时，重新加载流水线列表
+    if (pipelineReloader) {
+      await pipelineReloader.reload();
+    }
+    fetchConfigs();
+  });
+  
+  pipelineReloader = await initPipelineSelector(state.apiBase, () => fetchConfigs());
+  
+  // 初始化完成后，加载业务配置列表
+  fetchConfigs();
 })();
 
 elements.searchInput.addEventListener("input", (evt) => {
@@ -122,7 +138,7 @@ if (elements.refreshSystemOptionsBtn) {
         await syncIdentityMode({ preserveSelection: true });
       }
     } catch (err) {
-      showToast(err.message || "刷新 system_options 失败");
+      showToast(err.message || "刷新系统配置失败");
     }
   });
 }
@@ -169,6 +185,24 @@ if (elements.contentColorValue) {
   });
 }
 
+if (elements.addKvRowBtn) {
+  elements.addKvRowBtn.addEventListener("click", () => {
+    addKvRow();
+  });
+}
+
+if (elements.kvList) {
+  elements.kvList.addEventListener("click", (evt) => {
+    if (evt.target.dataset.action === "kv-remove") {
+      evt.target.closest(".kv-row")?.remove();
+      updateContentFromKvEditor();
+    }
+  });
+  elements.kvList.addEventListener("input", () => {
+    updateContentFromKvEditor();
+  });
+}
+
 elements.modalForm.addEventListener("submit", async (evt) => {
   evt.preventDefault();
   const form = elements.modalForm;
@@ -181,9 +215,22 @@ elements.modalForm.addEventListener("submit", async (evt) => {
   const name = getTrim("name");
   const type = getTrim("type");
   const dataType = normalizeDataType(type);
+  const normalizedType = normalizeConfigType(dataType);
   let contentValue = "";
 
-  if (dataType === "config") {
+  if (normalizedType === CONFIG_TYPES.KV) {
+    // 键值对类型
+    const { data, errors } = collectKvData({ strict: true });
+    if (errors.length) {
+      showToast(errors[0]);
+      return;
+    }
+    if (!Object.keys(data).length) {
+      showToast("请至少添加一行 key 与 名称");
+      return;
+    }
+    contentValue = JSON.stringify(data);
+  } else if (dataType === "config") {
     const raw = elements.contentJsonInput?.value.trim() || "";
     if (!raw) {
       showToast("请填写配置内容");
@@ -359,13 +406,13 @@ async function syncIdentityMode(options = {}) {
   try {
     await ensureSystemOptions(forceRefresh);
   } catch (err) {
-    showToast(err.message || "获取 system_options 失败");
+    showToast(err.message || "获取系统配置失败");
     await setIdentityMode("custom");
     return;
   }
 
   if (!state.systemOptions.length) {
-    showToast("暂无 system_options 可用");
+    showToast("暂无系统配置可用");
     await setIdentityMode("custom");
     return;
   }
@@ -409,7 +456,7 @@ async function ensureSystemOptions(force = false) {
     return state.systemOptions;
   }
   try {
-    // Get system_options from system-config API using current environment
+    // 从系统配置 API 获取所有配置项
     const env = getCurrentEnvironment();
     if (!env) {
       throw new Error("请先选择环境");
@@ -425,33 +472,36 @@ async function ensureSystemOptions(force = false) {
 
 async function fetchSystemOptionsFromConfig(environmentKey) {
   try {
+    const pipelineKey = getCurrentPipeline();
+    if (!pipelineKey) {
+      throw new Error("请先选择流水线");
+    }
     const res = await fetch(
-      `${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(environmentKey)}`
+      `${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(environmentKey)}&pipeline_key=${encodeURIComponent(pipelineKey)}`
     );
     const json = await res.json();
     const list = json?.list || [];
     
-    // Find system_options config
-    const systemOptionsConfig = list.find(cfg => cfg.config_key === "system_options");
-    if (!systemOptionsConfig || !systemOptionsConfig.config_value) {
-      return [];
-    }
-    
-    // Parse JSON value
-    const parsed = JSON.parse(systemOptionsConfig.config_value);
-    if (!parsed || typeof parsed !== "object") {
-      return [];
-    }
-    
-    // Convert to array format
-    return Object.entries(parsed).map(([key, value]) => ({
-      key,
-      value: value == null ? "" : String(value),
-    }));
+    // 返回所有系统配置项，保存完整数据
+    return list.map(cfg => ({
+      key: cfg.config_key || "",
+      value: getSystemConfigDisplayName(cfg.config_key) || cfg.config_key || "",
+      type: cfg.config_type || "text", // 数据类型
+      content: cfg.config_value || "", // 配置内容
+      remark: cfg.remark || "", // 备注
+    })).filter(item => item.key); // 过滤掉空 key
   } catch (err) {
-    console.error("Failed to fetch system_options:", err);
+    console.error("Failed to fetch system configs:", err);
     return [];
   }
+}
+
+// 获取系统配置的显示名称
+function getSystemConfigDisplayName(configKey) {
+  const names = {
+    "system_options": "系统选项",
+  };
+  return names[configKey] || configKey;
 }
 
 function populateSystemKeyOptions({ selectedKey, matchAlias, matchName } = {}) {
@@ -503,13 +553,14 @@ function showSystemKeySelect() {
     elements.refreshSystemKeysBtn.classList.remove("hidden");
     elements.refreshSystemKeysBtn.disabled = false;
   }
+  // 不设置 readonly，允许用户修改默认值
   if (elements.modalAliasInput) {
-    elements.modalAliasInput.readOnly = true;
-    elements.modalAliasInput.classList.add("read-only");
+    elements.modalAliasInput.readOnly = false;
+    elements.modalAliasInput.classList.remove("read-only");
   }
   if (elements.modalNameInput) {
-    elements.modalNameInput.readOnly = true;
-    elements.modalNameInput.classList.add("read-only");
+    elements.modalNameInput.readOnly = false;
+    elements.modalNameInput.classList.remove("read-only");
   }
 }
 
@@ -552,15 +603,29 @@ function getSelectedSystemKey() {
   return state.systemOptions.find((item) => item.key === selectedKey) || null;
 }
 
-function applySystemKeySelection() {
+async function applySystemKeySelection() {
   const selected = getSelectedSystemKey();
   if (!selected) return;
+  
+  // 填充名称和别名
   if (elements.modalAliasInput) {
     elements.modalAliasInput.value = selected.key;
   }
   if (elements.modalNameInput) {
     elements.modalNameInput.value = selected.value;
   }
+  
+  // 根据类型设置编辑器并填充内容
+  const configType = normalizeDataType(selected.type || "text");
+  const configContent = selected.content || "";
+  
+  // 设置类型选择器
+  if (elements.modalTypeSelect) {
+    elements.modalTypeSelect.value = configType;
+  }
+  
+  // 根据类型初始化对应的编辑器
+  await initializeDataTypeFields(configType, configContent);
 }
 
 // ------------------------- Data Type Handling -------------------------
@@ -581,6 +646,7 @@ function resetDataType() {
   }
   clearImageReference();
   clearColorValue({ resetPicker: true, forceContent: true });
+  clearKvEditor();
   updateDataTypeViews("config");
 }
 
@@ -611,19 +677,25 @@ function setDataType(type, options = {}) {
 }
 
 function updateDataTypeViews(type, options = {}) {
+  const normalizedType = normalizeConfigType(type);
+  
+  if (elements.contentKvGroup) {
+    elements.contentKvGroup.classList.toggle("hidden", normalizedType !== CONFIG_TYPES.KV);
+  }
   if (elements.contentJsonGroup) {
-    elements.contentJsonGroup.classList.toggle("hidden", type !== "config");
+    elements.contentJsonGroup.classList.toggle("hidden", normalizedType !== "config" && normalizedType !== "json");
   }
   if (elements.contentTextGroup) {
-    elements.contentTextGroup.classList.toggle("hidden", type !== "text");
+    elements.contentTextGroup.classList.toggle("hidden", normalizedType !== "text");
   }
   if (elements.contentImageGroup) {
-    elements.contentImageGroup.classList.toggle("hidden", type !== "image");
+    elements.contentImageGroup.classList.toggle("hidden", normalizedType !== "image");
   }
   if (elements.contentColorGroup) {
-    elements.contentColorGroup.classList.toggle("hidden", type !== "color");
+    elements.contentColorGroup.classList.toggle("hidden", normalizedType !== "color");
   }
-  if (type !== "image" && !options.initialize) {
+  
+  if (normalizedType !== "image" && !options.initialize) {
     state.imageUpload = { reference: "", url: "", filename: "" };
     state.imageUploading = false;
     updateImagePreview();
@@ -632,23 +704,30 @@ function updateDataTypeViews(type, options = {}) {
       elements.contentImageFile.value = "";
     }
   }
-  if (type === "image" && !state.imageUpload.reference) {
+  if (normalizedType === "image" && !state.imageUpload.reference) {
     setImageUploadStatus("请选择图片文件并上传，成功后将自动填充引用地址。", false);
     updateImagePreview();
   }
-  if (type !== "text" && !options.initialize && elements.contentTextInput) {
+  if (normalizedType !== "text" && !options.initialize && elements.contentTextInput) {
     elements.contentTextInput.value = "";
   }
-  if (type === "color") {
+  if (normalizedType === "color") {
     const preset = state.colorValue || elements.contentColorPicker?.value || DEFAULT_COLOR;
     setColorValue(preset, { fillPicker: true, forceContent: true });
   } else if (!options.initialize) {
     clearColorValue({ resetPicker: true });
   }
+  
+  // 清理键值对编辑器
+  if (normalizedType !== CONFIG_TYPES.KV && !options.initialize) {
+    clearKvEditor();
+  }
 }
 
 function initializeDataTypeFields(type, content) {
   const normalized = normalizeDataType(type);
+  const normalizedType = normalizeConfigType(normalized);
+  
   if (elements.modalTypeSelect) {
     elements.modalTypeSelect.value = normalized;
   }
@@ -657,7 +736,11 @@ function initializeDataTypeFields(type, content) {
   if (elements.modalContentInput) {
     elements.modalContentInput.value = trimmed;
   }
-  if (normalized === "config") {
+  
+  if (normalizedType === CONFIG_TYPES.KV) {
+    // 键值对类型
+    populateKvEditor(trimmed);
+  } else if (normalized === "config" || normalized === "json") {
     if (elements.contentJsonInput) {
       if (trimmed) {
         try {
@@ -912,7 +995,6 @@ function renderConfigTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(cfg.name || "-")}</td>
-      <td>${escapeHtml(cfg.environment_key || "-")} / ${escapeHtml(cfg.pipeline_key || "-")}</td>
       <td>${escapeHtml(cfg.alias || "-")}</td>
       <td>${escapeHtml(displayDataType(cfg.type))}</td>
       <td>${escapeHtml(summarizeContent(cfg.content))}</td>
@@ -928,9 +1010,12 @@ function renderConfigTable() {
 
 async function openConfigModal(cfg) {
   state.editing = cfg || null;
-  elements.modalTitle.textContent = cfg ? "编辑配置" : "新建配置";
+  const isEditing = Boolean(cfg);
+  
+  elements.modalTitle.textContent = isEditing ? "编辑配置" : "新建配置";
   elements.modalForm.reset();
   resetIdentityMode();
+  
   const form = elements.modalForm;
   if (cfg) {
     form.elements.resourceKey.value = cfg.resource_key || "";
@@ -944,27 +1029,169 @@ async function openConfigModal(cfg) {
       radio.checked = radio.value === isPerm;
     });
   }
+  
+  // 编辑模式下隐藏配置来源选项，别名和类型只读
+  if (isEditing) {
+    // 隐藏配置来源整个 label
+    const identityModeContainer = elements.identityModeRadios[0]?.closest('.identity-mode');
+    const identityModeLabel = identityModeContainer?.closest('label.full');
+    if (identityModeLabel) {
+      identityModeLabel.style.display = 'none';
+    }
+    
+    // 别名只读
+    if (elements.modalAliasInput) {
+      elements.modalAliasInput.readOnly = true;
+      elements.modalAliasInput.classList.add('readonly');
+    }
+    
+    // 类型只读
+    if (elements.modalTypeSelect) {
+      elements.modalTypeSelect.disabled = true;
+      elements.modalTypeSelect.classList.add('disabled');
+    }
+  } else {
+    // 新建模式下显示所有选项
+    const identityModeContainer = elements.identityModeRadios[0]?.closest('.identity-mode');
+    const identityModeLabel = identityModeContainer?.closest('label.full');
+    if (identityModeLabel) {
+      identityModeLabel.style.display = '';
+    }
+    
+    // 别名可编辑
+    if (elements.modalAliasInput) {
+      elements.modalAliasInput.readOnly = false;
+      elements.modalAliasInput.classList.remove('readonly');
+    }
+    
+    // 类型可选择
+    if (elements.modalTypeSelect) {
+      elements.modalTypeSelect.disabled = false;
+      elements.modalTypeSelect.classList.remove('disabled');
+    }
+  }
+  
   const initialType = normalizeDataType(form.elements.type.value || "config");
   initializeDataTypeFields(initialType, form.elements.content.value || "");
 
-  let initialMode = "custom";
-  if (cfg && (form.elements.alias.value || form.elements.name.value)) {
-    try {
-      await ensureSystemOptions();
-      const alias = form.elements.alias.value.trim();
-      const name = form.elements.name.value.trim();
-      if (state.systemOptions.some((item) => item.key === alias && item.value === name)) {
-        initialMode = "system";
+  // 编辑模式下不需要检查系统配置
+  if (!isEditing) {
+    let initialMode = "custom";
+    if (cfg && (form.elements.alias.value || form.elements.name.value)) {
+      try {
+        await ensureSystemOptions();
+        const alias = form.elements.alias.value.trim();
+        const name = form.elements.name.value.trim();
+        if (state.systemOptions.some((item) => item.key === alias && item.value === name)) {
+          initialMode = "system";
+        }
+      } catch {
+        // ignore fetch error here; fallback to custom mode
+        initialMode = "custom";
       }
-    } catch {
-      // ignore fetch error here; fallback to custom mode
-      initialMode = "custom";
+    }
+    await setIdentityMode(initialMode, {
+      matchAlias: initialMode === "system" ? form.elements.alias.value.trim() : undefined,
+      matchName: initialMode === "system" ? form.elements.name.value.trim() : undefined,
+      requireMatch: initialMode === "system",
+    });
+  }
+  
+  configModal.open();
+}
+
+// ------------------------- Key-Value Editor -------------------------
+
+function addKvRow(key = "", value = "") {
+  if (!elements.kvList) return null;
+  const row = document.createElement("div");
+  row.className = "kv-row";
+
+  const keyInput = document.createElement("input");
+  keyInput.setAttribute("data-role", "kv-key");
+  keyInput.placeholder = "key";
+  keyInput.value = key || "";
+
+  const valueInput = document.createElement("input");
+  valueInput.setAttribute("data-role", "kv-value");
+  valueInput.placeholder = "名称";
+  valueInput.value = value || "";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "ghost mini danger";
+  removeBtn.dataset.action = "kv-remove";
+  removeBtn.textContent = "删除";
+
+  row.appendChild(keyInput);
+  row.appendChild(valueInput);
+  row.appendChild(removeBtn);
+  elements.kvList.appendChild(row);
+  return row;
+}
+
+function clearKvEditor() {
+  if (elements.kvList) {
+    elements.kvList.innerHTML = "";
+  }
+}
+
+function populateKvEditor(rawContent) {
+  clearKvEditor();
+  let parsed = {};
+  if (rawContent) {
+    try {
+      const json = JSON.parse(rawContent);
+      if (json && typeof json === "object" && !Array.isArray(json)) {
+        parsed = json;
+      } else {
+        throw new Error("invalid format");
+      }
+    } catch (err) {
+      showToast("键值对内容格式不正确，已重置为空");
     }
   }
-  await setIdentityMode(initialMode, {
-    matchAlias: initialMode === "system" ? form.elements.alias.value.trim() : undefined,
-    matchName: initialMode === "system" ? form.elements.name.value.trim() : undefined,
-    requireMatch: initialMode === "system",
+  const entries = Object.entries(parsed);
+  if (!entries.length) {
+    addKvRow();
+  } else {
+    entries.forEach(([key, val]) => addKvRow(key, val != null ? String(val) : ""));
+  }
+  updateContentFromKvEditor();
+}
+
+function collectKvData({ strict = false } = {}) {
+  const rows = elements.kvList?.querySelectorAll(".kv-row") || [];
+  const data = {};
+  const errors = [];
+  const seenKeys = new Set();
+  rows.forEach((row) => {
+    const key = row.querySelector("[data-role='kv-key']")?.value.trim() || "";
+    const value = row.querySelector("[data-role='kv-value']")?.value.trim() || "";
+    if (!key && !value) {
+      return;
+    }
+    if (!key || !value) {
+      if (strict) {
+        errors.push("每行需要填写完整的 key 与 名称");
+      }
+      return;
+    }
+    if (seenKeys.has(key)) {
+      if (strict) {
+        errors.push(`存在重复的 key：${key}`);
+      }
+    }
+    seenKeys.add(key);
+    data[key] = value;
   });
-  configModal.open();
+  return { data, errors };
+}
+
+function updateContentFromKvEditor() {
+  if (!elements.modalContentInput || elements.contentKvGroup?.classList.contains("hidden")) {
+    return;
+  }
+  const { data } = collectKvData();
+  elements.modalContentInput.value = JSON.stringify(data);
 }

@@ -1,4 +1,4 @@
-import { initPageLayout, initEnvSelector } from "./components.js";
+import { initPageLayout, initEnvSelector, getCurrentEnvironment } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createToast } from "./lib/toast.js";
 
@@ -7,6 +7,7 @@ const showToast = createToast("plToast");
 
 let pipelines = [];
 let searchTerm = "";
+let currentEnvironment = "default";
 
 // DOM Elements
 const plTbody = document.getElementById("plTbody");
@@ -24,7 +25,10 @@ const plModalCancel = document.getElementById("plModalCancel");
 document.addEventListener("DOMContentLoaded", async () => {
   initPageLayout({ activeKey: "pipeline", showEnvSelector: true });
   await loadPipelines();
-  await initEnvSelector(apiBase, () => loadPipelines());
+  await initEnvSelector(apiBase, (envKey) => {
+    currentEnvironment = envKey;
+    loadPipelines();
+  });
   bindEvents();
 });
 
@@ -44,7 +48,8 @@ function bindEvents() {
 
 async function loadPipelines() {
   try {
-    const res = await fetch(`${apiBase}/api/v1/pipeline/list`);
+    const env = currentEnvironment || getCurrentEnvironment() || "default";
+    const res = await fetch(`${apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(env)}`);
     const json = await res.json();
     if (json.code && json.code !== 200) {
       throw new Error(json.error || json.msg || "加载失败");

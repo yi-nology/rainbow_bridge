@@ -125,6 +125,7 @@ func List(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// Note: environment_key is accepted for consistency but not used, as Pipeline is global
 	var isActivePtr *bool
 	if req.IsActive {
 		isActivePtr = &req.IsActive

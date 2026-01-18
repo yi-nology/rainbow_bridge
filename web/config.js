@@ -410,12 +410,48 @@ async function ensureSystemKeys(force = false) {
     return state.systemKeys;
   }
   try {
-    const entries = await getSystemKeys({ apiBase: state.apiBase, force });
+    // Get system_keys from system-config API using current environment
+    const env = getCurrentEnvironment();
+    if (!env) {
+      throw new Error("请先选择环境");
+    }
+    const entries = await fetchSystemKeysFromConfig(env);
     state.systemKeys = entries;
     return state.systemKeys;
   } catch (err) {
     state.systemKeys = [];
     throw err;
+  }
+}
+
+async function fetchSystemKeysFromConfig(environmentKey) {
+  try {
+    const res = await fetch(
+      `${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(environmentKey)}`
+    );
+    const json = await res.json();
+    const list = json?.list || [];
+    
+    // Find system_keys config
+    const systemKeysConfig = list.find(cfg => cfg.config_key === "system_keys");
+    if (!systemKeysConfig || !systemKeysConfig.config_value) {
+      return [];
+    }
+    
+    // Parse JSON value
+    const parsed = JSON.parse(systemKeysConfig.config_value);
+    if (!parsed || typeof parsed !== "object") {
+      return [];
+    }
+    
+    // Convert to array format
+    return Object.entries(parsed).map(([key, value]) => ({
+      key,
+      value: value == null ? "" : String(value),
+    }));
+  } catch (err) {
+    console.error("Failed to fetch system_keys:", err);
+    return [];
   }
 }
 

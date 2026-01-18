@@ -84,45 +84,116 @@
 
 ## 核心模块设计
 
-### 1. HTTP & RPC 层
+### 1. 路由层（Router）
 
-- **CloudWeGo Hertz 路由**：  
-  - `biz/router/resource.go`：自定义 HTTP 接口（文件上传、实时配置等）；  
-  - `biz/router/resourcepb`：由 IDL 生成的 RESTful/Proto 统一路由，覆盖配置增删改查、导入导出等 API；  
-  - `main.go`：加载配置、初始化数据库、注册路由和静态资源。
+`biz/router/` 按功能模块划分，每个模块独立注册路由：
 
-- **Handler 层**：  
-  - `biz/handler/resource.go`：文件上传、配置实时接口等非 Proto 业务；  
-  - `biz/handler/resourcepb/resource_service_impl.go`：自动生成的 protobuf 接口实现。
+- **模块化路由**：
+  - `environment/` - 环境管理路由
+  - `pipeline/` - 渠道管理路由
+  - `config/` - 业务配置路由
+  - `system_config/` - 系统配置路由
+  - `asset/` - 静态资源路由
+  - `runtime/` - 运行时配置路由
+  - `transfer/` - 配置迁移路由
 
-### 2. Service & Logic 层
+- **统一注册**：`register.go` 负责初始化所有 handler 并注册路由到 Hertz 实例
+- **入口文件**：`main.go` 加载配置、初始化数据库、注册路由和静态资源
 
-位于 `biz/service/resource` 下，负责业务逻辑编排：
+### 2. Handler 层
 
-- `service.go`：对外服务接口，封装多业务导出、静态包生成、资源上传等；  
-- `logic.go`：细化业务规则（配置验证、系统保留配置检查、业务过滤等）；  
-- `seed.go`：系统初始化（如 `system` 业务默认配置）；
-- `service_test.go`：覆盖配置生命周期、导入导出、实时静态配置等场景的单元测试。
+`biz/handler/` 按模块划分，处理 HTTP 请求和响应：
 
-### 3. 数据访问层（DAO）
+- **模块化 Handler**：
+  - `environment/environment_service.go` - 环境管理接口实现
+  - `pipeline/pipeline_service.go` - 渠道管理接口实现
+  - `config/config_service.go` - 业务配置接口实现
+  - `system_config/system_config_service.go` - 系统配置接口实现
+  - `asset/asset_service.go` - 静态资源上传、下载接口
+  - `runtime/runtime_service.go` - 运行时配置获取、静态包导出
+  - `transfer/transfer_service.go` - 配置导入导出接口
 
-`biz/dal/resource` 提供面向 GORM 的 CRUD 封装：
+- **公共模块**：
+  - `common.go` - 通用响应封装、错误处理、摘要生成
+  - `ping.go` - 健康检查接口
 
-- `config_dao.go`：配置表增删改查、按业务 Key 查询、按 Alias 查询等；  
-- `asset_dao.go`：静态资源表增删改查、按业务 Key 列表查询等。
+### 3. Service 层
 
-### 4. 模型层
+`biz/service/` 负责业务逻辑编排和数据转换：
 
-- `biz/model/resource`：数据库实体结构定义；  
-- `biz/model/api/resourcepb`：由 protobuf 生成的 gRPC/HTTP 消息模型。
+- **核心服务文件**：
+  - `service.go` - Service 结构体定义，封装数据库连接和通用方法
+  - `config_service.go` - 业务配置增删改查逻辑
+  - `system_config_service.go` - 系统配置管理逻辑
+  - `asset_service.go` - 静态资源上传、列表查询逻辑
+  - `runtime_service.go` - 运行时配置获取、静态包生成逻辑
+  - `transfer_service.go` - 配置导入导出、ZIP 打包解析逻辑
+  - `environment_service.go` - 环境管理逻辑
+  - `pipeline_service.go` - 渠道管理逻辑
 
-### 5. 静态控制台
+- **业务逻辑层**：
+  - `logic.go` - 通用业务逻辑（环境和渠道管理）
+  - `logic_config.go` - 业务配置验证、装饰、过滤逻辑
+  - `logic_system_config.go` - 系统配置验证、保留项检查
+  - `logic_asset.go` - 资源引用解析、路径处理
+  - `logic_environment.go` - 环境相关业务规则
 
-`web/` 目录包含基于原生 JS 的管理界面：  
-- `index.html/js`：业务配置管理；  
-- `system.html/js`：系统业务配置；  
-- `assets.html/js`：静态资源库（依赖 `/api/v1/asset/upload` 和 `/api/v1/asset/list`）；  
-- `transfer.html/js`：配置迁移界面（使用标签页区分导出和导入功能）。
+- **初始化与测试**：
+  - `seed.go` - 系统初始化（默认环境、渠道、系统配置）
+  - `service_test.go` - 单元测试覆盖
+
+### 4. 数据访问层（DAO）
+
+`biz/dal/db/` 提供面向 GORM 的 CRUD 封装：
+
+- `environment_dao.go` - 环境表数据访问
+- `pipeline_dao.go` - 渠道表数据访问
+- `config_dao.go` - 业务配置表增删改查、按 Alias 查询
+- `system_config_dao.go` - 系统配置表数据访问
+- `asset_dao.go` - 静态资源表增删改查、按环境渠道查询
+
+### 5. 模型层
+
+**数据库实体模型**（`biz/dal/model/`）：
+- `environment.go` - 环境表实体
+- `pipeline.go` - 渠道表实体
+- `config.go` - 业务配置表实体
+- `system_config.go` - 系统配置表实体
+- `asset.go` - 静态资源表实体
+
+**Protobuf 生成模型**（`biz/model/`）：
+- `common/common.pb.go` - 通用消息类型（ResourceConfig、FileAsset 等）
+- `environment/environment.pb.go` - 环境管理消息
+- `pipeline/pipeline.pb.go` - 渠道管理消息
+- `config/config.pb.go` - 业务配置消息
+- `system_config/system_config.pb.go` - 系统配置消息
+- `asset/asset.pb.go` - 静态资源消息
+- `runtime/runtime.pb.go` - 运行时配置消息
+- `transfer/transfer.pb.go` - 配置导入导出消息
+- `api/api.pb.go` - API 路由注解定义
+
+**注意**：所有 `*.pb.go` 文件由 `hz` 工具根据 `idl/` 目录下的 proto 文件自动生成，不应手动修改。
+
+### 6. 静态控制台
+
+`web/` 目录包含基于原生 ES6 模块的管理界面：
+
+- **页面文件**：
+  - `home.html/js` - 项目首页，展示简介和前端对接说明
+  - `environment.html/js` - 环境管理页面
+  - `pipeline.html/js` - 渠道管理页面
+  - `config.js` - 业务配置管理（无独立 HTML，集成在其他页面）
+  - `system.html/js` - 系统配置管理
+  - `assets.html/js` - 静态资源库管理
+  - `transfer.html/js` - 配置迁移（使用标签页区分导出和导入）
+
+- **公共模块**：
+  - `components.js` - 导航、页面布局、环境渠道切换器
+  - `styles.css` - 全局样式
+  - `lib/api.js` - API 请求封装
+  - `lib/toast.js` - 消息提示组件
+  - `lib/utils.js` - 工具函数
+  - `lib/types.js` - 类型定义和常量
 
 
 ## 数据模型

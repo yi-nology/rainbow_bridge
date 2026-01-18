@@ -294,7 +294,7 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 		BusinessKey: "system",
 		Alias:       "system_options",
 		Name:        "系统选项",
-		Type:        "config",
+		Type:        "key",
 		Content:     `{"biz-realtime":"实时业务"}`,
 	}})
 	if err != nil {

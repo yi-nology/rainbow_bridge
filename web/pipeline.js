@@ -140,6 +140,7 @@ async function handleSubmit(e) {
   const isEdit = formData.get("isEdit") === "true";
 
   const payload = {
+    environment_key: currentEnvironment,
     pipeline: {
       pipeline_key: formData.get("pipelineKey"),
       pipeline_name: formData.get("pipelineName"),
@@ -183,7 +184,10 @@ window.deletePl = async function (key) {
     const res = await fetch(`${apiBase}/api/v1/pipeline/delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pipeline_key: key }),
+      body: JSON.stringify({ 
+        environment_key: currentEnvironment,
+        pipeline_key: key 
+      }),
     });
     const json = await res.json();
     if (json.code && json.code !== 200) {

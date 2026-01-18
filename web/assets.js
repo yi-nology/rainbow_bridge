@@ -43,8 +43,18 @@ const assetModal = createModal("assetModal", {
 
 (async function init() {
   await loadAssets();
-  await initEnvSelector(state.apiBase, () => loadAssets());
-  await initPipelineSelector(state.apiBase, () => loadAssets());
+  
+  let pipelineReloader = null;
+  
+  await initEnvSelector(state.apiBase, async () => {
+    // 环境切换时，重新加载流水线列表
+    if (pipelineReloader) {
+      await pipelineReloader.reload();
+    }
+    loadAssets();
+  });
+  
+  pipelineReloader = await initPipelineSelector(state.apiBase, () => loadAssets());
 })();
 
 el.search.addEventListener("input", (evt) => {

@@ -40,3 +40,13 @@ func _updateMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _createMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _deleteMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

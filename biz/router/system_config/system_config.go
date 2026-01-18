@@ -23,6 +23,8 @@ func Register(r *server.Hertz) {
 			_v1 := _api.Group("/v1", _v1Mw()...)
 			{
 				_system_config := _v1.Group("/system-config", _system_configMw()...)
+				_system_config.POST("/create", append(_createMw(), system_config.Create)...)
+				_system_config.POST("/delete", append(_deleteMw(), system_config.Delete)...)
 				_system_config.GET("/get", append(_getMw(), system_config.Get)...)
 				_system_config.GET("/list", append(_listMw(), system_config.List)...)
 				_system_config.POST("/update", append(_updateMw(), system_config.Update)...)

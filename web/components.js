@@ -253,30 +253,38 @@ export async function initPipelineSelector(apiBase, onChange) {
   const select = document.getElementById("globalPipelineSelector");
   if (!select) return;
 
-  try {
-    const res = await fetch(`${apiBase}/api/v1/pipeline/list`);
-    const json = await res.json();
-    const list = json?.list || json?.data?.list || [];
+  const loadPipelines = async () => {
+    try {
+      const currentEnv = getCurrentEnvironment();
+      const res = await fetch(`${apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(currentEnv)}`);
+      const json = await res.json();
+      const list = json?.list || json?.data?.list || [];
 
-    select.innerHTML = list.map((pl) => `
-      <option value="${pl.pipeline_key}">${pl.pipeline_name || pl.pipeline_key}</option>
-    `).join("");
+      select.innerHTML = list.map((pl) => `
+        <option value="${pl.pipeline_key}">${pl.pipeline_name || pl.pipeline_key}</option>
+      `).join("");
 
-    const current = getCurrentPipeline();
-    if (list.some((pl) => pl.pipeline_key === current)) {
-      select.value = current;
-    } else if (list.length > 0) {
-      select.value = list[0].pipeline_key;
-      setCurrentPipeline(select.value);
+      const current = getCurrentPipeline();
+      if (list.some((pl) => pl.pipeline_key === current)) {
+        select.value = current;
+      } else if (list.length > 0) {
+        select.value = list[0].pipeline_key;
+        setCurrentPipeline(select.value);
+      }
+    } catch (err) {
+      console.error("Failed to load pipelines:", err);
     }
+  };
 
-    select.addEventListener("change", (e) => {
-      setCurrentPipeline(e.target.value);
-      if (onChange) onChange(e.target.value);
-    });
-  } catch (err) {
-    console.error("Failed to load pipelines:", err);
-  }
+  await loadPipelines();
+
+  select.addEventListener("change", (e) => {
+    setCurrentPipeline(e.target.value);
+    if (onChange) onChange(e.target.value);
+  });
+
+  // 返回 reload函数，供外部调用
+  return { reload: loadPipelines };
 }
 
 export function getNavItem(key) {

@@ -33,12 +33,16 @@ func Get(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
+	if req.PipelineKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		return
+	}
 	if req.ConfigKey == "" {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
 		return
 	}
 
-	cfg, err := svc.GetSystemConfig(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.ConfigKey)
+	cfg, err := svc.GetSystemConfig(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.PipelineKey, req.ConfigKey)
 	if err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrSystemConfigNotFound) {
@@ -55,8 +59,10 @@ func Get(ctx context.Context, c *app.RequestContext) {
 		},
 		SystemConfig: &systemConfig.SystemConfig{
 			EnvironmentKey: cfg.EnvironmentKey,
+			PipelineKey:    cfg.PipelineKey,
 			ConfigKey:      cfg.ConfigKey,
 			ConfigValue:    cfg.ConfigValue,
+			ConfigType:     cfg.ConfigType,
 			Remark:         cfg.Remark,
 		},
 	}
@@ -80,6 +86,10 @@ func Update(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
+	if req.SystemConfig.PipelineKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		return
+	}
 	if req.SystemConfig.ConfigKey == "" {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
 		return
@@ -88,8 +98,11 @@ func Update(ctx context.Context, c *app.RequestContext) {
 	if err := svc.UpdateSystemConfig(
 		handler.EnrichContext(ctx, c),
 		req.SystemConfig.EnvironmentKey,
+		req.SystemConfig.PipelineKey,
 		req.SystemConfig.ConfigKey,
 		req.SystemConfig.ConfigValue,
+		req.SystemConfig.ConfigType,
+		req.SystemConfig.Remark,
 	); err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrInvalidSystemConfigKey) {
@@ -122,9 +135,12 @@ func List(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
+	if req.PipelineKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		return
+	}
 
-	// Note: pipeline_key is accepted but not used, as SystemConfig is environment-scoped only
-	configs, err := svc.ListSystemConfigsByEnv(handler.EnrichContext(ctx, c), req.EnvironmentKey)
+	configs, err := svc.ListSystemConfigsByEnv(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.PipelineKey)
 	if err != nil {
 		handler.RespondError(c, consts.StatusInternalServerError, err)
 		return
@@ -134,14 +150,115 @@ func List(ctx context.Context, c *app.RequestContext) {
 	for _, cfg := range configs {
 		list = append(list, &systemConfig.SystemConfig{
 			EnvironmentKey: cfg.EnvironmentKey,
+			PipelineKey:    cfg.PipelineKey,
 			ConfigKey:      cfg.ConfigKey,
 			ConfigValue:    cfg.ConfigValue,
+			ConfigType:     cfg.ConfigType,
 			Remark:         cfg.Remark,
 		})
 	}
 
 	resp := &systemConfig.SystemConfigListResponse{
 		List: list,
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// Create .
+// @router /api/v1/system-config/create [POST]
+func Create(ctx context.Context, c *app.RequestContext) {
+	var req systemConfig.CreateSystemConfigRequest
+	if err := c.BindAndValidate(&req); err != nil {
+		handler.RespondError(c, consts.StatusBadRequest, err)
+		return
+	}
+
+	if req.SystemConfig == nil {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("system_config is required"))
+		return
+	}
+	if req.SystemConfig.EnvironmentKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		return
+	}
+	if req.SystemConfig.PipelineKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		return
+	}
+	if req.SystemConfig.ConfigKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
+		return
+	}
+
+	if err := svc.CreateSystemConfig(
+		handler.EnrichContext(ctx, c),
+		req.SystemConfig.EnvironmentKey,
+		req.SystemConfig.PipelineKey,
+		req.SystemConfig.ConfigKey,
+		req.SystemConfig.ConfigValue,
+		req.SystemConfig.ConfigType,
+		req.SystemConfig.Remark,
+	); err != nil {
+		status := consts.StatusInternalServerError
+		if errors.Is(err, service.ErrSystemConfigKeyRequired) || errors.Is(err, service.ErrSystemConfigKeyExists) {
+			status = consts.StatusBadRequest
+		}
+		handler.RespondError(c, status, err)
+		return
+	}
+
+	resp := &systemConfig.SystemConfigResponse{
+		OperateResponse: &common.OperateResponse{
+			Code: consts.StatusOK,
+			Msg:  "success",
+		},
+		SystemConfig: req.SystemConfig,
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// Delete .
+// @router /api/v1/system-config/delete [POST]
+func Delete(ctx context.Context, c *app.RequestContext) {
+	var req systemConfig.DeleteSystemConfigRequest
+	if err := c.BindAndValidate(&req); err != nil {
+		handler.RespondError(c, consts.StatusBadRequest, err)
+		return
+	}
+
+	if req.EnvironmentKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		return
+	}
+	if req.PipelineKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		return
+	}
+	if req.ConfigKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
+		return
+	}
+
+	if err := svc.DeleteSystemConfig(
+		handler.EnrichContext(ctx, c),
+		req.EnvironmentKey,
+		req.PipelineKey,
+		req.ConfigKey,
+	); err != nil {
+		status := consts.StatusInternalServerError
+		if errors.Is(err, service.ErrProtectedSystemConfig) || errors.Is(err, service.ErrSystemConfigKeyRequired) {
+			status = consts.StatusBadRequest
+		}
+		if errors.Is(err, service.ErrSystemConfigNotFound) {
+			status = consts.StatusNotFound
+		}
+		handler.RespondError(c, status, err)
+		return
+	}
+
+	resp := &common.OperateResponse{
+		Code: consts.StatusOK,
+		Msg:  "success",
 	}
 	c.JSON(consts.StatusOK, resp)
 }

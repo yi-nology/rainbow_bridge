@@ -252,6 +252,9 @@ func normalizeConfigTypeString(t string) string {
 		return "text"
 	case "color", "colour", "color_tag", "color-tag", "色彩", "色彩标签":
 		return "color"
+	case "kv", "key-value", "键值对":
+		return "kv"
+
 	default:
 		return "config"
 	}

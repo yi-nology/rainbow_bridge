@@ -20,7 +20,8 @@ func IsProtectedSystemConfig(alias string) bool {
 
 // Default values for system configs when initializing a new environment.
 const (
-	DefaultSystemOptions = `{"logo":"logo"}`
+	DefaultSystemOptions    = `{"logo":"logo"}`
+	DefaultSystemConfigType = "kv"
 )
 
 // DefaultSystemConfigRemark provides default remarks for system config keys.

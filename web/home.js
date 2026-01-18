@@ -13,28 +13,34 @@ const defaultBase = getDefaultApiBase();
 const basePathname = getBasePathname();
 const state = {
   apiBase: defaultBase,
-  realtime: {
+  runtime: {
     loading: false,
-    payload: null,
+    selectedEnv: null,
+    selectedPipeline: null,
+    environments: [],
+    pipelines: [],
+    configs: [],
+    environmentInfo: null,
     updatedAt: null,
   },
 };
 
 const elements = {
-  refreshBtn: document.getElementById("realtimeRefreshBtn"),
-  status: document.getElementById("realtimeStatus"),
-  businessKey: document.getElementById("realtimeBusinessKey"),
-  businessList: document.getElementById("realtimeBusinessList"),
-  systemTbody: document.getElementById("realtimeSystemTbody"),
-  systemEmpty: document.getElementById("realtimeSystemEmpty"),
-  businessTitle: document.getElementById("realtimeBusinessTitle"),
-  businessTbody: document.getElementById("realtimeBusinessTbody"),
-  businessEmpty: document.getElementById("realtimeBusinessEmpty"),
+  envSelector: document.getElementById("envSelector"),
+  pipelineSelector: document.getElementById("pipelineSelector"),
+  refreshBtn: document.getElementById("refreshRuntimeBtn"),
+  exportBtn: document.getElementById("exportStaticBtn"),
+  status: document.getElementById("runtimeStatus"),
+  currentEnvInfo: document.getElementById("currentEnvInfo"),
+  currentPipelineInfo: document.getElementById("currentPipelineInfo"),
+  configTbody: document.getElementById("runtimeConfigTbody"),
+  configEmpty: document.getElementById("runtimeConfigEmpty"),
 };
 
 const endpointMap = {
   resources: "/api/v1/config/list",
-  realtime: "/api/v1/system/realtime",
+  runtime: "/api/v1/runtime/config",
+  static: "/api/v1/runtime/static",
   files: "/api/v1/asset/file/<file_id>",
 };
 
@@ -58,116 +64,170 @@ applyEndpointHints();
 
 if (elements.refreshBtn) {
   elements.refreshBtn.addEventListener("click", () => {
-    fetchRealtimePreview(true);
+    fetchRuntimeConfig(true);
   });
 }
 
-renderRealtimePreview();
+if (elements.exportBtn) {
+  elements.exportBtn.addEventListener("click", () => {
+    exportStaticPackage();
+  });
+}
+
+if (elements.envSelector) {
+  elements.envSelector.addEventListener("change", async (e) => {
+    state.runtime.selectedEnv = e.target.value;
+    await fetchPipelines();
+    if (state.runtime.selectedPipeline) {
+      await fetchRuntimeConfig();
+    }
+  });
+}
+
+if (elements.pipelineSelector) {
+  elements.pipelineSelector.addEventListener("change", async (e) => {
+    state.runtime.selectedPipeline = e.target.value;
+    await fetchRuntimeConfig();
+  });
+}
+
 (async function init() {
-  await fetchRealtimePreview();
+  await fetchEnvironments();
+  if (state.runtime.selectedEnv) {
+    await fetchPipelines();
+  }
+  if (state.runtime.selectedEnv && state.runtime.selectedPipeline) {
+    await fetchRuntimeConfig();
+  }
 })();
 
-async function fetchRealtimePreview(manual = false) {
-  if (!elements.status || state.realtime.loading) {
-    return;
-  }
-  state.realtime.loading = true;
-  setRealtimeStatus(manual ? "刷新中…" : "实时数据加载中…");
+async function fetchEnvironments() {
   try {
-    const res = await fetch(`${state.apiBase}/api/v1/system/realtime`);
+    const res = await fetch(`${state.apiBase}/api/v1/environment/list`);
     if (!res.ok) {
       throw new Error(await extractError(res));
     }
     const json = await res.json();
-    state.realtime.payload = json || {};
-    state.realtime.updatedAt = new Date();
-    renderRealtimePreview();
-    setRealtimeStatus(`最新更新时间：${formatTimestamp(state.realtime.updatedAt)}`);
+    state.runtime.environments = json?.list || [];
+    
+    if (elements.envSelector && state.runtime.environments.length > 0) {
+      elements.envSelector.innerHTML = state.runtime.environments
+        .map((env) => `<option value="${escapeHtml(env.environment_key)}">${escapeHtml(env.environment_name || env.environment_key)}</option>`)
+        .join("");
+      state.runtime.selectedEnv = state.runtime.environments[0].environment_key;
+    }
   } catch (err) {
-    setRealtimeStatus(err.message || "获取实时数据失败", true);
-  } finally {
-    state.realtime.loading = false;
+    setRuntimeStatus(`获取环境列表失败：${err.message}`, true);
   }
 }
 
-function renderRealtimePreview() {
-  if (!elements.systemTbody || !elements.businessTbody) {
+async function fetchPipelines() {
+  if (!state.runtime.selectedEnv) {
+    state.runtime.pipelines = [];
     return;
   }
-  const payload = state.realtime.payload || {};
-  const selectedRaw = typeof payload.business_select === "string" ? payload.business_select : "";
-  const selectedKey = selectedRaw.trim();
-
-  if (elements.businessKey) {
-    elements.businessKey.textContent = selectedKey || "未设置";
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(state.runtime.selectedEnv)}`);
+    if (!res.ok) {
+      throw new Error(await extractError(res));
+    }
+    const json = await res.json();
+    state.runtime.pipelines = json?.list || [];
+    
+    if (elements.pipelineSelector && state.runtime.pipelines.length > 0) {
+      elements.pipelineSelector.innerHTML = state.runtime.pipelines
+        .map((pl) => `<option value="${escapeHtml(pl.pipeline_key)}">${escapeHtml(pl.pipeline_name || pl.pipeline_key)}</option>`)
+        .join("");
+      state.runtime.selectedPipeline = state.runtime.pipelines[0].pipeline_key;
+    } else if (elements.pipelineSelector) {
+      elements.pipelineSelector.innerHTML = '<option value="">暂无流水线</option>';
+      state.runtime.selectedPipeline = null;
+    }
+  } catch (err) {
+    setRuntimeStatus(`获取流水线列表失败：${err.message}`, true);
   }
-  if (elements.businessList) {
-    const keys = Array.isArray(payload.business_keys) ? payload.business_keys : [];
-    elements.businessList.textContent = keys.length ? keys.join("、") : "—";
-  }
-
-  const systemRows = mapRealtimeEntries(payload.system);
-  renderRealtimeTable(elements.systemTbody, elements.systemEmpty, systemRows);
-
-  if (elements.businessTitle) {
-    elements.businessTitle.textContent = selectedKey || "默认业务";
-  }
-  const businessSource = selectedKey && payload[selectedKey] ? payload[selectedKey] : {};
-  const businessRows = mapRealtimeEntries(businessSource);
-  if (elements.businessEmpty) {
-    elements.businessEmpty.textContent = selectedKey
-      ? "默认业务暂无配置"
-      : "尚未设置 business_select";
-  }
-  renderRealtimeTable(elements.businessTbody, elements.businessEmpty, businessRows);
 }
 
-function renderRealtimeTable(tbody, emptyElement, rows) {
-  if (!tbody) return;
-  const data = Array.isArray(rows) ? rows : [];
-  tbody.innerHTML = "";
-  if (!data.length) {
-    if (emptyElement) {
-      emptyElement.classList.remove("hidden");
+async function fetchRuntimeConfig(manual = false) {
+  if (!elements.status || state.runtime.loading) {
+    return;
+  }
+  if (!state.runtime.selectedEnv || !state.runtime.selectedPipeline) {
+    setRuntimeStatus("请选择环境和流水线", true);
+    return;
+  }
+  
+  state.runtime.loading = true;
+  setRuntimeStatus(manual ? "刷新中…" : "配置加载中…");
+  
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/runtime/config`, {
+      headers: {
+        "x-environment": state.runtime.selectedEnv,
+        "x-pipeline": state.runtime.selectedPipeline,
+      },
+    });
+    if (!res.ok) {
+      throw new Error(await extractError(res));
+    }
+    const json = await res.json();
+    state.runtime.configs = json?.configs || [];
+    state.runtime.environmentInfo = json?.environment || {};
+    state.runtime.updatedAt = new Date();
+    
+    renderRuntimeConfig();
+    setRuntimeStatus(`最新更新时间：${formatTimestamp(state.runtime.updatedAt)}`);
+  } catch (err) {
+    setRuntimeStatus(err.message || "获取配置失败", true);
+  } finally {
+    state.runtime.loading = false;
+  }
+}
+
+function renderRuntimeConfig() {
+  if (!elements.configTbody) {
+    return;
+  }
+  
+  // Update environment info display
+  if (elements.currentEnvInfo && state.runtime.environmentInfo) {
+    const envName = state.runtime.environmentInfo.environment_name || state.runtime.environmentInfo.environment_key || "-";
+    elements.currentEnvInfo.textContent = envName;
+  }
+  if (elements.currentPipelineInfo && state.runtime.environmentInfo) {
+    const plName = state.runtime.environmentInfo.pipeline_name || state.runtime.environmentInfo.pipeline_key || "-";
+    elements.currentPipelineInfo.textContent = plName;
+  }
+  
+  // Render config table
+  const configs = state.runtime.configs || [];
+  elements.configTbody.innerHTML = "";
+  
+  if (!configs.length) {
+    if (elements.configEmpty) {
+      elements.configEmpty.classList.remove("hidden");
     }
     return;
   }
-  if (emptyElement) {
-    emptyElement.classList.add("hidden");
+  
+  if (elements.configEmpty) {
+    elements.configEmpty.classList.add("hidden");
   }
-  data.forEach((item) => {
+  
+  configs.forEach((item) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(item.name || "-")}</td>
       <td>${escapeHtml(item.alias || "-")}</td>
       <td>${escapeHtml(displayDataType(item.type))}</td>
-      <td>${escapeHtml(summarizeContent(formatRealtimeContent(item.content)))}</td>
+      <td>${escapeHtml(summarizeContent(formatConfigContent(item.content)))}</td>
       <td>${escapeHtml(item.remark || "-")}</td>
     `;
-    tbody.appendChild(tr);
+    elements.configTbody.appendChild(tr);
   });
 }
 
-function mapRealtimeEntries(source) {
-  if (!source || typeof source !== "object") {
-    return [];
-  }
-  return Object.entries(source)
-    .map(([alias, entry]) => {
-      const aliasKey = typeof alias === "string" ? alias : String(alias);
-      const details = entry && typeof entry === "object" ? entry : {};
-      return {
-        alias: aliasKey,
-        name: details.name || "",
-        type: details.type || "",
-        content: details.content,
-        remark: details.remark || "",
-      };
-    })
-    .sort((a, b) => a.alias.localeCompare(b.alias));
-}
-
-function formatRealtimeContent(value) {
+function formatConfigContent(value) {
   if (value == null) {
     return "";
   }
@@ -184,7 +244,22 @@ function formatRealtimeContent(value) {
   return String(value);
 }
 
-function setRealtimeStatus(message, isError = false) {
+async function exportStaticPackage() {
+  if (!state.runtime.selectedEnv || !state.runtime.selectedPipeline) {
+    setRuntimeStatus("请先选择环境和流水线", true);
+    return;
+  }
+  
+  try {
+    const url = `${state.apiBase}/api/v1/runtime/static?environment_key=${encodeURIComponent(state.runtime.selectedEnv)}&pipeline_key=${encodeURIComponent(state.runtime.selectedPipeline)}`;
+    window.open(url, "_blank");
+    setRuntimeStatus("正在下载静态资源包...");
+  } catch (err) {
+    setRuntimeStatus(`导出失败：${err.message}`, true);
+  }
+}
+
+function setRuntimeStatus(message, isError = false) {
   if (!elements.status) return;
   elements.status.textContent = message || "";
   elements.status.classList.toggle("error", Boolean(isError));

@@ -40,4 +40,9 @@ rainbow_bridge
 rainbow_bridge.exe
 rainbow_bridge_*
 
+# Database and uploads
+data/resource.db
+data/resource.db-*
+data/uploads/
+
 ./AGENT.md

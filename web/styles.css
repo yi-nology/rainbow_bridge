@@ -373,6 +373,58 @@ body {
   gap: 10px;
 }
 
+/* 标签页导航 */
+.tab-nav {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+}
+
+.tab-button {
+  position: relative;
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: -2px;
+}
+
+.tab-button:hover {
+  color: var(--primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.tab-button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+/* 标签页内容 */
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.panel-actions-bar {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+  justify-content: flex-start;
+}
+
+
 button {
   cursor: pointer;
   border: none;
@@ -642,7 +694,41 @@ button.danger {
   font-size: 13px;
 }
 
-.realtime-summary {
+.runtime-controls {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.runtime-controls .control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.runtime-controls label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.runtime-controls .runtime-selector {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  min-width: 160px;
+  background: white;
+  cursor: pointer;
+}
+
+.runtime-controls button {
+  margin-left: auto;
+}
+
+.runtime-info {
   margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
@@ -651,41 +737,29 @@ button.danger {
   color: var(--muted);
 }
 
-.realtime-summary code {
+.runtime-info code {
   padding: 2px 6px;
   border-radius: 6px;
   background: #eef2f8;
 }
 
-.realtime-status {
+.runtime-status {
   margin-top: 10px;
   font-size: 12px;
   color: var(--muted);
 }
 
-.realtime-status.error {
+.runtime-status.error {
   color: var(--danger);
 }
 
-.realtime-sections {
-  display: grid;
-  gap: 18px;
+.runtime-config-display {
   margin-top: 18px;
 }
 
-@media (min-width: 900px) {
-  .realtime-sections {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.realtime-card h3 {
-  margin: 0;
+.runtime-config-display h3 {
+  margin: 0 0 12px 0;
   font-size: 16px;
-}
-
-.realtime-card .table-wrapper {
-  margin-top: 12px;
 }
 
 .api-config {
@@ -1108,5 +1182,137 @@ button.danger {
   }
   .sider {
     display: none;
+  }
+}
+
+/* Home 页面紧凑布局样式 */
+.home .panel.compact {
+  padding: 16px 20px;
+}
+
+.home .panel.compact + .panel.compact {
+  margin-top: 10px;
+}
+
+.home .panel.compact h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.home .panel.compact h3 {
+  margin: 10px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.home .panel.compact p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.home .panel.compact .guide-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.home .panel.compact .guide-list li {
+  margin-bottom: 4px;
+}
+
+/* 紧凑网格布局 */
+.compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+  list-style: none;
+  padding-left: 0 !important;
+}
+
+.compact-grid li {
+  margin: 0 !important;
+}
+
+/* 双列布局 */
+.dual-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.dual-column h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.dual-column .guide-list.compact {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dual-column .guide-list.compact li {
+  margin-bottom: 4px;
+}
+
+/* 运行时配置区域紧凑布局 */
+.home .panel.compact .panel-header {
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.home .panel.compact .panel-header h2 {
+  margin: 0;
+}
+
+.home .panel.compact .runtime-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.home .panel.compact .runtime-status {
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.home .panel.compact .runtime-config-display.compact {
+  margin-top: 8px;
+}
+
+.home .panel.compact .runtime-config-display.compact table {
+  font-size: 12px;
+}
+
+.home .panel.compact .runtime-config-display.compact th,
+.home .panel.compact .runtime-config-display.compact td {
+  padding: 6px 10px;
+}
+
+/* 资源链接 */
+.home .panel.compact .resource-links {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.home .panel.compact .resource-links a {
+  padding: 8px 20px;
+  font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+  .compact-grid {
+    grid-template-columns: 1fr;
+  }
+  .dual-column {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }

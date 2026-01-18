@@ -68,8 +68,8 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, err)
 		return
 	}
-	if req.BusinessKey == "" || req.ResourceKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key and resource_key are required"))
+	if req.EnvironmentKey == "" || req.PipelineKey == "" || req.ResourceKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key, pipeline_key and resource_key are required"))
 		return
 	}
 	if err := svc.DeleteConfig(handler.EnrichContext(ctx, c), req); err != nil {
@@ -89,13 +89,14 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 // @router /api/v1/config/list [GET]
 func List(ctx context.Context, c *app.RequestContext) {
 	req := &api.ResourceQueryRequest{
-		BusinessKey: c.Query("business_key"),
-		Type:        c.Query("type"),
-		MinVersion:  c.Query("min_version"),
-		MaxVersion:  c.Query("max_version"),
+		EnvironmentKey: c.Query("environment_key"),
+		PipelineKey:    c.Query("pipeline_key"),
+		Type:           c.Query("type"),
+		MinVersion:     c.Query("min_version"),
+		MaxVersion:     c.Query("max_version"),
 	}
-	if req.BusinessKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key is required"))
+	if req.EnvironmentKey == "" || req.PipelineKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key and pipeline_key are required"))
 		return
 	}
 	if val := c.Query("is_latest"); val != "" {
@@ -119,11 +120,12 @@ func List(ctx context.Context, c *app.RequestContext) {
 // @router /api/v1/config/detail [GET]
 func Detail(ctx context.Context, c *app.RequestContext) {
 	req := &api.ResourceDetailRequest{
-		BusinessKey: c.Query("business_key"),
-		ResourceKey: c.Query("resource_key"),
+		EnvironmentKey: c.Query("environment_key"),
+		PipelineKey:    c.Query("pipeline_key"),
+		ResourceKey:    c.Query("resource_key"),
 	}
-	if req.BusinessKey == "" || req.ResourceKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key and resource_key are required"))
+	if req.EnvironmentKey == "" || req.PipelineKey == "" || req.ResourceKey == "" {
+		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key, pipeline_key and resource_key are required"))
 		return
 	}
 	cfg, err := svc.GetConfigDetail(handler.EnrichContext(ctx, c), req)

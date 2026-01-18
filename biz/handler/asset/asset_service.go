@@ -15,7 +15,6 @@ import (
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 	"github.com/yi-nology/rainbow_bridge/pkg/common"
-	"github.com/yi-nology/rainbow_bridge/pkg/validator"
 )
 
 var svc *service.Service
@@ -27,12 +26,13 @@ func SetService(s *service.Service) {
 // List .
 // @router /api/v1/asset/list [GET]
 func List(ctx context.Context, c *app.RequestContext) {
-	businessKey := strings.TrimSpace(c.Query("business_key"))
-	if businessKey == "" {
-		handler.WriteBadRequest(c, errors.New("business_key is required"))
+	environmentKey := strings.TrimSpace(c.Query("environment_key"))
+	pipelineKey := strings.TrimSpace(c.Query("pipeline_key"))
+	if environmentKey == "" || pipelineKey == "" {
+		handler.WriteBadRequest(c, errors.New("environment_key and pipeline_key are required"))
 		return
 	}
-	assets, err := svc.ListAssets(handler.EnrichContext(ctx, c), businessKey)
+	assets, err := svc.ListAssets(handler.EnrichContext(ctx, c), environmentKey, pipelineKey)
 	if err != nil {
 		handler.WriteInternalError(c, err)
 		return
@@ -83,10 +83,11 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	// Validate business key
-	businessKey := string(c.FormValue("business_key"))
-	if businessKey != "" && !validator.ValidateBusinessKey(businessKey) {
-		handler.WriteBadRequest(c, errors.New("invalid business_key format"))
+	// Validate environment and pipeline keys
+	environmentKey := string(c.FormValue("environment_key"))
+	pipelineKey := string(c.FormValue("pipeline_key"))
+	if environmentKey == "" || pipelineKey == "" {
+		handler.WriteBadRequest(c, errors.New("environment_key and pipeline_key are required"))
 		return
 	}
 
@@ -111,11 +112,12 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 	}
 
 	input := &service.FileUploadInput{
-		BusinessKey: businessKey,
-		Remark:      string(c.FormValue("remark")),
-		FileName:    fileHeader.Filename,
-		ContentType: fileHeader.Header.Get("Content-Type"),
-		Data:        data,
+		EnvironmentKey: environmentKey,
+		PipelineKey:    pipelineKey,
+		Remark:         string(c.FormValue("remark")),
+		FileName:       fileHeader.Filename,
+		ContentType:    fileHeader.Header.Get("Content-Type"),
+		Data:           data,
 	}
 
 	asset, reference, err := svc.UploadAsset(handler.EnrichContext(ctx, c), input)

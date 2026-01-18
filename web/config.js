@@ -4,7 +4,6 @@ import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr, normalizeDataType, displayDataType, summarizeContent, normalizeColorValue } from "./lib/utils.js";
 import { extractError } from "./lib/api.js";
 import { createToast } from "./lib/toast.js";
-import { getBusinessKeys, getSystemKeys } from "./lib/init.js";
 
 initPageLayout({
   activeKey: "config",

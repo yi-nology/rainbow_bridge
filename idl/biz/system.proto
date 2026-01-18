@@ -31,25 +31,6 @@ message RealtimeConfigEntry {
   string remark = 5;
 }
 
-// RealtimeBusinessConfig contains configs for a single business.
-message RealtimeBusinessConfig {
-  map<string, RealtimeConfigEntry> configs = 1;
-}
-
-// InitData contains all initialization data for the frontend.
-message InitData {
-  repeated string business_keys = 1;
-  SystemConfig system_config = 2;
-  map<string, string> realtime_config = 3;
-}
-
-// InitResponse is the response for init endpoint.
-message InitResponse {
-  int32 code = 1;
-  string msg = 2;
-  InitData data = 3;
-}
-
 // RealtimeResponse is the response for realtime config endpoint.
 // This response format must remain unchanged for backward compatibility.
 message RealtimeResponse {
@@ -61,12 +42,8 @@ message RealtimeResponse {
 
 // SystemService handles system-level operations.
 service SystemService {
-  // Init returns all data needed for frontend initialization.
-  rpc Init(common.Empty) returns (InitResponse) {
-    option (api.get) = "/api/v1/system/init";
-  }
-
   // BusinessKeys returns all available business keys.
+  // DEPRECATED: Use environment and pipeline management instead.
   rpc BusinessKeys(common.Empty) returns (BusinessKeyListResponse) {
     option (api.get) = "/api/v1/system/business-keys";
   }

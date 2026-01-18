@@ -25,7 +25,6 @@ func Register(r *server.Hertz) {
 				_system := _v1.Group("/system", _systemMw()...)
 				_system.GET("/business-keys", append(_businesskeysMw(), system.BusinessKeys)...)
 				_system.GET("/health", append(_healthMw(), system.Health)...)
-				_system.GET("/init", append(_initMw(), system.Init)...)
 				_system.GET("/realtime", append(_realtimeMw(), system.Realtime)...)
 			}
 		}

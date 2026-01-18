@@ -9,8 +9,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
 	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
-	"github.com/yi-nology/rainbow_bridge/pkg/common"
 )
 
 var svc *service.Service
@@ -19,22 +19,9 @@ func SetService(s *service.Service) {
 	svc = s
 }
 
-// Init .
-// @router /api/v1/system/init [GET]
-func Init(ctx context.Context, c *app.RequestContext) {
-	initData, err := svc.GetInitData(handler.EnrichContext(ctx, c))
-	if err != nil {
-		handler.WriteInternalError(c, err)
-		return
-	}
-	c.JSON(consts.StatusOK, common.CommonResponse{
-		Code: consts.StatusOK,
-		Data: initData,
-	})
-}
-
 // BusinessKeys .
 // @router /api/v1/system/business-keys [GET]
+// DEPRECATED: Use environment and pipeline management instead.
 func BusinessKeys(ctx context.Context, c *app.RequestContext) {
 	keys, err := svc.ListBusinessKeys(handler.EnrichContext(ctx, c))
 	if err != nil {
@@ -59,7 +46,7 @@ func Realtime(ctx context.Context, c *app.RequestContext) {
 // Health .
 // @router /api/v1/system/health [GET]
 func Health(ctx context.Context, c *app.RequestContext) {
-	c.JSON(consts.StatusOK, common.CommonResponse{
+	c.JSON(consts.StatusOK, &common.OperateResponse{
 		Code: consts.StatusOK,
 		Msg:  "ok",
 	})

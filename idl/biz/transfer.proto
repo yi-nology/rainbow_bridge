@@ -62,14 +62,4 @@ service TransferService {
   rpc Export(ExportRequest) returns (ExportResponse) {
     option (api.get) = "/api/v1/transfer/export";
   }
-
-  // ExportStaticSelected exports static bundle for system + selected business.
-  rpc ExportStaticSelected(ExportRequest) returns (common.OperateResponse) {
-    option (api.get) = "/api/v1/transfer/export/static/selected";
-  }
-
-  // ExportStaticAll exports static bundle for all businesses.
-  rpc ExportStaticAll(ExportRequest) returns (common.OperateResponse) {
-    option (api.get) = "/api/v1/transfer/export/static/all";
-  }
 }

@@ -5,9 +5,7 @@ package transfer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -74,89 +72,21 @@ func Import(ctx context.Context, c *app.RequestContext) {
 // Export .
 // @router /api/v1/transfer/export [GET]
 func Export(ctx context.Context, c *app.RequestContext) {
-	includeSystem := true
-	if val := c.Query("include_system"); val != "" {
-		parsed, err := strconv.ParseBool(val)
-		if err != nil {
-			handler.RespondError(c, consts.StatusBadRequest, err)
-			return
-		}
-		includeSystem = parsed
-	}
-
-	businessKeys := handler.ParseBusinessKeys(c.Query("business_keys"))
-	if single := c.Query("business_key"); single != "" {
-		businessKeys = append(businessKeys, single)
-	}
-	businessKeys = handler.SanitizeBusinessKeys(businessKeys)
-	if len(businessKeys) == 0 {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("business_key is required"))
-		return
-	}
-	format := strings.ToLower(c.Query("format"))
-
-	if format == "zip" {
-		archive, name, err := svc.ExportConfigsArchiveBatch(handler.EnrichContext(ctx, c), businessKeys, includeSystem)
-		if err != nil {
-			handler.RespondError(c, consts.StatusInternalServerError, err)
-			return
-		}
-		if name == "" {
-			name = fmt.Sprintf("%s_archive.zip", businessKeys[0])
-		}
-		c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
-		c.Data(consts.StatusOK, "application/zip", archive)
-		return
-	}
-
-	if format == "nginx" || format == "static" {
-		archive, name, err := svc.ExportStaticBundleBatch(handler.EnrichContext(ctx, c), businessKeys, includeSystem)
-		if err != nil {
-			handler.RespondError(c, consts.StatusInternalServerError, err)
-			return
-		}
-		if name == "" {
-			name = fmt.Sprintf("%s_static_bundle.zip", businessKeys[0])
-		}
-		c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
-		c.Data(consts.StatusOK, "application/zip", archive)
-		return
-	}
-
-	list, err := svc.ExportConfigsBatch(handler.EnrichContext(ctx, c), businessKeys, includeSystem)
-	if err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
-		return
-	}
-	c.JSON(consts.StatusOK, &api.ResourceListResponse{List: list})
+	// TODO: Batch export功能需要重构以支持environment_key+pipeline_key架构
+	// 暂时返回错误提示
+	handler.RespondError(c, consts.StatusNotImplemented, errors.New("batch export not yet implemented for new architecture"))
 }
 
 // ExportStaticSelected .
 // @router /api/v1/transfer/export/static/selected [GET]
 func ExportStaticSelected(ctx context.Context, c *app.RequestContext) {
-	data, name, err := svc.ExportSystemSelectedStaticBundle(handler.EnrichContext(ctx, c))
-	if err != nil {
-		handler.WriteInternalError(c, err)
-		return
-	}
-	if name == "" {
-		name = "system_static_bundle.zip"
-	}
-	c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
-	c.Data(consts.StatusOK, "application/zip", data)
+	// TODO: 需要重构以支持新架构
+	handler.WriteInternalError(c, errors.New("not yet implemented for new architecture"))
 }
 
 // ExportStaticAll .
 // @router /api/v1/transfer/export/static/all [GET]
 func ExportStaticAll(ctx context.Context, c *app.RequestContext) {
-	data, name, err := svc.ExportStaticBundleAll(handler.EnrichContext(ctx, c))
-	if err != nil {
-		handler.WriteInternalError(c, err)
-		return
-	}
-	if name == "" {
-		name = "all_static_bundle.zip"
-	}
-	c.Response.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
-	c.Data(consts.StatusOK, "application/zip", data)
+	// TODO: 需要重构以支持新架构
+	handler.WriteInternalError(c, errors.New("not yet implemented for new architecture"))
 }

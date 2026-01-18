@@ -90,11 +90,6 @@ func (l *Logic) ListConfigs(ctx context.Context, environmentKey, pipelineKey, mi
 }
 
 func (l *Logic) ListSystemConfigs(ctx context.Context, environmentKey, pipelineKey string) (map[string]any, error) {
-	_, err := l.configDAO.GetByAlias(ctx, l.db, environmentKey, pipelineKey, constants.SysConfigBusinessSelect)
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, err
-	}
-
 	// No longer using targetBusiness, just use provided environment/pipeline
 	data, err := l.configDAO.ListByEnvironmentAndPipelineWithFilter(ctx, l.db, environmentKey, pipelineKey, "", "", "")
 	if err != nil {

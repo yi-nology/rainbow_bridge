@@ -130,18 +130,12 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 	}
 
 	// Initialize system configs for default environment if not exists
-	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey, constants.SysConfigBusinessSelect)
+	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey, constants.SysConfigSystemOptions)
 	if err != nil {
 		return err
 	}
 	if !sysConfigExists {
 		configs := []model.SystemConfig{
-			{
-				EnvironmentKey: DefaultEnvironmentKey,
-				ConfigKey:      constants.SysConfigBusinessSelect,
-				ConfigValue:    constants.DefaultBusinessSelect,
-				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigBusinessSelect],
-			},
 			{
 				EnvironmentKey: DefaultEnvironmentKey,
 				ConfigKey:      constants.SysConfigSystemOptions,

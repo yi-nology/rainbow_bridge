@@ -7,7 +7,7 @@ import { createToast } from "./lib/toast.js";
 initPageLayout({
   activeKey: "system",
   title: "系统配置",
-  caption: "管理环境维度的系统配置，包括业务选择和系统选项",
+  caption: "管理环境维度的系统配置",
   showEnvSelector: true,
   showPipelineSelector: true,
 });
@@ -18,7 +18,6 @@ const state = {
   configs: [],
   search: "",
   editing: null,
-  businessKeys: [],
   currentEnvironment: "default",
 };
 
@@ -39,7 +38,6 @@ const elements = {
   contentTextInput: document.getElementById("systemContentTextInput"),
   contentImageGroup: document.getElementById("systemContentImage"),
   contentColorGroup: document.getElementById("systemContentColor"),
-  businessSelect: document.getElementById("systemBusinessSelect"),
   keyValueEditor: document.getElementById("systemKeyValueEditor"),
   keyValueList: document.getElementById("systemKeyValueList"),
   keyValueAddBtn: document.getElementById("systemKeyValueAdd"),
@@ -88,10 +86,6 @@ if (elements.aliasInput) {
   elements.aliasInput.addEventListener("input", () => {
     syncAliasMode().catch(() => {});
   });
-}
-
-if (elements.businessSelect) {
-  elements.businessSelect.addEventListener("change", handleBusinessSelectChange);
 }
 
 if (elements.keyValueAddBtn) {
@@ -178,7 +172,6 @@ function renderTable() {
 
 function getConfigDisplayName(configKey) {
   const names = {
-    "business_select": "业务选择",
     "system_options": "系统选项",
   };
   return names[configKey] || configKey;
@@ -186,9 +179,6 @@ function getConfigDisplayName(configKey) {
 
 function summarizeConfigValue(configKey, value) {
   if (!value) return "-";
-  if (configKey === "business_select") {
-    return value;
-  }
   if (configKey === "system_options") {
     try {
       const parsed = JSON.parse(value);
@@ -254,13 +244,7 @@ async function onSubmit(evt) {
   }
 
   let configValue = "";
-  if (configKey === "business_select") {
-    configValue = (elements.businessSelect?.value || "").trim();
-    if (!configValue) {
-      showToast("请选择业务");
-      return;
-    }
-  } else if (configKey === "system_options") {
+  if (configKey === "system_options") {
     const { data, errors } = collectKeyValueData({ strict: true });
     if (errors.length) {
       showToast(errors[0]);
@@ -306,32 +290,13 @@ async function onSubmit(evt) {
 }
 
 function resetAliasState() {
-  hideBusinessSelect();
   hideKeyValueEditor();
   hideDataTypeGroups();
 }
 
 async function syncAliasMode(options = {}) {
   const alias = elements.aliasInput?.value.trim() || "";
-  if (alias === "business_select") {
-    try {
-      await ensureBusinessKeys();
-    } catch (err) {
-      showToast(`获取业务列表失败: ${err.message}`);
-      resetAliasState();
-      return;
-    }
-    hideKeyValueEditor();
-    hideDataTypeGroups();
-    showBusinessSelect(options.content || elements.contentInput?.value.trim() || "");
-    if (elements.contentInput) {
-      elements.contentInput.disabled = true;
-      elements.contentInput.classList.add("hidden");
-    }
-    return;
-  }
   if (alias === "system_options") {
-    hideBusinessSelect();
     hideDataTypeGroups();
     showKeyValueEditor(options.content || elements.contentInput?.value.trim() || "");
     if (elements.contentInput) {
@@ -353,72 +318,6 @@ function hideDataTypeGroups() {
   if (elements.contentImageGroup) elements.contentImageGroup.classList.add("hidden");
   if (elements.contentColorGroup) elements.contentColorGroup.classList.add("hidden");
   if (elements.typeSelect) elements.typeSelect.closest("label")?.classList.add("hidden");
-}
-
-function handleBusinessSelectChange() {
-  if (!elements.businessSelect || !elements.contentInput) return;
-  elements.contentInput.value = elements.businessSelect.value || "";
-}
-
-async function ensureBusinessKeys(force = false) {
-  if (!force && state.businessKeys.length) {
-    return state.businessKeys;
-  }
-  const res = await fetch(`${state.apiBase}/api/v1/system/business-keys`);
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  const json = await res.json();
-  const list = (json?.list || json?.data?.list || []).filter((key) => key !== "system");
-  state.businessKeys = list;
-  return list;
-}
-
-function populateBusinessSelect(selectedValue) {
-  if (!elements.businessSelect) return;
-  const select = elements.businessSelect;
-  select.innerHTML = "";
-
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "请选择业务";
-  placeholder.disabled = true;
-  placeholder.selected = !selectedValue;
-  select.appendChild(placeholder);
-
-  const options = [...state.businessKeys];
-  if (selectedValue && !options.includes(selectedValue)) {
-    options.unshift(selectedValue);
-  }
-
-  options.forEach((key) => {
-    const option = document.createElement("option");
-    option.value = key;
-    option.textContent = key;
-    select.appendChild(option);
-  });
-
-  if (selectedValue && options.includes(selectedValue)) {
-    select.value = selectedValue;
-  }
-}
-
-function showBusinessSelect(selectedValue = "") {
-  if (!elements.businessSelect) return;
-  populateBusinessSelect(selectedValue);
-  elements.businessSelect.classList.remove("hidden");
-  elements.businessSelect.disabled = false;
-  elements.businessSelect.required = true;
-  if (elements.contentInput) {
-    elements.contentInput.value = elements.businessSelect.value || "";
-  }
-}
-
-function hideBusinessSelect() {
-  if (!elements.businessSelect) return;
-  elements.businessSelect.classList.add("hidden");
-  elements.businessSelect.disabled = true;
-  elements.businessSelect.required = false;
 }
 
 function addKeyValueRow(key = "", value = "") {

@@ -18,8 +18,7 @@ message SystemOptionItem {
 
 // SystemConfig contains parsed system configuration data.
 message SystemConfig {
-  string business_select = 1;
-  repeated SystemOptionItem system_options = 2;
+  repeated SystemOptionItem system_options = 1;
 }
 
 // RealtimeConfigEntry represents a single config entry in realtime config.
@@ -35,8 +34,7 @@ message RealtimeConfigEntry {
 // This response format must remain unchanged for backward compatibility.
 message RealtimeResponse {
   repeated string business_keys = 1;
-  string business_select = 2;
-  map<string, RealtimeConfigEntry> system = 3;
+  map<string, RealtimeConfigEntry> system = 2;
   // Additional business configs are added dynamically
 }
 

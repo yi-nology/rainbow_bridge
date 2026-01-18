@@ -10,7 +10,6 @@ import (
 	environmenthandler "github.com/yi-nology/rainbow_bridge/biz/handler/environment"
 	pipelinehandler "github.com/yi-nology/rainbow_bridge/biz/handler/pipeline"
 	runtimehandler "github.com/yi-nology/rainbow_bridge/biz/handler/runtime"
-	"github.com/yi-nology/rainbow_bridge/biz/handler/system"
 	systemconfighandler "github.com/yi-nology/rainbow_bridge/biz/handler/system_config"
 	"github.com/yi-nology/rainbow_bridge/biz/handler/transfer"
 	assetrouter "github.com/yi-nology/rainbow_bridge/biz/router/asset"
@@ -18,7 +17,6 @@ import (
 	"github.com/yi-nology/rainbow_bridge/biz/router/environment"
 	"github.com/yi-nology/rainbow_bridge/biz/router/pipeline"
 	runtimerouter "github.com/yi-nology/rainbow_bridge/biz/router/runtime"
-	systemrouter "github.com/yi-nology/rainbow_bridge/biz/router/system"
 	"github.com/yi-nology/rainbow_bridge/biz/router/system_config"
 	transferrouter "github.com/yi-nology/rainbow_bridge/biz/router/transfer"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
@@ -29,7 +27,6 @@ func InitHandlers(svc *service.Service) {
 	config.SetService(svc)
 	asset.SetService(svc)
 	transfer.SetService(svc)
-	system.SetService(svc)
 	environmenthandler.SetService(svc)
 	pipelinehandler.SetService(svc)
 	systemconfighandler.SetService(svc)
@@ -49,7 +46,6 @@ func GeneratedRegister(r *server.Hertz) {
 
 	assetrouter.Register(r)
 	configrouter.Register(r)
-	systemrouter.Register(r)
 	transferrouter.Register(r)
 
 	// Health Check

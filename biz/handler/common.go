@@ -75,10 +75,10 @@ func WriteNotFound(c *app.RequestContext, err error) {
 
 // Response type for config operations
 type ConfigOperateResponse struct {
-	Code   int32                     `json:"code"`
-	Msg    string                    `json:"msg,omitempty"`
-	Error  string                    `json:"error,omitempty"`
-	Config *common.ResourceConfig    `json:"config,omitempty"`
+	Code   int32                  `json:"code"`
+	Msg    string                 `json:"msg,omitempty"`
+	Error  string                 `json:"error,omitempty"`
+	Config *common.ResourceConfig `json:"config,omitempty"`
 }
 
 func RespondConfig(c *app.RequestContext, cfg *common.ResourceConfig) {

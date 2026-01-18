@@ -8,7 +8,6 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
 	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
@@ -17,6 +16,11 @@ var svc *service.Service
 
 func SetService(s *service.Service) {
 	svc = s
+}
+
+// BusinessKeyListResponse for backward compatibility
+type BusinessKeyListResponse struct {
+	List []string `json:"list"`
 }
 
 // BusinessKeys .
@@ -28,7 +32,7 @@ func BusinessKeys(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusInternalServerError, err)
 		return
 	}
-	c.JSON(consts.StatusOK, &api.BusinessKeyListResponse{List: keys})
+	c.JSON(consts.StatusOK, &BusinessKeyListResponse{List: keys})
 }
 
 // Realtime .

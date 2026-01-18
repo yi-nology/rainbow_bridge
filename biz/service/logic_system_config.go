@@ -44,8 +44,8 @@ func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, config
 	switch configKey {
 	case constants.SysConfigBusinessSelect:
 		return constants.DefaultBusinessSelect, nil
-	case constants.SysConfigSystemKeys:
-		return constants.DefaultSystemKeys, nil
+	case constants.SysConfigSystemOptions:
+		return constants.DefaultSystemOptions, nil
 	default:
 		return "", ErrSystemConfigNotFound
 	}
@@ -85,11 +85,11 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey s
 			ConfigValue:    constants.DefaultBusinessSelect,
 			Remark:         constants.DefaultSystemConfigRemark[configKey],
 		}, nil
-	case constants.SysConfigSystemKeys:
+	case constants.SysConfigSystemOptions:
 		return &model.SystemConfig{
 			EnvironmentKey: environmentKey,
 			ConfigKey:      configKey,
-			ConfigValue:    constants.DefaultSystemKeys,
+			ConfigValue:    constants.DefaultSystemOptions,
 			Remark:         constants.DefaultSystemConfigRemark[configKey],
 		}, nil
 	default:
@@ -115,9 +115,9 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 			},
 			{
 				EnvironmentKey: environmentKey,
-				ConfigKey:      constants.SysConfigSystemKeys,
-				ConfigValue:    constants.DefaultSystemKeys,
-				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemKeys],
+				ConfigKey:      constants.SysConfigSystemOptions,
+				ConfigValue:    constants.DefaultSystemOptions,
+				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemOptions],
 			},
 		}, nil
 	}
@@ -126,7 +126,7 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 }
 
 // UpdateSystemConfig updates a system config value.
-// Only business_select and system_keys are allowed to be updated.
+// Only business_select and system_options are allowed to be updated.
 func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKey, configValue string) error {
 	// Validate config key
 	if !constants.IsProtectedSystemConfig(configKey) {
@@ -164,9 +164,9 @@ func (l *Logic) InitSystemConfigsForEnvironment(ctx context.Context, db *gorm.DB
 		},
 		{
 			EnvironmentKey: environmentKey,
-			ConfigKey:      constants.SysConfigSystemKeys,
-			ConfigValue:    constants.DefaultSystemKeys,
-			Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemKeys],
+			ConfigKey:      constants.SysConfigSystemOptions,
+			ConfigValue:    constants.DefaultSystemOptions,
+			Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemOptions],
 		},
 	}
 	return l.systemConfigDAO.BatchCreate(ctx, db, configs)

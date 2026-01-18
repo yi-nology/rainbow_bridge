@@ -42,6 +42,7 @@ const assetModal = createModal("assetModal", {
 });
 
 (async function init() {
+  await loadAssets();
   await initEnvSelector(state.apiBase, () => loadAssets());
   await initPipelineSelector(state.apiBase, () => loadAssets());
 })();

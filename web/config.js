@@ -20,7 +20,7 @@ const state = {
   configs: [],
   search: "",
   editing: null,
-  systemKeys: [],
+  systemOptions: [],
   identityMode: "custom",
   dataType: "config",
   imageUpload: {
@@ -50,7 +50,7 @@ const elements = {
   modalContentInput: document.getElementById("modalContentInput"),
   identityModeRadios: document.querySelectorAll("input[name='identityMode']"),
   systemKeySelect: document.getElementById("systemKeySelect"),
-  refreshSystemKeysBtn: document.getElementById("refreshSystemKeys"),
+  refreshSystemOptionsBtn: document.getElementById("refreshSystemOptions"),
   contentJsonGroup: document.getElementById("contentConfigGroup"),
   contentTextGroup: document.getElementById("contentTextGroup"),
   contentImageGroup: document.getElementById("contentImageGroup"),
@@ -114,15 +114,15 @@ if (elements.systemKeySelect) {
   elements.systemKeySelect.addEventListener("change", handleSystemKeySelectChange);
 }
 
-if (elements.refreshSystemKeysBtn) {
-  elements.refreshSystemKeysBtn.addEventListener("click", async () => {
+if (elements.refreshSystemOptionsBtn) {
+  elements.refreshSystemOptionsBtn.addEventListener("click", async () => {
     try {
-      await ensureSystemKeys(true);
+      await ensureSystemOptions(true);
       if (state.identityMode === "system") {
         await syncIdentityMode({ preserveSelection: true });
       }
     } catch (err) {
-      showToast(err.message || "刷新 system_keys 失败");
+      showToast(err.message || "刷新 system_options 失败");
     }
   });
 }
@@ -357,15 +357,15 @@ async function syncIdentityMode(options = {}) {
   }
 
   try {
-    await ensureSystemKeys(forceRefresh);
+    await ensureSystemOptions(forceRefresh);
   } catch (err) {
-    showToast(err.message || "获取 system_keys 失败");
+    showToast(err.message || "获取 system_options 失败");
     await setIdentityMode("custom");
     return;
   }
 
-  if (!state.systemKeys.length) {
-    showToast("暂无 system_keys 可用");
+  if (!state.systemOptions.length) {
+    showToast("暂无 system_options 可用");
     await setIdentityMode("custom");
     return;
   }
@@ -404,26 +404,26 @@ async function syncIdentityMode(options = {}) {
   applySystemKeySelection();
 }
 
-async function ensureSystemKeys(force = false) {
-  if (!force && state.systemKeys.length) {
-    return state.systemKeys;
+async function ensureSystemOptions(force = false) {
+  if (!force && state.systemOptions.length) {
+    return state.systemOptions;
   }
   try {
-    // Get system_keys from system-config API using current environment
+    // Get system_options from system-config API using current environment
     const env = getCurrentEnvironment();
     if (!env) {
       throw new Error("请先选择环境");
     }
-    const entries = await fetchSystemKeysFromConfig(env);
-    state.systemKeys = entries;
-    return state.systemKeys;
+    const entries = await fetchSystemOptionsFromConfig(env);
+    state.systemOptions = entries;
+    return state.systemOptions;
   } catch (err) {
-    state.systemKeys = [];
+    state.systemOptions = [];
     throw err;
   }
 }
 
-async function fetchSystemKeysFromConfig(environmentKey) {
+async function fetchSystemOptionsFromConfig(environmentKey) {
   try {
     const res = await fetch(
       `${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(environmentKey)}`
@@ -431,14 +431,14 @@ async function fetchSystemKeysFromConfig(environmentKey) {
     const json = await res.json();
     const list = json?.list || [];
     
-    // Find system_keys config
-    const systemKeysConfig = list.find(cfg => cfg.config_key === "system_keys");
-    if (!systemKeysConfig || !systemKeysConfig.config_value) {
+    // Find system_options config
+    const systemOptionsConfig = list.find(cfg => cfg.config_key === "system_options");
+    if (!systemOptionsConfig || !systemOptionsConfig.config_value) {
       return [];
     }
     
     // Parse JSON value
-    const parsed = JSON.parse(systemKeysConfig.config_value);
+    const parsed = JSON.parse(systemOptionsConfig.config_value);
     if (!parsed || typeof parsed !== "object") {
       return [];
     }
@@ -449,7 +449,7 @@ async function fetchSystemKeysFromConfig(environmentKey) {
       value: value == null ? "" : String(value),
     }));
   } catch (err) {
-    console.error("Failed to fetch system_keys:", err);
+    console.error("Failed to fetch system_options:", err);
     return [];
   }
 }
@@ -458,38 +458,38 @@ function populateSystemKeyOptions({ selectedKey, matchAlias, matchName } = {}) {
   if (!elements.systemKeySelect) return null;
   const select = elements.systemKeySelect;
   select.innerHTML = "";
-  if (!state.systemKeys.length) {
+  if (!state.systemOptions.length) {
     return null;
   }
   let resolvedKey = selectedKey || "";
   let resolvedItem = null;
   if (!resolvedKey && matchAlias) {
-    const matchedByAlias = state.systemKeys.find((item) => item.key === matchAlias);
+    const matchedByAlias = state.systemOptions.find((item) => item.key === matchAlias);
     if (matchedByAlias) {
       resolvedKey = matchedByAlias.key;
       resolvedItem = matchedByAlias;
     }
   }
   if (!resolvedKey && matchName) {
-    const matchedByName = state.systemKeys.find((item) => item.value === matchName);
+    const matchedByName = state.systemOptions.find((item) => item.value === matchName);
     if (matchedByName) {
       resolvedKey = matchedByName.key;
       resolvedItem = matchedByName;
     }
   }
-  state.systemKeys.forEach((item) => {
+  state.systemOptions.forEach((item) => {
     const option = document.createElement("option");
     option.value = item.key;
     option.textContent = item.value ? `${item.value} (${item.key})` : item.key;
     option.dataset.value = item.value;
     select.appendChild(option);
   });
-  if (resolvedKey && state.systemKeys.some((item) => item.key === resolvedKey)) {
+  if (resolvedKey && state.systemOptions.some((item) => item.key === resolvedKey)) {
     select.value = resolvedKey;
-    resolvedItem = state.systemKeys.find((item) => item.key === resolvedKey) || null;
-  } else if (state.systemKeys.length) {
-    select.value = state.systemKeys[0].key;
-    resolvedItem = state.systemKeys[0];
+    resolvedItem = state.systemOptions.find((item) => item.key === resolvedKey) || null;
+  } else if (state.systemOptions.length) {
+    select.value = state.systemOptions[0].key;
+    resolvedItem = state.systemOptions[0];
   }
   return resolvedItem;
 }
@@ -549,7 +549,7 @@ function getSelectedSystemKey() {
   if (!elements.systemKeySelect) return null;
   const selectedKey = elements.systemKeySelect.value;
   if (!selectedKey) return null;
-  return state.systemKeys.find((item) => item.key === selectedKey) || null;
+  return state.systemOptions.find((item) => item.key === selectedKey) || null;
 }
 
 function applySystemKeySelection() {
@@ -950,10 +950,10 @@ async function openConfigModal(cfg) {
   let initialMode = "custom";
   if (cfg && (form.elements.alias.value || form.elements.name.value)) {
     try {
-      await ensureSystemKeys();
+      await ensureSystemOptions();
       const alias = form.elements.alias.value.trim();
       const name = form.elements.name.value.trim();
-      if (state.systemKeys.some((item) => item.key === alias && item.value === name)) {
+      if (state.systemOptions.some((item) => item.key === alias && item.value === name)) {
         initialMode = "system";
       }
     } catch {

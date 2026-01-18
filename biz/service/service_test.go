@@ -292,13 +292,13 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 	}
 	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "system",
-		Alias:       "system_keys",
+		Alias:       "system_options",
 		Name:        "系统选项",
 		Type:        "config",
 		Content:     `{"biz-realtime":"实时业务"}`,
 	}})
 	if err != nil {
-		t.Fatalf("seed system_keys: %v", err)
+		t.Fatalf("seed system_options: %v", err)
 	}
 	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "biz-realtime",

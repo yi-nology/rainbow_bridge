@@ -179,7 +179,7 @@ function renderTable() {
 function getConfigDisplayName(configKey) {
   const names = {
     "business_select": "业务选择",
-    "system_keys": "系统选项",
+    "system_options": "系统选项",
   };
   return names[configKey] || configKey;
 }
@@ -189,7 +189,7 @@ function summarizeConfigValue(configKey, value) {
   if (configKey === "business_select") {
     return value;
   }
-  if (configKey === "system_keys") {
+  if (configKey === "system_options") {
     try {
       const parsed = JSON.parse(value);
       const keys = Object.keys(parsed);
@@ -260,7 +260,7 @@ async function onSubmit(evt) {
       showToast("请选择业务");
       return;
     }
-  } else if (configKey === "system_keys") {
+  } else if (configKey === "system_options") {
     const { data, errors } = collectKeyValueData({ strict: true });
     if (errors.length) {
       showToast(errors[0]);
@@ -330,7 +330,7 @@ async function syncAliasMode(options = {}) {
     }
     return;
   }
-  if (alias === "system_keys") {
+  if (alias === "system_options") {
     hideBusinessSelect();
     hideDataTypeGroups();
     showKeyValueEditor(options.content || elements.contentInput?.value.trim() || "");
@@ -485,7 +485,7 @@ function populateKeyValueEditor(rawContent) {
         throw new Error("invalid format");
       }
     } catch (err) {
-      showToast("system_keys 内容格式不正确，已重置为空");
+      showToast("system_options 内容格式不正确，已重置为空");
     }
   }
   const entries = Object.entries(parsed);

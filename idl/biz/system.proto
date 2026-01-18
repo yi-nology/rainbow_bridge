@@ -10,8 +10,8 @@ message BusinessKeyListResponse {
   repeated string list = 1;
 }
 
-// SystemKeyItem represents a key-value pair in system keys.
-message SystemKeyItem {
+// SystemOptionItem represents a key-value pair in system options.
+message SystemOptionItem {
   string key = 1;
   string value = 2;
 }
@@ -19,7 +19,7 @@ message SystemKeyItem {
 // SystemConfig contains parsed system configuration data.
 message SystemConfig {
   string business_select = 1;
-  repeated SystemKeyItem system_keys = 2;
+  repeated SystemOptionItem system_options = 2;
 }
 
 // RealtimeConfigEntry represents a single config entry in realtime config.

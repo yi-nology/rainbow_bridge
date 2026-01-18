@@ -144,9 +144,9 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 			},
 			{
 				EnvironmentKey: DefaultEnvironmentKey,
-				ConfigKey:      constants.SysConfigSystemKeys,
-				ConfigValue:    constants.DefaultSystemKeys,
-				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemKeys],
+				ConfigKey:      constants.SysConfigSystemOptions,
+				ConfigValue:    constants.DefaultSystemOptions,
+				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemOptions],
 			},
 		}
 		if err := sysConfigDAO.BatchCreate(ctx, dbConn, configs); err != nil {

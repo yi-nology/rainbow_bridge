@@ -91,16 +91,17 @@ export function parseSystemKeys(systemConfigs) {
 }
 
 /**
- * Fetch configs by business key
+ * Fetch configs by environment and pipeline
  * @param {string} apiBase - API base URL
- * @param {string} businessKey - Business key
+ * @param {string} environmentKey - Environment key
+ * @param {string} pipelineKey - Pipeline key
  * @returns {Promise<Array>} List of configs
  */
-export async function fetchConfigs(apiBase, businessKey) {
-  if (!businessKey) return [];
+export async function fetchConfigs(apiBase, environmentKey, pipelineKey) {
+  if (!environmentKey || !pipelineKey) return [];
   const base = apiBase || getDefaultApiBase();
   const res = await fetch(
-    `${base}/api/v1/config/list?business_key=${encodeURIComponent(businessKey)}`
+    `${base}/api/v1/config/list?environment_key=${encodeURIComponent(environmentKey)}&pipeline_key=${encodeURIComponent(pipelineKey)}`
   );
   if (!res.ok) {
     throw new Error(await extractError(res));
@@ -110,15 +111,16 @@ export async function fetchConfigs(apiBase, businessKey) {
 }
 
 /**
- * Fetch assets by business key
+ * Fetch assets by environment and pipeline
  * @param {string} apiBase - API base URL
- * @param {string} businessKey - Business key
+ * @param {string} environmentKey - Environment key
+ * @param {string} pipelineKey - Pipeline key
  * @returns {Promise<Array>} List of assets
  */
-export async function fetchAssets(apiBase, businessKey) {
-  if (!businessKey) return [];
+export async function fetchAssets(apiBase, environmentKey, pipelineKey) {
+  if (!environmentKey || !pipelineKey) return [];
   const base = apiBase || getDefaultApiBase();
-  const url = `${base}/api/v1/asset/list?business_key=${encodeURIComponent(businessKey)}`;
+  const url = `${base}/api/v1/asset/list?environment_key=${encodeURIComponent(environmentKey)}&pipeline_key=${encodeURIComponent(pipelineKey)}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(await extractError(res));
@@ -152,20 +154,21 @@ export async function saveConfig(apiBase, config, isUpdate = false) {
 /**
  * Delete config
  * @param {string} apiBase - API base URL
- * @param {string} businessKey - Business key
+ * @param {string} environmentKey - Environment key
+ * @param {string} pipelineKey - Pipeline key
  * @param {string} resourceKey - Resource key
  * @returns {Promise<Object>} Response data
  */
-export async function deleteConfig(apiBase, businessKey, resourceKey) {
+export async function deleteConfig(apiBase, environmentKey, pipelineKey, resourceKey) {
   const base = apiBase || getDefaultApiBase();
   const res = await fetch(`${base}/api/v1/config/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ business_key: businessKey, resource_key: resourceKey }),
+    body: JSON.stringify({ environment_key: environmentKey, pipeline_key: pipelineKey, resource_key: resourceKey }),
   });
   const json = await res.json();
   if (json.code && json.code !== 200) {
-    throw new Error(json.error || json.msg || "\u5220\u9664\u5931\u8d25");
+    throw new Error(json.error || json.msg || "删除失败");
   }
   return json;
 }

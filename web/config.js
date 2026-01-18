@@ -18,8 +18,6 @@ const defaultBase = getDefaultApiBase();
 const DEFAULT_COLOR = "#1677ff";
 const state = {
   apiBase: defaultBase,
-  businessKeys: [],
-  activeBusiness: "",
   configs: [],
   search: "",
   editing: null,
@@ -36,7 +34,6 @@ const state = {
 };
 
 const elements = {
-  businessTabs: document.getElementById("businessTabs"),
   configTbody: document.getElementById("configTbody"),
   emptyState: document.getElementById("emptyState"),
   resourceCount: document.getElementById("resourceCount"),
@@ -46,9 +43,6 @@ const elements = {
   modalTitle: document.getElementById("modalTitle"),
   modalClose: document.getElementById("modalClose"),
   modalCancel: document.getElementById("modalCancel"),
-  modalBusinessInput: document.getElementById("modalBusinessInput"),
-  businessOptions: document.getElementById("businessOptions"),
-  refreshBusinessBtn: document.getElementById("refreshBusiness"),
   newConfigBtn: document.getElementById("newConfigBtn"),
   toast: document.getElementById("toast"),
   modalNameInput: document.getElementById("modalNameInput"),
@@ -90,27 +84,15 @@ const configModal = createModal("modalOverlay", {
         radio.checked = radio.value === "false";
       });
     }
-    if (elements.modalBusinessInput) {
-      elements.modalBusinessInput.readOnly = false;
-      elements.modalBusinessInput.classList.remove("read-only");
-    }
-    if (elements.refreshBusinessBtn) {
-      elements.refreshBusinessBtn.disabled = false;
-    }
   },
 });
 
 // ------------------------- Initialization -------------------------
 
 (async function init() {
-  await fetchBusinessKeys();
   await initEnvSelector(state.apiBase, () => fetchConfigs());
   await initPipelineSelector(state.apiBase, () => fetchConfigs());
 })();
-
-elements.refreshBusinessBtn.addEventListener("click", () => {
-  fetchBusinessKeys(true);
-});
 
 elements.searchInput.addEventListener("input", (evt) => {
   state.search = evt.target.value.trim().toLowerCase();
@@ -193,7 +175,8 @@ elements.modalForm.addEventListener("submit", async (evt) => {
   const form = elements.modalForm;
   const formData = new FormData(form);
   const getTrim = (key) => ((formData.get(key) || "").toString().trim());
-  const businessKey = getTrim("businessKey");
+  const environmentKey = getCurrentEnvironment();
+  const pipelineKey = getCurrentPipeline();
   const resourceKey = getTrim("resourceKey");
   const alias = getTrim("alias");
   const name = getTrim("name");
@@ -249,7 +232,8 @@ elements.modalForm.addEventListener("submit", async (evt) => {
   const remark = getTrim("remark");
   const payload = {
     config: {
-      business_key: businessKey,
+      environment_key: environmentKey,
+      pipeline_key: pipelineKey,
       resource_key: resourceKey,
       alias,
       name,
@@ -259,7 +243,7 @@ elements.modalForm.addEventListener("submit", async (evt) => {
       is_perm: formData.get("isPerm") === "true",
     },
   };
-  if (!payload.config.business_key || !payload.config.alias) {
+  if (!payload.config.environment_key || !payload.config.pipeline_key || !payload.config.alias) {
     showToast("请填写必填项");
     return;
   }
@@ -278,7 +262,7 @@ elements.modalForm.addEventListener("submit", async (evt) => {
     }
     showToast("保存成功");
     configModal.close();
-    await refreshConfigsAfterMutation(payload.config.business_key);
+    await fetchConfigs();
   } catch (err) {
     showToast(err.message || "保存失败");
   }
@@ -293,56 +277,23 @@ document.addEventListener("click", (evt) => {
   }
   if (target.matches("button[data-action='delete']")) {
     const key = target.dataset.key;
-    const business = target.dataset.business;
+    const env = target.dataset.env;
+    const pipeline = target.dataset.pipeline;
     if (confirm("确定删除该配置吗？")) {
-      deleteConfig(business, key);
+      deleteConfig(env, pipeline, key);
     }
   }
 });
 
 // ------------------------- Data Fetching -------------------------
 
-async function fetchBusinessKeys(force = false) {
-  try {
-    const list = await getBusinessKeys({ apiBase: state.apiBase, excludeSystem: true, force });
-    const previousActive = state.activeBusiness;
-    state.businessKeys = list;
-    if (previousActive && list.includes(previousActive)) {
-      state.activeBusiness = previousActive;
-    } else {
-      state.activeBusiness = list[0] || "";
-    }
-    populateBusinessOptions(state.editing?.business_key);
-    if (force && elements.modalBusinessInput && !elements.modalBusinessInput.readOnly) {
-      elements.modalBusinessInput.value = state.activeBusiness || "";
-    }
-    renderBusinessTabs();
-    await fetchConfigs();
-  } catch (err) {
-    showToast(`获取业务列表失败: ${err.message}`);
-  }
-}
-
-function populateBusinessOptions(extraKey) {
-  if (!elements.businessOptions) return;
-  const options = [...state.businessKeys];
-  const appendKey = extraKey ? `${extraKey}`.trim() : "";
-  if (appendKey && !options.includes(appendKey)) {
-    options.push(appendKey);
-  }
-  elements.businessOptions.innerHTML = "";
-  options.forEach((key) => {
-    const option = document.createElement("option");
-    option.value = key;
-    elements.businessOptions.appendChild(option);
-  });
-}
-
 async function fetchConfigs() {
-  if (!state.activeBusiness) return;
+  const env = getCurrentEnvironment();
+  const pipeline = getCurrentPipeline();
+  if (!env || !pipeline) return;
   try {
     const res = await fetch(
-      `${state.apiBase}/api/v1/config/list?business_key=${encodeURIComponent(state.activeBusiness)}`,
+      `${state.apiBase}/api/v1/config/list?environment_key=${encodeURIComponent(env)}&pipeline_key=${encodeURIComponent(pipeline)}`,
     );
     const json = await res.json();
     state.configs = json?.list || json?.data?.list || [];
@@ -352,39 +303,22 @@ async function fetchConfigs() {
   }
 }
 
-async function deleteConfig(businessKey, resourceKey) {
+async function deleteConfig(environmentKey, pipelineKey, resourceKey) {
   try {
     const res = await fetch(`${state.apiBase}/api/v1/config/delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ business_key: businessKey, resource_key: resourceKey }),
+      body: JSON.stringify({ environment_key: environmentKey, pipeline_key: pipelineKey, resource_key: resourceKey }),
     });
     const json = await res.json();
     if (json.code && json.code !== 200) {
       throw new Error(json.error || json.msg || "删除失败");
     }
     showToast("删除成功");
-    await refreshConfigsAfterMutation(businessKey);
+    await fetchConfigs();
   } catch (err) {
     showToast(err.message || "删除失败");
   }
-}
-
-async function refreshConfigsAfterMutation(targetBusiness) {
-  const key = (targetBusiness || state.activeBusiness || "").trim();
-  if (key) {
-    const exists = state.businessKeys.includes(key);
-    if (!exists) {
-      state.businessKeys = [...state.businessKeys, key].sort();
-      state.activeBusiness = key;
-      populateBusinessOptions(state.editing?.business_key);
-      renderBusinessTabs();
-    } else if (state.activeBusiness !== key) {
-      state.activeBusiness = key;
-      renderBusinessTabs();
-    }
-  }
-  await fetchConfigs();
 }
 
 function resetIdentityMode() {
@@ -873,11 +807,6 @@ function onImageFileChange() {
   }
 }
 
-function getBusinessKeyValue() {
-  const input = elements.modalForm?.elements?.businessKey;
-  return input ? input.value.trim() : "";
-}
-
 async function onImageUpload() {
   if (state.imageUploading) return;
   const file = elements.contentImageFile?.files?.[0];
@@ -886,15 +815,17 @@ async function onImageUpload() {
     showToast("请先选择图片文件");
     return;
   }
-  const businessKey = getBusinessKeyValue();
-  if (!businessKey) {
-    setImageUploadStatus("请先填写业务，再上传图片", true);
-    showToast("请先填写业务");
+  const environmentKey = getCurrentEnvironment();
+  const pipelineKey = getCurrentPipeline();
+  if (!environmentKey || !pipelineKey) {
+    setImageUploadStatus("请先选择环境和流水线", true);
+    showToast("请先选择环境和流水线");
     return;
   }
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("business_key", businessKey);
+  formData.append("environment_key", environmentKey);
+  formData.append("pipeline_key", pipelineKey);
   try {
     setImageUploadLoading(true);
     const res = await fetch(`${state.apiBase}/api/v1/asset/upload`, {
@@ -928,26 +859,10 @@ async function onImageUpload() {
 
 // ------------------------- Rendering -------------------------
 
-function renderBusinessTabs() {
-  elements.businessTabs.innerHTML = "";
-  state.businessKeys.forEach((key) => {
-    const btn = document.createElement("span");
-    btn.className = `business-tab${state.activeBusiness === key ? " active" : ""}`;
-    btn.textContent = key;
-    btn.addEventListener("click", async () => {
-      if (state.activeBusiness === key) return;
-      state.activeBusiness = key;
-      renderBusinessTabs();
-      await fetchConfigs();
-    });
-    elements.businessTabs.appendChild(btn);
-  });
-}
-
 function renderConfigTable() {
   const configs = state.configs.filter((item) => {
     if (!state.search) return true;
-    const haystack = [item.name, item.alias, item.type, item.business_key]
+    const haystack = [item.name, item.alias, item.type, item.environment_key, item.pipeline_key]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -962,14 +877,14 @@ function renderConfigTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(cfg.name || "-")}</td>
-      <td>${escapeHtml(cfg.business_key || "-")}</td>
+      <td>${escapeHtml(cfg.environment_key || "-")} / ${escapeHtml(cfg.pipeline_key || "-")}</td>
       <td>${escapeHtml(cfg.alias || "-")}</td>
       <td>${escapeHtml(displayDataType(cfg.type))}</td>
       <td>${escapeHtml(summarizeContent(cfg.content))}</td>
       <td>
         <div class="table-actions">
           <button class="ghost" data-action="edit" data-key="${escapeAttr(cfg.resource_key || "")}">编辑</button>
-          <button class="danger" data-action="delete" data-key="${escapeAttr(cfg.resource_key || "")}" data-business="${escapeAttr(cfg.business_key || "")}">删除</button>
+          <button class="danger" data-action="delete" data-key="${escapeAttr(cfg.resource_key || "")}" data-env="${escapeAttr(cfg.environment_key || "")}" data-pipeline="${escapeAttr(cfg.pipeline_key || "")}">删除</button>
         </div>
       </td>`;
     elements.configTbody.appendChild(tr);
@@ -982,21 +897,8 @@ async function openConfigModal(cfg) {
   elements.modalForm.reset();
   resetIdentityMode();
   const form = elements.modalForm;
-  const businessInput = elements.modalBusinessInput;
-  const refreshBtn = elements.refreshBusinessBtn;
-  if (elements.businessOptions) {
-    populateBusinessOptions(cfg?.business_key);
-  }
-  if (refreshBtn) {
-    refreshBtn.disabled = Boolean(cfg);
-  }
-  if (businessInput) {
-    businessInput.readOnly = Boolean(cfg);
-    businessInput.classList.toggle("read-only", Boolean(cfg));
-  }
   if (cfg) {
     form.elements.resourceKey.value = cfg.resource_key || "";
-    form.elements.businessKey.value = cfg.business_key || "";
     form.elements.name.value = cfg.name || "";
     form.elements.alias.value = cfg.alias || "";
     form.elements.type.value = cfg.type || "";
@@ -1006,12 +908,6 @@ async function openConfigModal(cfg) {
     [...form.elements.isPerm].forEach((radio) => {
       radio.checked = radio.value === isPerm;
     });
-  } else if (state.activeBusiness) {
-    form.elements.businessKey.value = state.activeBusiness;
-    if (businessInput) {
-      businessInput.readOnly = false;
-      businessInput.classList.remove("read-only");
-    }
   }
   const initialType = normalizeDataType(form.elements.type.value || "config");
   initializeDataTypeFields(initialType, form.elements.content.value || "");

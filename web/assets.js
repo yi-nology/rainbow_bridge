@@ -1,10 +1,9 @@
-import { initPageLayout, initEnvSelector, initPipelineSelector } from "./components.js";
+import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment, getCurrentPipeline } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr, formatSize } from "./lib/utils.js";
 import { fetchAssets } from "./lib/api.js";
 import { createToast } from "./lib/toast.js";
-import { getBusinessKeys } from "./lib/init.js";
 
 initPageLayout({
   activeKey: "assets",
@@ -17,8 +16,6 @@ initPageLayout({
 const defaultBase = getDefaultApiBase();
 const state = {
   apiBase: defaultBase,
-  businessKeys: [],
-  activeBusiness: "",
   assets: [],
   search: "",
 };
@@ -26,7 +23,6 @@ const state = {
 const showToast = createToast("assetToast");
 
 const el = {
-  tabs: document.getElementById("assetBusinessTabs"),
   tableBody: document.getElementById("assetTbody"),
   count: document.getElementById("assetCount"),
   search: document.getElementById("assetSearchInput"),
@@ -46,7 +42,6 @@ const assetModal = createModal("assetModal", {
 });
 
 (async function init() {
-  await loadBusinessKeys();
   await initEnvSelector(state.apiBase, () => loadAssets());
   await initPipelineSelector(state.apiBase, () => loadAssets());
 })();
@@ -60,16 +55,20 @@ el.uploadBtn.addEventListener("click", () => {
   el.modalForm.reset();
   el.uploadResult.textContent = "";
   el.uploadResult.classList.add("hidden");
-  const businessInput = el.modalForm.elements.business_key;
-  if (businessInput && state.activeBusiness) {
-    businessInput.value = state.activeBusiness;
-  }
   assetModal.open();
 });
 
 el.modalForm.addEventListener("submit", async (evt) => {
   evt.preventDefault();
   const formData = new FormData(el.modalForm);
+  const environmentKey = getCurrentEnvironment();
+  const pipelineKey = getCurrentPipeline();
+  if (!environmentKey || !pipelineKey) {
+    showToast("请先选择环境和流水线");
+    return;
+  }
+  formData.set("environment_key", environmentKey);
+  formData.set("pipeline_key", pipelineKey);
   try {
     const res = await fetch(`${state.apiBase}/api/v1/asset/upload`, {
       method: "POST",
@@ -91,51 +90,26 @@ el.modalForm.addEventListener("submit", async (evt) => {
   }
 });
 
-async function loadBusinessKeys() {
-  try {
-    state.businessKeys = await getBusinessKeys({ apiBase: state.apiBase });
-    state.activeBusiness = state.businessKeys[0] || "";
-    renderTabs();
-    await loadAssets();
-  } catch (err) {
-    showToast(`获取业务列表失败: ${err.message}`);
-  }
-}
-
 async function loadAssets() {
-  if (!state.activeBusiness) {
+  const env = getCurrentEnvironment();
+  const pipeline = getCurrentPipeline();
+  if (!env || !pipeline) {
     state.assets = [];
     renderTable();
     return;
   }
   try {
-    state.assets = await fetchAssets(state.apiBase, state.activeBusiness);
+    state.assets = await fetchAssets(state.apiBase, env, pipeline);
     renderTable();
   } catch (err) {
     showToast(`获取静态资源失败: ${err.message}`);
   }
 }
 
-function renderTabs() {
-  el.tabs.innerHTML = "";
-  state.businessKeys.forEach((key) => {
-    const span = document.createElement("span");
-    span.className = `business-tab${key === state.activeBusiness ? " active" : ""}`;
-    span.textContent = key;
-    span.addEventListener("click", async () => {
-      if (state.activeBusiness === key) return;
-      state.activeBusiness = key;
-      renderTabs();
-      await loadAssets();
-    });
-    el.tabs.appendChild(span);
-  });
-}
-
 function renderTable() {
   const records = state.assets.filter((asset) => {
     if (!state.search) return true;
-    const haystack = [asset.file_name, asset.business_key, asset.content_type, asset.url]
+    const haystack = [asset.file_name, asset.environment_key, asset.pipeline_key, asset.content_type, asset.url]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -150,7 +124,7 @@ function renderTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(asset.file_name || "-")}</td>
-      <td>${escapeHtml(asset.business_key || "-")}</td>
+      <td>${escapeHtml(asset.environment_key || "-")} / ${escapeHtml(asset.pipeline_key || "-")}</td>
       <td>${formatSize(asset.file_size)}</td>
       <td>${escapeHtml(asset.content_type || "-")}</td>
       <td>${escapeHtml(asset.remark || "-")}</td>

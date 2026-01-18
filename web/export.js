@@ -21,8 +21,6 @@ const state = {
   lastStaticSummary: null,
   exportingZip: false,
   exportingStatic: false,
-  exportingSystemSelected: false,
-  exportingAllStatic: false,
 };
 
 const el = {
@@ -30,8 +28,6 @@ const el = {
   pipelineList: document.getElementById("exportPipelineList"),
   exportZipBtn: document.getElementById("exportZipBtn"),
   exportStaticBtn: document.getElementById("exportStaticBtn"),
-  exportSystemSelectedStaticBtn: document.getElementById("exportSystemSelectedStaticBtn"),
-  exportAllStaticBtn: document.getElementById("exportAllStaticBtn"),
   exportSummary: document.getElementById("exportSummary"),
   exportClearBtn: document.getElementById("exportClearBtn"),
   staticSummary: document.getElementById("staticSummary"),
@@ -57,12 +53,6 @@ async function init() {
   el.pipelineList.addEventListener("click", onPipelineSelect);
   el.exportZipBtn.addEventListener("click", onExportZip);
   el.exportStaticBtn.addEventListener("click", onExportStatic);
-  if (el.exportSystemSelectedStaticBtn) {
-    el.exportSystemSelectedStaticBtn.addEventListener("click", onExportSystemSelectedStatic);
-  }
-  if (el.exportAllStaticBtn) {
-    el.exportAllStaticBtn.addEventListener("click", onExportAllStatic);
-  }
   el.exportClearBtn.addEventListener("click", () => {
     state.lastConfigSummary = null;
     renderSummary(el.exportSummary, null, "尚未导出任何配置");
@@ -156,22 +146,24 @@ function onPipelineSelect(evt) {
 
 async function onExportZip() {
   if (state.exportingZip) return;
-  if (!state.selectedEnv) {
-    showToast("请选择环境");
-    return;
-  }
-  if (!state.selectedPipeline) {
-    showToast("请选择流水线");
-    return;
-  }
+  
+  // 询问是否包含系统配置
+  const includeSystemConfig = confirm(
+    "导出所有环境和流水线的配置\n\n" +
+    "默认导出：所有业务配置 + 图片资源\n\n" +
+    "是否一并导出系统配置？\n\n" +
+    "点击“确定”：业务配置 + 系统配置 + 图片资源\n" +
+    "点击“取消”：仅业务配置 + 图片资源"
+  );
+  
   state.exportingZip = true;
   setButtonLoading(el.exportZipBtn, true, "导出中…");
   try {
-    const summary = await fetchExportSummary();
-    await downloadExportZip();
-    state.lastConfigSummary = summary;
-    renderSummary(el.exportSummary, summary, "尚未导出任何配置");
-    showToast(`配置 ZIP 已导出：环境 ${state.selectedEnv}，流水线 ${state.selectedPipeline}`);
+    await downloadExportZipAll(includeSystemConfig);
+    const msg = includeSystemConfig 
+      ? `配置 ZIP 已导出：所有环境和流水线（包含业务配置、系统配置、图片资源）`
+      : `配置 ZIP 已导出：所有环境和流水线（包含业务配置、图片资源）`;
+    showToast(msg);
   } catch (err) {
     showToast(err.message || "导出失败");
   } finally {
@@ -206,42 +198,12 @@ async function onExportStatic() {
   }
 }
 
-async function onExportSystemSelectedStatic() {
-  if (state.exportingSystemSelected) return;
-  state.exportingSystemSelected = true;
-  setButtonLoading(el.exportSystemSelectedStaticBtn, true, "导出中…");
-  try {
-    await downloadQuickStatic(`${state.apiBase}/api/v1/transfer/export/static/selected`, "system_static_bundle.zip");
-    showToast("系统 + 默认业务静态包已导出");
-  } catch (err) {
-    showToast(err.message || "导出失败");
-  } finally {
-    state.exportingSystemSelected = false;
-    setButtonLoading(el.exportSystemSelectedStaticBtn, false);
-  }
-}
-
-async function onExportAllStatic() {
-  if (state.exportingAllStatic) return;
-  state.exportingAllStatic = true;
-  setButtonLoading(el.exportAllStaticBtn, true, "导出中…");
-  try {
-    await downloadQuickStatic(`${state.apiBase}/api/v1/transfer/export/static/all`, "all_static_bundle.zip");
-    showToast("全部业务静态包已导出");
-  } catch (err) {
-    showToast(err.message || "导出失败");
-  } finally {
-    state.exportingAllStatic = false;
-    setButtonLoading(el.exportAllStaticBtn, false);
-  }
-}
-
-async function fetchExportSummary() {
+async function fetchExportSummary(includeSystemConfig = false) {
   const query = new URLSearchParams({
     format: "json",
     environment_key: state.selectedEnv,
     pipeline_key: state.selectedPipeline,
-    include_system: "true",
+    include_system_config: includeSystemConfig ? "true" : "false",
   });
   const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
@@ -252,12 +214,12 @@ async function fetchExportSummary() {
   return buildSummary(list);
 }
 
-async function downloadExportZip() {
+async function downloadExportZip(includeSystemConfig = false) {
   const query = new URLSearchParams({
     format: "zip",
     environment_key: state.selectedEnv,
     pipeline_key: state.selectedPipeline,
-    include_system: "true",
+    include_system_config: includeSystemConfig ? "true" : "false",
   });
   const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
@@ -269,12 +231,29 @@ async function downloadExportZip() {
   downloadBlob(blob, filename);
 }
 
+async function downloadExportZipAll(includeSystemConfig = false) {
+  const query = new URLSearchParams({
+    format: "zip",
+    environment_key: "all",
+    pipeline_key: "all",
+    include_system_config: includeSystemConfig ? "true" : "false",
+  });
+  const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
+  if (!res.ok) {
+    throw new Error(await extractError(res));
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
+  const filename = parseFilename(disposition) || "all_environments_archive.zip";
+  downloadBlob(blob, filename);
+}
+
 async function downloadStaticBundle() {
   const query = new URLSearchParams({
     format: "nginx",
     environment_key: state.selectedEnv,
     pipeline_key: state.selectedPipeline,
-    include_system: "true",
+    include_system_config: "true",
   });
   const res = await fetch(`${state.apiBase}/api/v1/transfer/export?${query.toString()}`);
   if (!res.ok) {
@@ -283,17 +262,6 @@ async function downloadStaticBundle() {
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
   const filename = parseFilename(disposition) || `${state.selectedEnv}_${state.selectedPipeline}_static_bundle.zip`;
-  downloadBlob(blob, filename);
-}
-
-async function downloadQuickStatic(url, fallbackName) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(await extractError(res));
-  }
-  const blob = await res.blob();
-  const disposition = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
-  const filename = parseFilename(disposition) || fallbackName;
   downloadBlob(blob, filename);
 }
 

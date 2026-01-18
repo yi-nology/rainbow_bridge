@@ -36,7 +36,7 @@
                   <div id="exportPipelineList" class="selector-tabs"></div>
                 </div>
               </div>
-              <p class="hint">配置 ZIP 包含 configs.json 及引用的文件；Nginx 包会生成 static/config.json 与静态资源，可直接部署到静态站点。</p>
+              <p class="hint">配置 ZIP 包含所有环境和流水线的业务配置、图片资源，可选择是否一并导出系统配置；Nginx 包需选择具体环境和流水线，生成 static/config.json 与静态资源，可直接部署到静态站点。</p>
             </div>
 
             <div class="summary-block">
@@ -54,17 +54,6 @@
               </div>
               <div id="staticSummary" class="summary-list summary-empty">尚未导出静态资源包</div>
             </div>
-
-            <section class="panel">
-              <div class="panel-header">
-                <h2>快捷导出</h2>
-              </div>
-              <div class="export-quick-actions">
-                <button id="exportSystemSelectedStaticBtn" class="ghost">导出系统+默认业务静态包</button>
-                <button id="exportAllStaticBtn" class="ghost">导出全部业务静态包</button>
-              </div>
-              <p class="hint">"全部业务" 将包含所有业务及 system。</p>
-            </section>
           </section>
         </main>
       </div>

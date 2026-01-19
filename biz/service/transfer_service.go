@@ -30,8 +30,8 @@ func (s *Service) ExportConfigs(ctx context.Context, environmentKey, pipelineKey
 	var err error
 
 	if systemConfigOnly {
-		// 只导出系统配置
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
+		// 只导出系统配置（系统配置现在只与环境相关）
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
 		if err != nil {
 			return nil, err
 		}
@@ -39,7 +39,7 @@ func (s *Service) ExportConfigs(ctx context.Context, environmentKey, pipelineKey
 		for _, sc := range sysConfigs {
 			configs = append(configs, model.Config{
 				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    sc.PipelineKey,
+				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
 				Alias:          sc.ConfigKey,
 				Name:           sc.ConfigKey,
 				Content:        sc.ConfigValue,
@@ -53,7 +53,7 @@ func (s *Service) ExportConfigs(ctx context.Context, environmentKey, pipelineKey
 		if err != nil {
 			return nil, err
 		}
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +63,7 @@ func (s *Service) ExportConfigs(ctx context.Context, environmentKey, pipelineKey
 		for _, sc := range sysConfigs {
 			configs = append(configs, model.Config{
 				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    sc.PipelineKey,
+				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
 				Alias:          sc.ConfigKey,
 				Name:           sc.ConfigKey,
 				Content:        sc.ConfigValue,
@@ -102,15 +102,15 @@ func (s *Service) ExportConfigsArchive(ctx context.Context, environmentKey, pipe
 	var err error
 
 	if systemConfigOnly {
-		// 只导出系统配置
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
+		// 只导出系统配置（系统配置现在只与环境相关）
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
 		if err != nil {
 			return nil, "", err
 		}
 		for _, sc := range sysConfigs {
 			configs = append(configs, model.Config{
 				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    sc.PipelineKey,
+				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
 				Alias:          sc.ConfigKey,
 				Name:           sc.ConfigKey,
 				Content:        sc.ConfigValue,
@@ -124,7 +124,7 @@ func (s *Service) ExportConfigsArchive(ctx context.Context, environmentKey, pipe
 		if err != nil {
 			return nil, "", err
 		}
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
 		if err != nil {
 			return nil, "", err
 		}
@@ -132,7 +132,7 @@ func (s *Service) ExportConfigsArchive(ctx context.Context, environmentKey, pipe
 		for _, sc := range sysConfigs {
 			configs = append(configs, model.Config{
 				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    sc.PipelineKey,
+				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
 				Alias:          sc.ConfigKey,
 				Name:           sc.ConfigKey,
 				Content:        sc.ConfigValue,
@@ -186,16 +186,16 @@ func (s *Service) ExportConfigsArchiveAll(ctx context.Context, includeSystemConf
 			}
 			allConfigs = append(allConfigs, bizConfigs...)
 
-			// Export system configs if requested
+			// Export system configs if requested (system configs are now environment-scoped only)
 			if includeSystemConfig {
-				sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, env.EnvironmentKey, pipe.PipelineKey)
+				sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, env.EnvironmentKey)
 				if err != nil {
 					continue // Skip if error
 				}
 				for _, sc := range sysConfigs {
 					allConfigs = append(allConfigs, model.Config{
 						EnvironmentKey: sc.EnvironmentKey,
-						PipelineKey:    sc.PipelineKey,
+						PipelineKey:    pipe.PipelineKey, // Use current pipeline
 						Alias:          sc.ConfigKey,
 						Name:           sc.ConfigKey,
 						Content:        sc.ConfigValue,
@@ -271,14 +271,11 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 		}
 	}
 
-	// 收集系统配置信息
-	for envKey, pipes := range pipelineSet {
-		for pipeKey := range pipes {
-			key := envKey + "/" + pipeKey
-			sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, envKey, pipeKey)
-			if err == nil && len(sysConfigs) > 0 {
-				systemConfigMap[key] = sysConfigs
-			}
+	// 收集系统配置信息（系统配置现在只与环境相关）
+	for envKey := range envSet {
+		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, envKey)
+		if err == nil && len(sysConfigs) > 0 {
+			systemConfigMap[envKey] = sysConfigs
 		}
 	}
 
@@ -577,21 +574,19 @@ func (s *Service) importPipelines(ctx context.Context, data any) error {
 }
 
 // importSystemConfigs 导入系统配置
+// SystemConfig is now environment-scoped only (no pipeline_key dependency)
 func (s *Service) importSystemConfigs(ctx context.Context, data any) error {
-	// system_configs 是一个 map， key 是 "environment/pipeline"，value 是系统配置数组
+	// system_configs 是一个 map，key 是 environment_key，value 是系统配置数组
 	sysConfigMap, ok := data.(map[string]any)
 	if !ok {
 		return errors.New("invalid system_configs format")
 	}
 
-	for key, value := range sysConfigMap {
-		// 解析 environment/pipeline
-		parts := strings.Split(key, "/")
-		if len(parts) != 2 {
+	for envKey, value := range sysConfigMap {
+		envKey = strings.TrimSpace(envKey)
+		if envKey == "" {
 			continue
 		}
-		envKey := strings.TrimSpace(parts[0])
-		pipeKey := strings.TrimSpace(parts[1])
 
 		// 解析系统配置数组
 		configBytes, err := json.Marshal(value)
@@ -607,17 +602,16 @@ func (s *Service) importSystemConfigs(ctx context.Context, data any) error {
 		// 导入每个系统配置
 		for _, sc := range sysConfigs {
 			sc.EnvironmentKey = envKey
-			sc.PipelineKey = pipeKey
 
 			// 检查是否已存在
-			existing, err := s.logic.systemConfigDAO.GetByKey(ctx, s.logic.db, envKey, pipeKey, sc.ConfigKey)
+			existing, err := s.logic.systemConfigDAO.GetByKey(ctx, s.logic.db, envKey, sc.ConfigKey)
 			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 				continue
 			}
 
 			if existing != nil {
 				// 更新已存在的系统配置
-				if err := s.logic.systemConfigDAO.UpdateFull(ctx, s.logic.db, envKey, pipeKey, sc.ConfigKey, sc.ConfigValue, sc.ConfigType, sc.Remark); err != nil {
+				if err := s.logic.systemConfigDAO.UpdateFull(ctx, s.logic.db, envKey, sc.ConfigKey, sc.ConfigValue, sc.ConfigType, sc.Remark); err != nil {
 					continue
 				}
 			} else {

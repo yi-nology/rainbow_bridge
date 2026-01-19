@@ -33,12 +33,20 @@
           <section class="panel compact">
             <h2>前端对接</h2>
             
-            <div class="dual-column">
+            <div class="triple-column">
+              <div>
+                <h3>概览接口</h3>
+                <ul class="guide-list compact">
+                  <li><strong>接口：</strong><code data-endpoint="overview">/api/v1/runtime/overview</code></li>
+                  <li><strong>返回：</strong>环境与渠道的树形结构</li>
+                  <li><strong>场景：</strong>用于动态构建环境/渠道选择器</li>
+                </ul>
+              </div>
               <div>
                 <h3>实时接口（推荐）</h3>
                 <ul class="guide-list compact">
                   <li><strong>接口：</strong><code data-endpoint="runtime">/api/v1/runtime/config</code></li>
-                  <li><strong>请求：</strong>GET，通过 Header 传递：<code>x-environment</code> 和 <code>x-pipeline</code></li>
+                  <li><strong>请求：</strong>Header 传 <code>x-environment</code>, <code>x-pipeline</code></li>
                   <li><strong>场景：</strong>需要实时获取最新配置的应用</li>
                 </ul>
               </div>

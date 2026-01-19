@@ -5,9 +5,10 @@ import "api.proto";
 import "common.proto";
 
 // SystemConfig represents a system configuration entry.
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 message SystemConfig {
   string environment_key = 1;
-  string pipeline_key = 2;
+  reserved 2; // Removed: pipeline_key (system config is now environment-scoped only)
   string config_key = 3;
   string config_value = 4;
   string remark = 5;
@@ -17,7 +18,7 @@ message SystemConfig {
 // GetSystemConfigRequest is used to get a system config.
 message GetSystemConfigRequest {
   string environment_key = 1;
-  string pipeline_key = 2;
+  reserved 2; // Removed: pipeline_key
   string config_key = 3;
 }
 
@@ -34,14 +35,15 @@ message CreateSystemConfigRequest {
 // DeleteSystemConfigRequest is used to delete a system config.
 message DeleteSystemConfigRequest {
   string environment_key = 1;
-  string pipeline_key = 2;
+  reserved 2; // Removed: pipeline_key
   string config_key = 3;
 }
 
 // ListSystemConfigRequest is used to list system configs for an environment.
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 message ListSystemConfigRequest {
   string environment_key = 1;
-  string pipeline_key = 2;
+  reserved 2; // Removed: pipeline_key
 }
 
 // SystemConfigResponse contains a single system config.

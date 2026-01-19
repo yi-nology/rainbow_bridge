@@ -9,39 +9,41 @@ import (
 )
 
 // GetSystemConfig retrieves a system config with fallback strategy.
-func (s *Service) GetSystemConfig(ctx context.Context, environmentKey, pipelineKey, configKey string) (*model.SystemConfig, error) {
-	return s.logic.GetSystemConfig(ctx, environmentKey, pipelineKey, configKey)
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (s *Service) GetSystemConfig(ctx context.Context, environmentKey, configKey string) (*model.SystemConfig, error) {
+	return s.logic.GetSystemConfig(ctx, environmentKey, configKey)
 }
 
 // GetSystemConfigValue retrieves a system config value with fallback strategy.
-func (s *Service) GetSystemConfigValue(ctx context.Context, environmentKey, pipelineKey, configKey string) (string, error) {
-	return s.logic.GetSystemConfigValue(ctx, environmentKey, pipelineKey, configKey)
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (s *Service) GetSystemConfigValue(ctx context.Context, environmentKey, configKey string) (string, error) {
+	return s.logic.GetSystemConfigValue(ctx, environmentKey, configKey)
 }
 
-// ListSystemConfigsByEnv returns all system configs for an environment and pipeline.
-func (s *Service) ListSystemConfigsByEnv(ctx context.Context, environmentKey, pipelineKey string) ([]model.SystemConfig, error) {
-	return s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey, pipelineKey)
+// ListSystemConfigsByEnv returns all system configs for an environment.
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (s *Service) ListSystemConfigsByEnv(ctx context.Context, environmentKey string) ([]model.SystemConfig, error) {
+	return s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
 }
 
 // UpdateSystemConfig updates a system config value.
-func (s *Service) UpdateSystemConfig(ctx context.Context, environmentKey, pipelineKey, configKey, configValue, configType, remark string) error {
-	return s.logic.UpdateSystemConfig(ctx, environmentKey, pipelineKey, configKey, configValue, configType, remark)
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (s *Service) UpdateSystemConfig(ctx context.Context, environmentKey, configKey, configValue, configType, remark string) error {
+	return s.logic.UpdateSystemConfig(ctx, environmentKey, configKey, configValue, configType, remark)
 }
 
 // CreateSystemConfig creates a new system config.
-func (s *Service) CreateSystemConfig(ctx context.Context, environmentKey, pipelineKey, configKey, configValue, configType, remark string) error {
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (s *Service) CreateSystemConfig(ctx context.Context, environmentKey, configKey, configValue, configType, remark string) error {
 	if environmentKey == "" {
 		return errors.New("environment_key is required")
-	}
-	if pipelineKey == "" {
-		return errors.New("pipeline_key is required")
 	}
 	if configKey == "" {
 		return ErrSystemConfigKeyRequired
 	}
 
 	// Check if already exists
-	exists, err := s.logic.systemConfigDAO.ExistsByKey(ctx, s.logic.db, environmentKey, pipelineKey, configKey)
+	exists, err := s.logic.systemConfigDAO.ExistsByKey(ctx, s.logic.db, environmentKey, configKey)
 	if err != nil {
 		return err
 	}
@@ -51,7 +53,6 @@ func (s *Service) CreateSystemConfig(ctx context.Context, environmentKey, pipeli
 
 	entity := &model.SystemConfig{
 		EnvironmentKey: environmentKey,
-		PipelineKey:    pipelineKey,
 		ConfigKey:      configKey,
 		ConfigValue:    configValue,
 		ConfigType:     configType,
@@ -61,12 +62,10 @@ func (s *Service) CreateSystemConfig(ctx context.Context, environmentKey, pipeli
 }
 
 // DeleteSystemConfig deletes a system config (protected configs cannot be deleted).
-func (s *Service) DeleteSystemConfig(ctx context.Context, environmentKey, pipelineKey, configKey string) error {
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (s *Service) DeleteSystemConfig(ctx context.Context, environmentKey, configKey string) error {
 	if environmentKey == "" {
 		return errors.New("environment_key is required")
-	}
-	if pipelineKey == "" {
-		return errors.New("pipeline_key is required")
 	}
 	if configKey == "" {
 		return ErrSystemConfigKeyRequired
@@ -78,10 +77,10 @@ func (s *Service) DeleteSystemConfig(ctx context.Context, environmentKey, pipeli
 	}
 
 	// Check if exists
-	_, err := s.logic.GetSystemConfig(ctx, environmentKey, pipelineKey, configKey)
+	_, err := s.logic.GetSystemConfig(ctx, environmentKey, configKey)
 	if err != nil {
 		return ErrSystemConfigNotFound
 	}
 
-	return s.logic.systemConfigDAO.Delete(ctx, s.logic.db, environmentKey, pipelineKey, configKey)
+	return s.logic.systemConfigDAO.Delete(ctx, s.logic.db, environmentKey, configKey)
 }

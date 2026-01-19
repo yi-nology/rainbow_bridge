@@ -38,6 +38,7 @@ const elements = {
 };
 
 const endpointMap = {
+  overview: "/api/v1/runtime/overview",
   resources: "/api/v1/config/list",
   runtime: "/api/v1/runtime/config",
   static: "/api/v1/runtime/static",

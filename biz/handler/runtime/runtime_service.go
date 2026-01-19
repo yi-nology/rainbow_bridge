@@ -75,3 +75,15 @@ func ExportStatic(ctx context.Context, c *app.RequestContext) {
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	c.Data(consts.StatusOK, "application/zip", data)
 }
+
+// GetOverview .
+// @router /api/v1/runtime/overview [GET]
+func GetOverview(ctx context.Context, c *app.RequestContext) {
+	resp, err := svc.GetRuntimeOverview(handler.EnrichContext(ctx, c))
+	if err != nil {
+		handler.RespondError(c, consts.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}

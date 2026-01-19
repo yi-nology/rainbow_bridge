@@ -9,6 +9,7 @@ import (
 )
 
 // SystemConfigDAO wraps basic CRUD operations for system config entities.
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 type SystemConfigDAO struct{}
 
 func NewSystemConfigDAO() *SystemConfigDAO { return &SystemConfigDAO{} }
@@ -21,9 +22,6 @@ func (dao *SystemConfigDAO) Create(ctx context.Context, db *gorm.DB, entity *mod
 	if entity.EnvironmentKey == "" {
 		return errors.New("environment_key is required")
 	}
-	if entity.PipelineKey == "" {
-		return errors.New("pipeline_key is required")
-	}
 	if entity.ConfigKey == "" {
 		return errors.New("config_key is required")
 	}
@@ -31,19 +29,19 @@ func (dao *SystemConfigDAO) Create(ctx context.Context, db *gorm.DB, entity *mod
 }
 
 // Update updates the config value for an existing system config.
-func (dao *SystemConfigDAO) Update(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, configKey, configValue string) error {
+func (dao *SystemConfigDAO) Update(ctx context.Context, db *gorm.DB, environmentKey, configKey, configValue string) error {
 	return db.WithContext(ctx).
 		Model(&model.SystemConfig{}).
-		Where("environment_key = ? AND pipeline_key = ? AND config_key = ?", environmentKey, pipelineKey, configKey).
+		Where("environment_key = ? AND config_key = ?", environmentKey, configKey).
 		Update("config_value", configValue).
 		Error
 }
 
 // UpdateFull updates the config value, type, and remark for an existing system config.
-func (dao *SystemConfigDAO) UpdateFull(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, configKey, configValue, configType, remark string) error {
+func (dao *SystemConfigDAO) UpdateFull(ctx context.Context, db *gorm.DB, environmentKey, configKey, configValue, configType, remark string) error {
 	return db.WithContext(ctx).
 		Model(&model.SystemConfig{}).
-		Where("environment_key = ? AND pipeline_key = ? AND config_key = ?", environmentKey, pipelineKey, configKey).
+		Where("environment_key = ? AND config_key = ?", environmentKey, configKey).
 		Updates(map[string]interface{}{
 			"config_value": configValue,
 			"config_type":  configType,
@@ -52,22 +50,22 @@ func (dao *SystemConfigDAO) UpdateFull(ctx context.Context, db *gorm.DB, environ
 		Error
 }
 
-// GetByKey fetches a single system config by environment_key, pipeline_key and config_key.
-func (dao *SystemConfigDAO) GetByKey(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, configKey string) (*model.SystemConfig, error) {
+// GetByKey fetches a single system config by environment_key and config_key.
+func (dao *SystemConfigDAO) GetByKey(ctx context.Context, db *gorm.DB, environmentKey, configKey string) (*model.SystemConfig, error) {
 	var entity model.SystemConfig
 	if err := db.WithContext(ctx).
-		Where("environment_key = ? AND pipeline_key = ? AND config_key = ?", environmentKey, pipelineKey, configKey).
+		Where("environment_key = ? AND config_key = ?", environmentKey, configKey).
 		First(&entity).Error; err != nil {
 		return nil, err
 	}
 	return &entity, nil
 }
 
-// ListByEnvironment returns all system configs for a given environment and pipeline.
-func (dao *SystemConfigDAO) ListByEnvironment(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string) ([]model.SystemConfig, error) {
+// ListByEnvironment returns all system configs for a given environment.
+func (dao *SystemConfigDAO) ListByEnvironment(ctx context.Context, db *gorm.DB, environmentKey string) ([]model.SystemConfig, error) {
 	var entities []model.SystemConfig
 	if err := db.WithContext(ctx).
-		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
+		Where("environment_key = ?", environmentKey).
 		Order("config_key ASC").
 		Find(&entities).Error; err != nil {
 		return nil, err
@@ -83,10 +81,10 @@ func (dao *SystemConfigDAO) DeleteByEnvironment(ctx context.Context, db *gorm.DB
 		Delete(&model.SystemConfig{}).Error
 }
 
-// Delete removes a single system config by environment_key, pipeline_key and config_key.
-func (dao *SystemConfigDAO) Delete(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, configKey string) error {
+// Delete removes a single system config by environment_key and config_key.
+func (dao *SystemConfigDAO) Delete(ctx context.Context, db *gorm.DB, environmentKey, configKey string) error {
 	return db.WithContext(ctx).
-		Where("environment_key = ? AND pipeline_key = ? AND config_key = ?", environmentKey, pipelineKey, configKey).
+		Where("environment_key = ? AND config_key = ?", environmentKey, configKey).
 		Delete(&model.SystemConfig{}).Error
 }
 
@@ -99,11 +97,11 @@ func (dao *SystemConfigDAO) BatchCreate(ctx context.Context, db *gorm.DB, entiti
 }
 
 // ExistsByKey checks if a system config with the given keys exists.
-func (dao *SystemConfigDAO) ExistsByKey(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey, configKey string) (bool, error) {
+func (dao *SystemConfigDAO) ExistsByKey(ctx context.Context, db *gorm.DB, environmentKey, configKey string) (bool, error) {
 	var count int64
 	if err := db.WithContext(ctx).
 		Model(&model.SystemConfig{}).
-		Where("environment_key = ? AND pipeline_key = ? AND config_key = ?", environmentKey, pipelineKey, configKey).
+		Where("environment_key = ? AND config_key = ?", environmentKey, configKey).
 		Count(&count).Error; err != nil {
 		return false, err
 	}

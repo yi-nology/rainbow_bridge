@@ -1,4 +1,4 @@
-import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment, getCurrentPipeline } from "./components.js";
+import { initPageLayout, initEnvSelector, getCurrentEnvironment } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr } from "./lib/utils.js";
@@ -7,10 +7,10 @@ import { CONFIG_TYPES, getConfigTypeName, normalizeConfigType } from "./lib/type
 
 initPageLayout({
   activeKey: "system",
-  title: "系统配置",
-  caption: "管理环境维度的系统配置",
+  title: "系统业务配置",
+  caption: "管理环境维度的系统业务配置",
   showEnvSelector: true,
-  showPipelineSelector: true,
+  showPipelineSelector: false,
 });
 
 const defaultBase = getDefaultApiBase();
@@ -22,7 +22,6 @@ const state = {
   search: "",
   editing: null,
   currentEnvironment: "default",
-  currentPipeline: "default",
   dataType: "text",
   imageUpload: {
     reference: "",
@@ -84,19 +83,8 @@ const systemModal = createModal("systemModal", {
 (async function init() {
   await fetchConfigs();
   
-  let pipelineReloader = null;
-  
   await initEnvSelector(state.apiBase, async (envKey) => {
     state.currentEnvironment = envKey;
-    // 环境切换时，重新加载渠道列表
-    if (pipelineReloader) {
-      await pipelineReloader.reload();
-    }
-    fetchConfigs();
-  });
-  
-  pipelineReloader = await initPipelineSelector(state.apiBase, (pipelineKey) => {
-    state.currentPipeline = pipelineKey;
     fetchConfigs();
   });
 })();
@@ -207,8 +195,7 @@ document.addEventListener("click", (evt) => {
 async function fetchConfigs() {
   try {
     const env = state.currentEnvironment || getCurrentEnvironment() || "default";
-    const pipeline = state.currentPipeline || getCurrentPipeline() || "default";
-    const res = await fetch(`${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(env)}&pipeline_key=${encodeURIComponent(pipeline)}`);
+    const res = await fetch(`${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(env)}`);
     const json = await res.json();
     state.configs = json?.list || [];
     renderTable();
@@ -468,7 +455,6 @@ async function onSubmit(evt) {
   const payload = {
     system_config: {
       environment_key: state.currentEnvironment,
-      pipeline_key: state.currentPipeline,
       config_key: configKey,
       config_value: configValue,
       config_type: configKey === "system_options" ? CONFIG_TYPES.KV : dataType,
@@ -690,7 +676,6 @@ async function deleteConfig(cfg) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         environment_key: state.currentEnvironment,
-        pipeline_key: state.currentPipeline,
         config_key: cfg.config_key,
       }),
     });

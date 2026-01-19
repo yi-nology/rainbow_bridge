@@ -30,8 +30,31 @@ message StaticPackageRequest {
   string pipeline_key = 2 [(api.query) = "pipeline_key"];
 }
 
+// PipelineOverview contains basic pipeline info.
+message PipelineOverview {
+  string pipeline_key = 1;
+  string pipeline_name = 2;
+}
+
+// EnvironmentOverview contains environment info and its pipelines.
+message EnvironmentOverview {
+  string environment_key = 1;
+  string environment_name = 2;
+  repeated PipelineOverview pipelines = 3;
+}
+
+// RuntimeOverviewResponse contains all environments and their pipelines.
+message RuntimeOverviewResponse {
+  repeated EnvironmentOverview environments = 1;
+}
+
 // RuntimeService handles runtime configuration operations.
 service RuntimeService {
+  // GetOverview returns all environments and their pipelines.
+  rpc GetOverview(common.Empty) returns (RuntimeOverviewResponse) {
+    option (api.get) = "/api/v1/runtime/overview";
+  }
+
   // GetConfig returns runtime configuration from headers.
   rpc GetConfig(RuntimeConfigRequest) returns (RuntimeConfigResponse) {
     option (api.get) = "/api/v1/runtime/config";

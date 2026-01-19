@@ -55,8 +55,8 @@ func (s *Service) AddEnvironment(ctx context.Context, env *envpb.Environment) er
 		if err := s.logic.pipelineDAO.Create(ctx, tx, defaultPipeline); err != nil {
 			return err
 		}
-		// 3. Initialize system configs for the new environment and default pipeline
-		if err := s.logic.InitSystemConfigsForEnvironment(ctx, tx, env.GetEnvironmentKey(), "default"); err != nil {
+		// 3. Initialize system configs for the new environment
+		if err := s.logic.InitSystemConfigsForEnvironment(ctx, tx, env.GetEnvironmentKey()); err != nil {
 			return err
 		}
 		return nil

@@ -10,6 +10,7 @@ import (
 )
 
 //  --------------------- SystemConfig Operations ---------------------
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 
 var (
 	ErrSystemConfigNotFound    = errors.New("system config not found")
@@ -19,12 +20,12 @@ var (
 )
 
 // GetSystemConfigValue retrieves a system config value with fallback strategy:
-// 1. Query system_config table
-// 2. Fallback to resource_config table (alias=config_key)
-// 3. Return hardcoded default value
-func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, pipelineKey, configKey string) (string, error) {
+// 1. Query system_config table (environment-scoped)
+// 2. Return hardcoded default value
+// Note: Fallback to resource_config is removed since system_config is now environment-scoped.
+func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, configKey string) (string, error) {
 	// Step 1: Try system_config table
-	sysConfig, err := l.systemConfigDAO.GetByKey(ctx, l.db, environmentKey, pipelineKey, configKey)
+	sysConfig, err := l.systemConfigDAO.GetByKey(ctx, l.db, environmentKey, configKey)
 	if err == nil && sysConfig != nil {
 		return sysConfig.ConfigValue, nil
 	}
@@ -32,16 +33,7 @@ func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, pipeli
 		return "", err
 	}
 
-	// Step 2: Fallback to resource_config table
-	cfg, err := l.configDAO.GetByAlias(ctx, l.db, environmentKey, pipelineKey, configKey)
-	if err == nil && cfg != nil {
-		return cfg.Content, nil
-	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", err
-	}
-
-	// Step 3: Return default value
+	// Step 2: Return default value
 	switch configKey {
 	case constants.SysConfigSystemOptions:
 		return constants.DefaultSystemOptions, nil
@@ -51,9 +43,10 @@ func (l *Logic) GetSystemConfigValue(ctx context.Context, environmentKey, pipeli
 }
 
 // GetSystemConfig retrieves a system config entity with fallback strategy.
-func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, pipelineKey, configKey string) (*model.SystemConfig, error) {
+// SystemConfig is environment-scoped only.
+func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, configKey string) (*model.SystemConfig, error) {
 	// Step 1: Try system_config table
-	sysConfig, err := l.systemConfigDAO.GetByKey(ctx, l.db, environmentKey, pipelineKey, configKey)
+	sysConfig, err := l.systemConfigDAO.GetByKey(ctx, l.db, environmentKey, configKey)
 	if err == nil && sysConfig != nil {
 		return sysConfig, nil
 	}
@@ -61,27 +54,11 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, pipelineKey
 		return nil, err
 	}
 
-	// Step 2: Fallback to resource_config table
-	cfg, err := l.configDAO.GetByAlias(ctx, l.db, environmentKey, pipelineKey, configKey)
-	if err == nil && cfg != nil {
-		return &model.SystemConfig{
-			EnvironmentKey: environmentKey,
-			PipelineKey:    pipelineKey,
-			ConfigKey:      configKey,
-			ConfigValue:    cfg.Content,
-			Remark:         cfg.Remark,
-		}, nil
-	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-
-	// Step 3: Return default value
+	// Step 2: Return default value
 	switch configKey {
 	case constants.SysConfigSystemOptions:
 		return &model.SystemConfig{
 			EnvironmentKey: environmentKey,
-			PipelineKey:    pipelineKey,
 			ConfigKey:      configKey,
 			ConfigValue:    constants.DefaultSystemOptions,
 			Remark:         constants.DefaultSystemConfigRemark[configKey],
@@ -91,9 +68,10 @@ func (l *Logic) GetSystemConfig(ctx context.Context, environmentKey, pipelineKey
 	}
 }
 
-// ListSystemConfigsByEnvironment returns all system configs for an environment and pipeline.
-func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentKey, pipelineKey string) ([]model.SystemConfig, error) {
-	configs, err := l.systemConfigDAO.ListByEnvironment(ctx, l.db, environmentKey, pipelineKey)
+// ListSystemConfigsByEnvironment returns all system configs for an environment.
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentKey string) ([]model.SystemConfig, error) {
+	configs, err := l.systemConfigDAO.ListByEnvironment(ctx, l.db, environmentKey)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +81,6 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 		return []model.SystemConfig{
 			{
 				EnvironmentKey: environmentKey,
-				PipelineKey:    pipelineKey,
 				ConfigKey:      constants.SysConfigSystemOptions,
 				ConfigValue:    constants.DefaultSystemOptions,
 				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemOptions],
@@ -116,27 +93,27 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 
 // UpdateSystemConfig updates a system config value.
 // Only system_options is allowed to be updated.
-func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, pipelineKey, configKey, configValue, configType, remark string) error {
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKey, configValue, configType, remark string) error {
 	// Validate config key
 	if !constants.IsProtectedSystemConfig(configKey) {
 		return ErrInvalidSystemConfigKey
 	}
 
 	// Check if config exists
-	exists, err := l.systemConfigDAO.ExistsByKey(ctx, l.db, environmentKey, pipelineKey, configKey)
+	exists, err := l.systemConfigDAO.ExistsByKey(ctx, l.db, environmentKey, configKey)
 	if err != nil {
 		return err
 	}
 
 	if exists {
 		// Update existing config
-		return l.systemConfigDAO.UpdateFull(ctx, l.db, environmentKey, pipelineKey, configKey, configValue, configType, remark)
+		return l.systemConfigDAO.UpdateFull(ctx, l.db, environmentKey, configKey, configValue, configType, remark)
 	}
 
 	// Create new config if not exists
 	return l.systemConfigDAO.Create(ctx, l.db, &model.SystemConfig{
 		EnvironmentKey: environmentKey,
-		PipelineKey:    pipelineKey,
 		ConfigKey:      configKey,
 		ConfigValue:    configValue,
 		ConfigType:     configType,
@@ -144,12 +121,12 @@ func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, pipeline
 	})
 }
 
-// InitSystemConfigsForEnvironment initializes default system configs for a new environment and pipeline.
-func (l *Logic) InitSystemConfigsForEnvironment(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string) error {
+// InitSystemConfigsForEnvironment initializes default system configs for a new environment.
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
+func (l *Logic) InitSystemConfigsForEnvironment(ctx context.Context, db *gorm.DB, environmentKey string) error {
 	configs := []model.SystemConfig{
 		{
 			EnvironmentKey: environmentKey,
-			PipelineKey:    pipelineKey,
 			ConfigKey:      constants.SysConfigSystemOptions,
 			ConfigValue:    constants.DefaultSystemOptions,
 			ConfigType:     "kv", // system_options 是键值对类型

@@ -22,6 +22,7 @@ func SetService(s *service.Service) {
 
 // Get .
 // @router /api/v1/system-config/get [GET]
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 func Get(ctx context.Context, c *app.RequestContext) {
 	var req systemConfig.GetSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
@@ -33,16 +34,12 @@ func Get(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
-	if req.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
-		return
-	}
 	if req.ConfigKey == "" {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
 		return
 	}
 
-	cfg, err := svc.GetSystemConfig(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.PipelineKey, req.ConfigKey)
+	cfg, err := svc.GetSystemConfig(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.ConfigKey)
 	if err != nil {
 		status := consts.StatusInternalServerError
 		if errors.Is(err, service.ErrSystemConfigNotFound) {
@@ -59,7 +56,6 @@ func Get(ctx context.Context, c *app.RequestContext) {
 		},
 		SystemConfig: &systemConfig.SystemConfig{
 			EnvironmentKey: cfg.EnvironmentKey,
-			PipelineKey:    cfg.PipelineKey,
 			ConfigKey:      cfg.ConfigKey,
 			ConfigValue:    cfg.ConfigValue,
 			ConfigType:     cfg.ConfigType,
@@ -71,6 +67,7 @@ func Get(ctx context.Context, c *app.RequestContext) {
 
 // Update .
 // @router /api/v1/system-config/update [POST]
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 func Update(ctx context.Context, c *app.RequestContext) {
 	var req systemConfig.UpdateSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
@@ -86,10 +83,6 @@ func Update(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
-	if req.SystemConfig.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
-		return
-	}
 	if req.SystemConfig.ConfigKey == "" {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
 		return
@@ -98,7 +91,6 @@ func Update(ctx context.Context, c *app.RequestContext) {
 	if err := svc.UpdateSystemConfig(
 		handler.EnrichContext(ctx, c),
 		req.SystemConfig.EnvironmentKey,
-		req.SystemConfig.PipelineKey,
 		req.SystemConfig.ConfigKey,
 		req.SystemConfig.ConfigValue,
 		req.SystemConfig.ConfigType,
@@ -124,6 +116,7 @@ func Update(ctx context.Context, c *app.RequestContext) {
 
 // List .
 // @router /api/v1/system-config/list [GET]
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 func List(ctx context.Context, c *app.RequestContext) {
 	var req systemConfig.ListSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
@@ -135,12 +128,8 @@ func List(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
-	if req.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
-		return
-	}
 
-	configs, err := svc.ListSystemConfigsByEnv(handler.EnrichContext(ctx, c), req.EnvironmentKey, req.PipelineKey)
+	configs, err := svc.ListSystemConfigsByEnv(handler.EnrichContext(ctx, c), req.EnvironmentKey)
 	if err != nil {
 		handler.RespondError(c, consts.StatusInternalServerError, err)
 		return
@@ -150,7 +139,6 @@ func List(ctx context.Context, c *app.RequestContext) {
 	for _, cfg := range configs {
 		list = append(list, &systemConfig.SystemConfig{
 			EnvironmentKey: cfg.EnvironmentKey,
-			PipelineKey:    cfg.PipelineKey,
 			ConfigKey:      cfg.ConfigKey,
 			ConfigValue:    cfg.ConfigValue,
 			ConfigType:     cfg.ConfigType,
@@ -166,6 +154,7 @@ func List(ctx context.Context, c *app.RequestContext) {
 
 // Create .
 // @router /api/v1/system-config/create [POST]
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 func Create(ctx context.Context, c *app.RequestContext) {
 	var req systemConfig.CreateSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
@@ -181,10 +170,6 @@ func Create(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
-	if req.SystemConfig.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
-		return
-	}
 	if req.SystemConfig.ConfigKey == "" {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
 		return
@@ -193,7 +178,6 @@ func Create(ctx context.Context, c *app.RequestContext) {
 	if err := svc.CreateSystemConfig(
 		handler.EnrichContext(ctx, c),
 		req.SystemConfig.EnvironmentKey,
-		req.SystemConfig.PipelineKey,
 		req.SystemConfig.ConfigKey,
 		req.SystemConfig.ConfigValue,
 		req.SystemConfig.ConfigType,
@@ -219,6 +203,7 @@ func Create(ctx context.Context, c *app.RequestContext) {
 
 // Delete .
 // @router /api/v1/system-config/delete [POST]
+// SystemConfig is environment-scoped only (no pipeline_key dependency).
 func Delete(ctx context.Context, c *app.RequestContext) {
 	var req systemConfig.DeleteSystemConfigRequest
 	if err := c.BindAndValidate(&req); err != nil {
@@ -230,10 +215,6 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
 		return
 	}
-	if req.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
-		return
-	}
 	if req.ConfigKey == "" {
 		handler.RespondError(c, consts.StatusBadRequest, errors.New("config_key is required"))
 		return
@@ -242,7 +223,6 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 	if err := svc.DeleteSystemConfig(
 		handler.EnrichContext(ctx, c),
 		req.EnvironmentKey,
-		req.PipelineKey,
 		req.ConfigKey,
 	); err != nil {
 		status := consts.StatusInternalServerError

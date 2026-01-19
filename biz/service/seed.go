@@ -130,8 +130,9 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 		log.Printf("[Init] Created default environment: %s", DefaultEnvironmentKey)
 	}
 
-	// Initialize system configs for default environment and pipeline if not exists
-	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey, DefaultPipelineKey, constants.SysConfigSystemOptions)
+	// Initialize system configs for default environment if not exists
+	// SystemConfig is environment-scoped only (no pipeline_key dependency)
+	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey, constants.SysConfigSystemOptions)
 	if err != nil {
 		return err
 	}
@@ -139,7 +140,6 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 		configs := []model.SystemConfig{
 			{
 				EnvironmentKey: DefaultEnvironmentKey,
-				PipelineKey:    DefaultPipelineKey,
 				ConfigKey:      constants.SysConfigSystemOptions,
 				ConfigValue:    constants.DefaultSystemOptions,
 				ConfigType:     constants.DefaultSystemConfigType,
@@ -149,7 +149,7 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 		if err := sysConfigDAO.BatchCreate(ctx, dbConn, configs); err != nil {
 			return err
 		}
-		log.Printf("[Init] Created default system configs for environment: %s, pipeline: %s", DefaultEnvironmentKey, DefaultPipelineKey)
+		log.Printf("[Init] Created default system configs for environment: %s", DefaultEnvironmentKey)
 	}
 
 	// Create default pipeline

@@ -20,6 +20,41 @@ import (
 
 // --------------------- Runtime operations ---------------------
 
+// GetRuntimeOverview returns all environments and their pipelines.
+func (s *Service) GetRuntimeOverview(ctx context.Context) (*runtime.RuntimeOverviewResponse, error) {
+	isActive := true
+	envs, err := s.logic.environmentDAO.List(ctx, s.logic.db, &isActive)
+	if err != nil {
+		return nil, err
+	}
+
+	var envOverviews []*runtime.EnvironmentOverview
+	for _, env := range envs {
+		pipelines, err := s.logic.pipelineDAO.List(ctx, s.logic.db, env.EnvironmentKey, &isActive)
+		if err != nil {
+			return nil, err
+		}
+
+		var pipelineOverviews []*runtime.PipelineOverview
+		for _, pl := range pipelines {
+			pipelineOverviews = append(pipelineOverviews, &runtime.PipelineOverview{
+				PipelineKey:  pl.PipelineKey,
+				PipelineName: pl.PipelineName,
+			})
+		}
+
+		envOverviews = append(envOverviews, &runtime.EnvironmentOverview{
+			EnvironmentKey:  env.EnvironmentKey,
+			EnvironmentName: env.EnvironmentName,
+			Pipelines:       pipelineOverviews,
+		})
+	}
+
+	return &runtime.RuntimeOverviewResponse{
+		Environments: envOverviews,
+	}, nil
+}
+
 // GetRuntimeConfig returns runtime configuration with environment info.
 func (s *Service) GetRuntimeConfig(ctx context.Context, environmentKey, pipelineKey string) (*runtime.RuntimeConfigResponse, error) {
 	if environmentKey == "" {

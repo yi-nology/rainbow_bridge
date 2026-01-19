@@ -31,9 +31,16 @@ const state = {
   },
   imageUploading: false,
   colorValue: "",
+  // 本地选择状态
+  environments: [],
+  pipelines: [],
+  selectedEnv: getCurrentEnvironment(),
+  selectedPipeline: getCurrentPipeline(),
 };
 
 const elements = {
+  envList: document.getElementById("envList"),
+  pipelineList: document.getElementById("pipelineList"),
   configTbody: document.getElementById("configTbody"),
   emptyState: document.getElementById("emptyState"),
   resourceCount: document.getElementById("resourceCount"),
@@ -73,6 +80,8 @@ const elements = {
 
 const showToast = createToast("toast");
 
+let pipelineReloader = null;
+
 const configModal = createModal("modalOverlay", {
   onClose: () => {
     state.editing = null;
@@ -93,21 +102,160 @@ const configModal = createModal("modalOverlay", {
 // ------------------------- Initialization -------------------------
 
 (async function init() {
-  let pipelineReloader = null;
-  
-  await initEnvSelector(state.apiBase, async () => {
-    // 环境切换时，重新加载渠道列表
-    if (pipelineReloader) {
-      await pipelineReloader.reload();
-    }
+  // 初始化本地标签
+  await fetchEnvironments();
+  if (state.selectedEnv) {
+    await fetchPipelines();
+  }
+
+  // 绑定本地标签事件
+  if (elements.envList) {
+    elements.envList.addEventListener("click", onEnvSelect);
+  }
+  if (elements.pipelineList) {
+    elements.pipelineList.addEventListener("click", onPipelineSelect);
+  }
+
+  // 这里的全局选择器初始化仍然保留，用于同步
+  await initEnvSelector(state.apiBase, async (envKey) => {
+    // 全局环境切换时，同步更新本地标签并重刷配置
+    state.selectedEnv = envKey;
+    renderEnvTabs();
+    await fetchPipelines();
     fetchConfigs();
   });
   
-  pipelineReloader = await initPipelineSelector(state.apiBase, () => fetchConfigs());
+  pipelineReloader = await initPipelineSelector(state.apiBase, (pipelineKey) => {
+    // 全局渠道切换时，同步更新本地标签并重刷配置
+    state.selectedPipeline = pipelineKey;
+    renderPipelineTabs();
+    fetchConfigs();
+  });
   
   // 初始化完成后，加载业务配置列表
   fetchConfigs();
 })();
+
+async function fetchEnvironments() {
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/environment/list`);
+    const json = await res.json();
+    state.environments = json?.list || json?.data?.list || [];
+    
+    const current = getCurrentEnvironment();
+    if (state.environments.some(e => e.environment_key === current)) {
+      state.selectedEnv = current;
+    } else if (state.environments.length > 0) {
+      state.selectedEnv = state.environments[0].environment_key;
+      setCurrentEnvironment(state.selectedEnv);
+    }
+    renderEnvTabs();
+  } catch (err) {
+    showToast(`获取环境列表失败：${err.message}`);
+  }
+}
+
+async function fetchPipelines() {
+  if (!state.selectedEnv) {
+    state.pipelines = [];
+    renderPipelineTabs();
+    return;
+  }
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(state.selectedEnv)}`);
+    const json = await res.json();
+    state.pipelines = json?.list || json?.data?.list || [];
+    
+    const current = getCurrentPipeline();
+    if (state.pipelines.some(p => p.pipeline_key === current)) {
+      state.selectedPipeline = current;
+    } else if (state.pipelines.length > 0) {
+      state.selectedPipeline = state.pipelines[0].pipeline_key;
+      setCurrentPipeline(state.selectedPipeline);
+    } else {
+      state.selectedPipeline = null;
+    }
+    renderPipelineTabs();
+  } catch (err) {
+    showToast(`获取渠道列表失败：${err.message}`);
+  }
+}
+
+function renderEnvTabs() {
+  if (!elements.envList) return;
+  if (!state.environments.length) {
+    elements.envList.innerHTML = `<span class="selector-empty">暂无环境数据</span>`;
+    return;
+  }
+  elements.envList.innerHTML = state.environments.map((env) => `
+    <span class="selector-tab${state.selectedEnv === env.environment_key ? " active" : ""}" 
+          data-key="${env.environment_key}">
+      ${env.environment_name || env.environment_key}
+    </span>
+  `).join("");
+}
+
+function renderPipelineTabs() {
+  if (!elements.pipelineList) return;
+  if (!state.pipelines.length) {
+    elements.pipelineList.innerHTML = `<span class="selector-empty">暂无渠道数据</span>`;
+    return;
+  }
+  elements.pipelineList.innerHTML = state.pipelines.map((pl) => `
+    <span class="selector-tab${state.selectedPipeline === pl.pipeline_key ? " active" : ""}" 
+          data-key="${pl.pipeline_key}">
+      ${pl.pipeline_name || pl.pipeline_key}
+    </span>
+  `).join("");
+}
+
+async function onEnvSelect(evt) {
+  const tab = evt.target.closest(".selector-tab");
+  if (!tab) return;
+  const envKey = tab.dataset.key;
+  state.selectedEnv = envKey;
+  setCurrentEnvironment(envKey);
+  renderEnvTabs();
+  
+  // 同步全局环境选择器
+  const globalEnvSelect = document.getElementById("globalEnvSelector");
+  if (globalEnvSelect) {
+    globalEnvSelect.value = envKey;
+  }
+  
+  // 环境变化，重载全局渠道选择器的选项
+  if (pipelineReloader) {
+    await pipelineReloader.reload();
+  }
+  
+  // 重新请求并渲染本地渠道标签
+  await fetchPipelines();
+  
+  // 渠道变化后，同步更新全局渠道选择器
+  const globalPipelineSelect = document.getElementById("globalPipelineSelector");
+  if (globalPipelineSelect && state.selectedPipeline) {
+    globalPipelineSelect.value = state.selectedPipeline;
+  }
+  
+  fetchConfigs();
+}
+
+function onPipelineSelect(evt) {
+  const tab = evt.target.closest(".selector-tab");
+  if (!tab) return;
+  const pipelineKey = tab.dataset.key;
+  state.selectedPipeline = pipelineKey;
+  setCurrentPipeline(pipelineKey);
+  renderPipelineTabs();
+  
+  // 同步全局选择器
+  const globalPipelineSelect = document.getElementById("globalPipelineSelector");
+  if (globalPipelineSelect) {
+    globalPipelineSelect.value = pipelineKey;
+  }
+  
+  fetchConfigs();
+}
 
 elements.searchInput.addEventListener("input", (evt) => {
   state.search = evt.target.value.trim().toLowerCase();
@@ -472,12 +620,8 @@ async function ensureSystemOptions(force = false) {
 
 async function fetchSystemOptionsFromConfig(environmentKey) {
   try {
-    const pipelineKey = getCurrentPipeline();
-    if (!pipelineKey) {
-      throw new Error("请先选择渠道");
-    }
     const res = await fetch(
-      `${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(environmentKey)}&pipeline_key=${encodeURIComponent(pipelineKey)}`
+      `${state.apiBase}/api/v1/system-config/list?environment_key=${encodeURIComponent(environmentKey)}`
     );
     const json = await res.json();
     const list = json?.list || [];

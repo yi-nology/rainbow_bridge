@@ -63,9 +63,9 @@ func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*com
 		ContentType:    detectContentType(input.ContentType, input.Data),
 		FileSize:       int64(len(input.Data)),
 		Path:           relativePath,
-		URL:            generateFileURL(fileID),
 		Remark:         input.Remark,
 	}
+	asset.URL = s.generateFileURL(asset)
 	if err := s.logic.CreateAsset(ctx, asset); err != nil {
 		_ = os.Remove(fullPath)
 		return nil, "", err

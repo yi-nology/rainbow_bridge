@@ -165,7 +165,7 @@ func TestBasePathDecoratesURLs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UploadAsset: %v", err)
 	}
-	if url := asset.GetUrl(); !strings.HasPrefix(url, "/rainbow-bridge/api/v1/files/") {
+	if url := asset.GetUrl(); !strings.HasPrefix(url, "/rainbow-bridge/api/v1/asset/file/") {
 		t.Fatalf("asset url should include base path, got %s", url)
 	}
 
@@ -186,7 +186,7 @@ func TestBasePathDecoratesURLs(t *testing.T) {
 	if len(list) != 1 {
 		t.Fatalf("expected 1 config, got %d", len(list))
 	}
-	if content := list[0].GetContent(); !strings.HasPrefix(content, "/rainbow-bridge/api/v1/files/") {
+	if content := list[0].GetContent(); !strings.HasPrefix(content, "/rainbow-bridge/api/v1/asset/file/") {
 		t.Fatalf("config content should include base path, got %s", content)
 	}
 }
@@ -241,7 +241,7 @@ func TestExportImportArchive(t *testing.T) {
 				t.Fatalf("unmarshal configs: %v", err)
 			}
 		default:
-			if strings.HasPrefix(clean, "files/") && strings.HasSuffix(clean, asset.GetFileName()) {
+			if strings.HasPrefix(clean, "api/v1/asset/file/") && strings.HasSuffix(clean, asset.GetFileName()) {
 				foundAsset = true
 			}
 		}

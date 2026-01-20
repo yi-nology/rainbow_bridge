@@ -4,12 +4,13 @@ package main
 
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
-	handler "github.com/yi-nology/rainbow_bridge/biz/handler"
+	asset "github.com/yi-nology/rainbow_bridge/biz/handler/asset"
 )
 
-// customizeRegister registers customize routers.
+// customizedRegister registers customize routers.
 func customizedRegister(r *server.Hertz) {
-	r.GET("/ping", handler.Ping)
-
-	// your code ...
+	// 修复 IDL 自动生成的 /{file_id} 语法在某些 Hertz 版本下无法正确解析参数的问题
+	// 同时支持带文件名的路径，以便 Nginx 静态服务识别
+	r.GET("/api/v1/asset/file/:file_id", asset.GetFile)
+	r.GET("/api/v1/asset/file/:file_id/*filename", asset.GetFile)
 }

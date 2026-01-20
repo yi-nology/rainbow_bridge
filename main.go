@@ -70,13 +70,18 @@ func main() {
 	// Initialize handlers with service
 	bizrouter.InitHandlers(resourceService)
 
+	// Migrate to full asset paths
+	if err := resourceService.MigrateToFullAssetPaths(context.Background()); err != nil {
+		log.Printf("Warning: failed to migrate asset paths: %v", err)
+	}
+
 	// Register middleware
 	h.Use(middleware.Recovery())
 	h.Use(middleware.Logging())
 	h.Use(middleware.CORS(&cfg.CORS))
 	h.Use(middleware.Auth())
-	// Register generated routes
-	bizrouter.GeneratedRegister(h)
+	// Register all routes
+	register(h)
 
 	webFS, err := fs.Sub(embeddedWeb, "web")
 	if err != nil {

@@ -482,8 +482,8 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 			FileSize:       int64(len(data)),
 			ContentType:    http.DetectContentType(data),
 			Path:           relativePath,
-			URL:            generateFileURL(fileID),
 		}
+		asset.URL = s.generateFileURL(asset)
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
 			if !errors.Is(err, ErrAssetNotFound) {
 				return nil, err

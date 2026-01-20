@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/pkg/constants"
@@ -95,6 +97,18 @@ func (l *Logic) ListSystemConfigsByEnvironment(ctx context.Context, environmentK
 // Only system_options is allowed to be updated.
 // SystemConfig is environment-scoped only (no pipeline_key dependency).
 func (l *Logic) UpdateSystemConfig(ctx context.Context, environmentKey, configKey, configValue, configType, remark string) error {
+	// Normalize config value for asset:// references
+	if configType == "image" && strings.HasPrefix(configValue, "asset://") {
+		fileID := strings.TrimPrefix(configValue, "asset://")
+		asset, err := l.assetDAO.GetByFileID(ctx, l.db, fileID)
+		if err == nil && asset != nil {
+			configValue = fmt.Sprintf("/api/v1/asset/file/%s/%s", asset.FileID, asset.FileName)
+		} else {
+			// Fallback if asset not found in DB
+			configValue = "/api/v1/asset/file/" + fileID
+		}
+	}
+
 	// Validate config key
 	if !constants.IsProtectedSystemConfig(configKey) {
 		return ErrInvalidSystemConfigKey

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,12 +21,12 @@ const (
 	dataDirectory   = "data"
 	uploadDirectory = "uploads"
 	assetScheme     = "asset://"
-	fileURLPrefix   = "/api/v1/files/"
+	fileURLPrefix   = "/api/v1/asset/file/"
 )
 
 var (
 	assetRefRegexp        = regexp.MustCompile(`asset://([a-zA-Z0-9\-]+)`)
-	fileURLRefRegexp      = regexp.MustCompile(`/api/v1/files/([a-zA-Z0-9\-]+)`)
+	fileURLRefRegexp      = regexp.MustCompile(`/api/v1/asset/file/([a-zA-Z0-9\-]+)`)
 	staticAssetPathRegexp = regexp.MustCompile(`static/assets/([a-zA-Z0-9\-]+)/[^"'\s]+`)
 )
 
@@ -121,6 +122,59 @@ func assetSliceToPB(assets []model.Asset) []*common.FileAsset {
 }
 
 // --------------------- Service helpers ---------------------
+
+// MigrateToFullAssetPaths ensures all asset URLs and config contents use the full path with filename.
+func (s *Service) MigrateToFullAssetPaths(ctx context.Context) error {
+	// 1. Update all assets URL to include filename
+	var assets []model.Asset
+	if err := s.logic.db.Find(&assets).Error; err != nil {
+		return err
+	}
+	for i := range assets {
+		newURL := s.generateFileURL(&assets[i])
+		if assets[i].URL != newURL {
+			if err := s.logic.db.Model(&assets[i]).Update("url", newURL).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	// 2. Update all image type configs to use full path
+	var configs []model.Config
+	if err := s.logic.db.Where("type = ?", "image").Find(&configs).Error; err != nil {
+		return err
+	}
+
+	assetMap := make(map[string]*model.Asset)
+	for i := range assets {
+		assetMap[assets[i].FileID] = &assets[i]
+	}
+
+	for i := range configs {
+		content := configs[i].Content
+		// Matches /api/v1/asset/file/{uuid} or /api/v1/asset/file/{uuid}/oldname
+		re := regexp.MustCompile(`/api/v1/asset/file/([a-zA-Z0-9\-]+)(/[^"'\s]*)?`)
+		newContent := re.ReplaceAllStringFunc(content, func(match string) string {
+			sub := re.FindStringSubmatch(match)
+			if len(sub) < 2 {
+				return match
+			}
+			fileID := sub[1]
+			if asset, ok := assetMap[fileID]; ok {
+				return s.generateFileURL(asset)
+			}
+			return match
+		})
+
+		if configs[i].Content != newContent {
+			if err := s.logic.db.Model(&configs[i]).Update("content", newContent).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 
 func sanitizeServiceBasePath(input string) string {
 	trimmed := strings.TrimSpace(input)
@@ -240,8 +294,11 @@ func detectContentType(provided string, data []byte) string {
 	return http.DetectContentType(data)
 }
 
-func generateFileURL(fileID string) string {
-	return fmt.Sprintf("/api/v1/files/%s", fileID)
+func (s *Service) generateFileURL(asset *model.Asset) string {
+	if asset == nil {
+		return ""
+	}
+	return fmt.Sprintf("/api/v1/asset/file/%s/%s", asset.FileID, asset.FileName)
 }
 
 func normalizeConfigTypeString(t string) string {

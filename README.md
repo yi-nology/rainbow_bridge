@@ -271,7 +271,7 @@
 | `content_type`| string  | Content-Type，用于下载时设置 MIME      |
 | `file_size`   | int64   | 文件大小                               |
 | `path`        | string  | 存储路径，相对 `data/` 目录            |
-| `url`         | string  | 下载 URL（默认 `/api/v1/files/{file_id}`，响应会自动补上 `server.base_path`） |
+| `url`         | string  | 下载 URL（默认 `/api/v1/asset/file/{file_id}`，响应会自动补上 `server.base_path`） |
 | `remark`      | string  | 备注                                   |
 | `created_at`/`updated_at` | datetime | 创建/更新时间           |
 

@@ -1,7 +1,7 @@
 import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment, getCurrentPipeline } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
-import { escapeHtml, escapeAttr, formatSize } from "./lib/utils.js";
+import { escapeHtml, escapeAttr, formatSize, resolveAssetUrl } from "./lib/utils.js";
 import { fetchAssets } from "./lib/api.js";
 import { createToast } from "./lib/toast.js";
 
@@ -133,8 +133,23 @@ function renderTable() {
 
   records.forEach((asset) => {
     const tr = document.createElement("tr");
+    const isImage = asset.content_type?.startsWith("image/");
+    const url = resolveAssetUrl(asset.url || `/api/v1/asset/file/${asset.file_id}/${asset.file_name}`, state.apiBase);
+    
+    let fileNameContent = escapeHtml(asset.file_name || "-");
+    if (isImage) {
+      fileNameContent = `
+        <div class="asset-file-info">
+          <div class="table-image-preview" onclick="window.open('${url}', '_blank')">
+            <img src="${url}" alt="预览" title="点击查看大图" />
+          </div>
+          <span>${fileNameContent}</span>
+        </div>
+      `;
+    }
+
     tr.innerHTML = `
-      <td>${escapeHtml(asset.file_name || "-")}</td>
+      <td>${fileNameContent}</td>
       <td>${escapeHtml(asset.environment_key || "-")} / ${escapeHtml(asset.pipeline_key || "-")}</td>
       <td>${formatSize(asset.file_size)}</td>
       <td>${escapeHtml(asset.content_type || "-")}</td>
@@ -142,9 +157,9 @@ function renderTable() {
       <td>
         <div class="table-actions">
           <button class="ghost"
-            data-copy="${escapeAttr(asset.url || "")}"
+            data-copy="${escapeAttr(url)}"
             data-fallback-id="${escapeAttr(asset.file_id || "")}">复制引用</button>
-          <a class="ghost" href="${escapeAttr(asset.url || "#")}" target="_blank">下载</a>
+          <a class="ghost" href="${escapeAttr(url)}" target="_blank">下载</a>
         </div>
       </td>`;
     el.tableBody.appendChild(tr);

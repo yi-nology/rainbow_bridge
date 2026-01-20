@@ -176,17 +176,27 @@ export function resolveAssetUrl(reference = "", apiBase = "") {
   // asset:// protocol
   if (trimmed.startsWith("asset://")) {
     const assetId = trimmed.replace("asset://", "");
-    return assetId ? `${apiBase}/api/v1/asset/file/${encodeURIComponent(assetId)}` : "";
+    if (!assetId) return "";
+    // Ensure apiBase ends without trailing slash and concat with path
+    const base = apiBase.replace(/\/$/, "");
+    return `${base}/api/v1/asset/file/${encodeURIComponent(assetId)}`;
   }
 
   // Relative path
   if (trimmed.startsWith("/")) {
-    return `${apiBase}${trimmed}`;
+    try {
+      const base = new URL(apiBase);
+      // Use URL constructor to resolve path relative to origin. 
+      // If trimmed is "/prefix/api/v1" and base is "http://host/prefix", 
+      // new URL(trimmed, base.origin) returns "http://host/prefix/api/v1" correctly.
+      return new URL(trimmed, base.origin).href;
+    } catch (e) {
+      // Fallback for relative apiBase
+      const base = apiBase.replace(/\/$/, "");
+      return `${base}${trimmed}`;
+    }
   }
 
-  // fallback or already relative/absolute path without leading slash
-  // If it doesn't match any, and isn't empty, we could try to prefix it if it looks like a path
-  // but for now let's be conservative.
   return trimmed;
 }
 

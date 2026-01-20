@@ -142,6 +142,7 @@ func GetFile(ctx context.Context, c *app.RequestContext) {
 	if fileID == "" {
 		fileID = c.Param("fileID")
 	}
+
 	asset, path, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
 	if err != nil {
 		if errors.Is(err, service.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {

@@ -679,8 +679,43 @@ function updateDataTypeViews(type, options = {}, isViewOnly = false) {
   }
   if (elements.contentImageGroup) {
     elements.contentImageGroup.classList.toggle("hidden", normalizedType !== "image");
-    if (normalizedType === "image" && isViewOnly && elements.contentImageUploadBtn) {
-      elements.contentImageUploadBtn.style.display = "none";
+    if (normalizedType === "image" && isViewOnly) {
+      if (elements.contentImageUploadBtn) {
+        elements.contentImageUploadBtn.style.display = "none";
+      }
+      // 隐藏上传区域
+      const uploadArea = elements.contentImageGroup.querySelector(".image-upload");
+      if (uploadArea) {
+        uploadArea.style.display = "none";
+      }
+          
+      // 查看模式下预览图样式调整
+      if (elements.contentImagePreviewImg) {
+        elements.contentImagePreviewImg.className = "modal-view-image";
+        elements.contentImagePreviewImg.onclick = () => window.open(elements.contentImagePreviewImg.src, '_blank');
+        elements.contentImagePreviewImg.style.cursor = "zoom-in";
+        elements.contentImagePreviewImg.title = "点击查看原图";
+      }
+      if (elements.contentImagePreview) {
+        elements.contentImagePreview.style.maxWidth = "100%";
+      }
+    } else if (normalizedType === "image") {
+      if (elements.contentImageUploadBtn) {
+        elements.contentImageUploadBtn.style.display = "";
+      }
+      const uploadArea = elements.contentImageGroup.querySelector(".image-upload");
+      if (uploadArea) {
+        uploadArea.style.display = "";
+      }
+      if (elements.contentImagePreviewImg) {
+        elements.contentImagePreviewImg.className = "";
+        elements.contentImagePreviewImg.onclick = null;
+        elements.contentImagePreviewImg.style.cursor = "";
+        elements.contentImagePreviewImg.title = "";
+      }
+      if (elements.contentImagePreview) {
+        elements.contentImagePreview.style.maxWidth = "260px";
+      }
     }
   }
   if (elements.contentColorGroup) {
@@ -792,16 +827,26 @@ function clearImageReference() {
 
 function setImageReference(reference, asset) {
   const trimmed = (reference || "").trim();
-  state.imageUpload.reference = trimmed;
-  if (elements.modalContentInput) {
-    elements.modalContentInput.value = trimmed;
+  
+  // If we have an asset object, it means a fresh upload or specific info is provided.
+  // We prioritize the URL from the asset object because it contains the filename.
+  if (asset) {
+    state.imageUpload.reference = trimmed;
+    state.imageUpload.filename = asset.file_name || asset.fileName || "";
+    // asset.url is already resolved by backend (may contain basePath)
+    state.imageUpload.url = resolveAssetUrl(asset.url || trimmed, state.apiBase);
+  } else if (trimmed !== state.imageUpload.reference) {
+    // If only a reference string is provided, and it's different from current, update it.
+    // If it's the same, we keep the existing URL (to avoid losing filename/extension info).
+    state.imageUpload.reference = trimmed;
+    state.imageUpload.url = resolveAssetUrl(trimmed, state.apiBase);
+    state.imageUpload.filename = "";
   }
   
-  // Use resolveAssetUrl to determine the actual image URL
-  const url = resolveAssetUrl(asset?.url || trimmed, state.apiBase);
-  state.imageUpload.url = url;
+  if (elements.modalContentInput) {
+    elements.modalContentInput.value = state.imageUpload.reference;
+  }
   
-  state.imageUpload.filename = asset?.file_name || asset?.fileName || "";
   const parts = [];
   if (state.imageUpload.filename) {
     parts.push(`文件：${state.imageUpload.filename}`);
@@ -980,11 +1025,21 @@ function renderConfigTable() {
 
   configs.forEach((cfg) => {
     const tr = document.createElement("tr");
+    const configType = normalizeConfigType(cfg.type);
+        
+    let displayContent = "";
+    if (configType === CONFIG_TYPES.IMAGE && cfg.content) {
+      const url = resolveAssetUrl(cfg.content, state.apiBase);
+      displayContent = `<div class="table-image-preview" onclick="window.open('${url}', '_blank')"><img src="${url}" alt="预览" title="点击查看大图" /></div>`;
+    } else {
+      displayContent = escapeHtml(summarizeContent(cfg.content));
+    }
+  
     tr.innerHTML = `
       <td>${escapeHtml(cfg.name || "-")}</td>
       <td>${escapeHtml(cfg.alias || "-")}</td>
       <td>${escapeHtml(displayDataType(cfg.type))}</td>
-      <td>${escapeHtml(summarizeContent(cfg.content))}</td>
+      <td>${displayContent}</td>
       <td>
         <div class="table-actions">
           <button class="ghost" data-action="view" data-key="${escapeAttr(cfg.resource_key || "")}">查看</button>

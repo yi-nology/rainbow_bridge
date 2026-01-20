@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -185,7 +186,7 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeResponse
 	assetIDs := extractAssetIDsFromCommonConfigs(runtimeResponse.Configs)
 	visited := make(map[string]struct{}, len(assetIDs))
 
-	// 构建 files 目录前缀：<base_path>/api/v1/files/
+	// 构建 files 目录前缀：<base_path>/api/v1/asset/file/
 	filesPrefix := buildFilesPrefix(s.basePath)
 
 	// 将资源文件打包到 zip 中
@@ -208,8 +209,8 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeResponse
 			continue
 		}
 
-		// 使用新的路径结构：<base_path>/api/v1/files/<file_id>/<filename>
-		zipPath := filepath.Join(filesPrefix, asset.FileID, asset.FileName)
+		// 使用新的路径结构：<base_path>/api/v1/asset/file/<file_id>/<filename>
+		zipPath := path.Join(filesPrefix, asset.FileID, asset.FileName)
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
 		if err != nil {
 			file.Close()
@@ -251,13 +252,13 @@ func extractAssetIDsFromCommonConfigs(configs []*common.ResourceConfig) []string
 // buildFilesPrefix constructs the files directory prefix based on basePath.
 // Examples:
 //
-//	basePath="" -> "files"
-//	basePath="/rainbow-bridge" -> "rainbow-bridge/api/v1/files"
+//	basePath="" -> "asset/file"
+//	basePath="/rainbow-bridge" -> "rainbow-bridge/api/v1/asset/file"
 func buildFilesPrefix(basePath string) string {
 	if basePath == "" {
-		return "files"
+		return path.Join("api", "v1", "asset", "file")
 	}
 	// 移除前导的 /
 	cleanBase := strings.TrimPrefix(basePath, "/")
-	return filepath.Join(cleanBase, "api", "v1", "files")
+	return path.Join(cleanBase, "api", "v1", "asset", "file")
 }

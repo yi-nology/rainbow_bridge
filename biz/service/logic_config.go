@@ -27,7 +27,7 @@ func (l *Logic) AddConfig(ctx context.Context, cfg *model.Config) error {
 		return nil
 	}
 	normalizeConfigPayload(cfg)
-	if err := validateConfigContent(cfg); err != nil {
+	if err := l.validateConfigContent(ctx, cfg); err != nil {
 		return err
 	}
 
@@ -50,7 +50,7 @@ func (l *Logic) UpdateConfig(ctx context.Context, cfg *model.Config) error {
 		return nil
 	}
 	normalizeConfigPayload(cfg)
-	if err := validateConfigContent(cfg); err != nil {
+	if err := l.validateConfigContent(ctx, cfg); err != nil {
 		return err
 	}
 	if _, err := l.configDAO.GetByResourceKey(ctx, l.db, cfg.EnvironmentKey, cfg.PipelineKey, cfg.ResourceKey); err != nil {
@@ -151,7 +151,7 @@ func (l *Logic) ImportConfigs(ctx context.Context, configs []model.Config, overw
 	for idx := range configs {
 		cfg := configs[idx]
 		normalizeConfigPayload(&cfg)
-		if err := validateConfigContent(&cfg); err != nil {
+		if err := l.validateConfigContent(ctx, &cfg); err != nil {
 			return err
 		}
 
@@ -218,7 +218,7 @@ func normalizeConfigType(t string) string {
 	return util.NormalizeConfigType(t)
 }
 
-func validateConfigContent(cfg *model.Config) error {
+func (l *Logic) validateConfigContent(ctx context.Context, cfg *model.Config) error {
 	if cfg == nil {
 		return errors.New("config payload required")
 	}
@@ -228,11 +228,18 @@ func validateConfigContent(cfg *model.Config) error {
 			return errors.New("图片类型内容不能为空")
 		}
 		if strings.HasPrefix(cfg.Content, "asset://") ||
-			strings.HasPrefix(cfg.Content, "/api/v1/files/") ||
+			strings.HasPrefix(cfg.Content, "/api/v1/asset/file/") ||
 			strings.HasPrefix(strings.ToLower(cfg.Content), "http://") ||
 			strings.HasPrefix(strings.ToLower(cfg.Content), "https://") {
 			if strings.HasPrefix(cfg.Content, "asset://") {
-				cfg.Content = "/api/v1/files/" + strings.TrimPrefix(cfg.Content, "asset://")
+				fileID := strings.TrimPrefix(cfg.Content, "asset://")
+				asset, err := l.assetDAO.GetByFileID(ctx, l.db, fileID)
+				if err == nil && asset != nil {
+					cfg.Content = fmt.Sprintf("/api/v1/asset/file/%s/%s", asset.FileID, asset.FileName)
+				} else {
+					// Fallback if asset not found in DB
+					cfg.Content = "/api/v1/asset/file/" + fileID
+				}
 			}
 			return nil
 		}

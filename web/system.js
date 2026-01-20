@@ -1,4 +1,4 @@
-import { initPageLayout, initEnvSelector, getCurrentEnvironment } from "./components.js";
+import { initPageLayout, initEnvSelector, getCurrentEnvironment, getCurrentPipeline } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
 import { escapeHtml, escapeAttr, resolveAssetUrl } from "./lib/utils.js";
@@ -227,16 +227,24 @@ function renderTable() {
   records.forEach((cfg) => {
     const tr = document.createElement("tr");
     const displayName = getConfigDisplayName(cfg.config_key);
-    const displayValue = summarizeConfigValue(cfg.config_key, cfg.config_value);
     const configType = normalizeConfigType(cfg.config_type);
     const displayType = getConfigTypeName(configType);
+    
+    let displayValue = summarizeConfigValue(cfg.config_key, cfg.config_value);
+    if (configType === CONFIG_TYPES.IMAGE && cfg.config_value) {
+      const url = resolveAssetUrl(cfg.config_value, state.apiBase);
+      displayValue = `<div class="table-image-preview" onclick="window.open('${url}', '_blank')"><img src="${url}" alt="预览" title="点击查看大图" /></div>`;
+    } else {
+      displayValue = escapeHtml(displayValue);
+    }
+
     const isProtected = cfg.config_key === "system_options";
     const deleteBtn = isProtected ? "" : `<button class="ghost danger" data-system-action="delete" data-key="${escapeAttr(cfg.config_key || "")}">删除</button>`;
     tr.innerHTML = `
       <td>${escapeHtml(displayName)}</td>
       <td><code>${escapeHtml(cfg.config_key || "-")}</code></td>
       <td><span class="type-badge">${escapeHtml(displayType)}</span></td>
-      <td>${escapeHtml(displayValue)}</td>
+      <td>${displayValue}</td>
       <td>
         <div class="table-actions">
           <button class="ghost" data-system-action="view" data-key="${escapeAttr(cfg.config_key || "")}">查看</button>
@@ -772,6 +780,30 @@ function setDataType(type, options = {}, isViewOnly = false) {
   } else if (type === CONFIG_TYPES.IMAGE) {
     if (elements.contentImageGroup) {
       elements.contentImageGroup.classList.remove("hidden");
+          
+      // 查看模式下隐藏上传区域
+      const uploadArea = elements.contentImageGroup.querySelector(".image-upload");
+      if (uploadArea) {
+        uploadArea.style.display = isViewOnly ? "none" : "";
+      }
+          
+      // 查看模式下预览图样式调整
+      if (elements.contentImagePreviewImg) {
+        elements.contentImagePreviewImg.className = isViewOnly ? "modal-view-image" : "";
+        if (isViewOnly) {
+          elements.contentImagePreviewImg.onclick = () => window.open(elements.contentImagePreviewImg.src, '_blank');
+          elements.contentImagePreviewImg.style.cursor = "zoom-in";
+          elements.contentImagePreviewImg.title = "点击查看原图";
+        } else {
+          elements.contentImagePreviewImg.onclick = null;
+          elements.contentImagePreviewImg.style.cursor = "";
+          elements.contentImagePreviewImg.title = "";
+        }
+      }
+      if (elements.contentImagePreview) {
+        elements.contentImagePreview.style.maxWidth = isViewOnly ? "100%" : "260px";
+      }
+  
       if (options.content) {
         setImageReference(options.content);
       }
@@ -877,17 +909,26 @@ async function onImageUpload() {
 
 function setImageReference(reference, asset) {
   const trimmed = (reference || "").trim();
-  state.imageUpload.reference = trimmed;
   
-  // Use resolveAssetUrl to determine the actual image URL
-  const url = resolveAssetUrl(asset?.url || trimmed, state.apiBase);
-  state.imageUpload.url = url;
-  
-  state.imageUpload.fileName = asset?.file_name || asset?.fileName || "";
-  state.imageUpload.fileSize = asset?.file_size || 0;
+  // If we have an asset object, it means a fresh upload or specific info is provided.
+  // We prioritize the URL from the asset object because it contains the filename.
+  if (asset) {
+    state.imageUpload.reference = trimmed;
+    state.imageUpload.fileName = asset.file_name || asset.fileName || "";
+    state.imageUpload.fileSize = asset.file_size || 0;
+    // asset.url is already resolved by backend (may contain basePath)
+    state.imageUpload.url = resolveAssetUrl(asset.url || trimmed, state.apiBase);
+  } else if (trimmed !== state.imageUpload.reference) {
+    // If only a reference string is provided, and it's different from current, update it.
+    // If it's the same, we keep the existing URL (to avoid losing filename/extension info).
+    state.imageUpload.reference = trimmed;
+    state.imageUpload.url = resolveAssetUrl(trimmed, state.apiBase);
+    state.imageUpload.fileName = "";
+    state.imageUpload.fileSize = 0;
+  }
   
   if (elements.contentInput && state.dataType === CONFIG_TYPES.IMAGE) {
-    elements.contentInput.value = trimmed;
+    elements.contentInput.value = state.imageUpload.reference;
   }
   
   const parts = [];

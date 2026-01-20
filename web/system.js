@@ -1,7 +1,7 @@
 import { initPageLayout, initEnvSelector, getCurrentEnvironment } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
-import { escapeHtml, escapeAttr } from "./lib/utils.js";
+import { escapeHtml, escapeAttr, resolveAssetUrl } from "./lib/utils.js";
 import { createToast } from "./lib/toast.js";
 import { CONFIG_TYPES, getConfigTypeName, normalizeConfigType } from "./lib/types.js";
 
@@ -41,6 +41,7 @@ const elements = {
   newBtn: document.getElementById("systemNewBtn"),
   modalForm: document.getElementById("systemModalForm"),
   toast: document.getElementById("systemToast"),
+  modalTitle: document.getElementById("systemModalTitle"),
   aliasInput: document.querySelector("#systemModalForm input[name='alias']"),
   typeSelect: document.getElementById("systemTypeSelect"),
   typeLabel: document.getElementById("systemTypeLabel"),
@@ -180,6 +181,11 @@ if (elements.keyValueList) {
 
 document.addEventListener("click", (evt) => {
   const target = evt.target;
+  if (target.matches("button[data-system-action='view']")) {
+    const key = target.dataset.key;
+    const cfg = state.configs.find((item) => item.config_key === key);
+    if (cfg) openModal(cfg, true);
+  }
   if (target.matches("button[data-system-action='edit']")) {
     const key = target.dataset.key;
     const cfg = state.configs.find((item) => item.config_key === key);
@@ -233,6 +239,7 @@ function renderTable() {
       <td>${escapeHtml(displayValue)}</td>
       <td>
         <div class="table-actions">
+          <button class="ghost" data-system-action="view" data-key="${escapeAttr(cfg.config_key || "")}">查看</button>
           <button class="ghost" data-system-action="edit" data-key="${escapeAttr(cfg.config_key || "")}">编辑</button>
           ${deleteBtn}
         </div>
@@ -262,36 +269,70 @@ function summarizeConfigValue(configKey, value) {
   return value.substring(0, 50) + (value.length > 50 ? "..." : "");
 }
 
-async function openModal(cfg) {
+async function openModal(cfg, isViewOnly = false) {
   state.editing = cfg || null;
+  const isNew = !cfg;
+  
+  // 立即设置标题
+  const title = isViewOnly ? "查看系统配置" : (isNew ? "新建系统配置" : `编辑系统配置 - ${getConfigDisplayName(cfg?.config_key || "")}`);
+  if (elements.modalTitle) elements.modalTitle.textContent = title;
+
   elements.modalForm.reset();
 
-  const isNew = !cfg;
   const isProtected = cfg?.config_key === "system_options";
 
-  // Set alias (config_key) - readonly for existing configs or protected configs
+  // 控制确定按钮显示
+  const submitBtn = elements.modalForm.querySelector("button[type='submit']");
+  if (submitBtn) {
+    submitBtn.style.display = isViewOnly ? "none" : "";
+  }
+
+  // Set alias (config_key) - readonly for existing configs or protected configs or viewOnly
   if (elements.aliasInput) {
     elements.aliasInput.value = cfg?.config_key || "";
-    elements.aliasInput.readOnly = !isNew;
+    elements.aliasInput.readOnly = !isNew || isViewOnly;
+    elements.aliasInput.classList.toggle("readonly", !isNew || isViewOnly);
   }
 
   // Set name field
   const nameInput = elements.modalForm.elements.name;
   if (nameInput) {
     nameInput.value = isNew ? "" : getConfigDisplayName(cfg?.config_key || "");
-    nameInput.readOnly = !isNew;
+    nameInput.readOnly = !isNew || isViewOnly;
+    nameInput.classList.toggle("readonly", !isNew || isViewOnly);
   }
 
   // Set remark field
   const remarkInput = elements.modalForm.elements.remark;
   if (remarkInput) {
     remarkInput.value = cfg?.remark || "";
-    remarkInput.readOnly = isProtected;
+    remarkInput.readOnly = isProtected || isViewOnly;
+    remarkInput.classList.toggle("readonly", isProtected || isViewOnly);
+  }
+
+  // Set type select
+  if (elements.typeSelect) {
+    elements.typeSelect.disabled = isViewOnly;
+    elements.typeSelect.classList.toggle("disabled", isViewOnly);
   }
 
   const initialContent = cfg?.config_value || "";
   if (elements.contentInput) {
     elements.contentInput.value = initialContent;
+    // contentInput 是 hidden，readOnly 无所谓，但保持一致
+  }
+  
+  // KV 编辑器只读控制
+  if (elements.keyValueAddBtn) {
+    elements.keyValueAddBtn.style.display = isViewOnly ? "none" : "";
+  }
+  
+  // 图片上传按钮只读控制
+  if (elements.contentImageUploadBtn) {
+    elements.contentImageUploadBtn.style.display = isViewOnly ? "none" : "";
+  }
+  if (elements.contentImageFile) {
+    elements.contentImageFile.disabled = isViewOnly;
   }
   
   // 重置状态
@@ -306,7 +347,7 @@ async function openModal(cfg) {
     if (elements.typeSelect) {
       elements.typeSelect.value = CONFIG_TYPES.TEXT;
     }
-    setDataType(CONFIG_TYPES.TEXT);
+    // setDataType 将由 syncAliasMode 调用
   } else {
     // 编辑时，优先使用数据库的 config_type，其次根据内容推断类型
     if (cfg.config_key === "system_options") {
@@ -325,14 +366,11 @@ async function openModal(cfg) {
   }
 
   try {
-    await syncAliasMode({ content: initialContent, initialize: true });
-  } catch {
-    // ignore
+    await syncAliasMode({ content: initialContent, initialize: true }, isViewOnly);
+  } catch (err) {
+    console.error("syncAliasMode error:", err);
   }
 
-  const title = isNew ? "新建系统配置" : `编辑系统配置 - ${getConfigDisplayName(cfg?.config_key || "")}`;
-  const titleNode = document.getElementById("systemModalTitle");
-  if (titleNode) titleNode.textContent = title;
   systemModal.open();
 }
 
@@ -487,7 +525,7 @@ function resetAliasState() {
   hideDataTypeGroups();
 }
 
-async function syncAliasMode(options = {}) {
+async function syncAliasMode(options = {}, isViewOnly = false) {
   const alias = elements.aliasInput?.value.trim() || "";
   
   // system_options 使用 key-value editor
@@ -497,6 +535,11 @@ async function syncAliasMode(options = {}) {
     if (elements.contentInput) {
       elements.contentInput.disabled = true;
       elements.contentInput.classList.add("hidden");
+    }
+    // 禁用 KV 编辑器中的输入框
+    if (isViewOnly && elements.keyValueList) {
+      elements.keyValueList.querySelectorAll("input").forEach(input => input.readOnly = true);
+      elements.keyValueList.querySelectorAll("button[data-action='kv-remove']").forEach(btn => btn.style.display = "none");
     }
     // 隐藏类型选择器
     if (elements.typeLabel) {
@@ -514,10 +557,10 @@ async function syncAliasMode(options = {}) {
   // 根据类型显示对应的输入区域
   if (options.initialize && options.content) {
     const dataType = elements.typeSelect?.value || CONFIG_TYPES.TEXT;
-    setDataType(dataType, { content: options.content });
+    setDataType(dataType, { content: options.content }, isViewOnly);
   } else {
     const dataType = elements.typeSelect?.value || CONFIG_TYPES.TEXT;
-    setDataType(dataType);
+    setDataType(dataType, {}, isViewOnly);
   }
   
   // 如果是键值对类型，隐藏 contentInput
@@ -692,7 +735,7 @@ async function deleteConfig(cfg) {
 
 // ------------------------- Data Type Switching -------------------------
 
-function setDataType(type, options = {}) {
+function setDataType(type, options = {}, isViewOnly = false) {
   state.dataType = type || CONFIG_TYPES.TEXT;
   hideDataTypeGroups();
   hideKeyValueEditor();
@@ -702,23 +745,29 @@ function setDataType(type, options = {}) {
     showKeyValueEditor(options.content || "");
     if (elements.contentInput) {
       elements.contentInput.disabled = true;
-      elements.contentInput.classList.add("hidden");
+    }
+    // 禁用 KV 编辑器中的输入框
+    if (isViewOnly && elements.keyValueList) {
+      elements.keyValueList.querySelectorAll("input").forEach(input => input.readOnly = true);
+      elements.keyValueList.querySelectorAll("button[data-action='kv-remove']").forEach(btn => btn.style.display = "none");
     }
   } else if (type === CONFIG_TYPES.JSON) {
     if (elements.contentJsonGroup) {
       elements.contentJsonGroup.classList.remove("hidden");
-      if (options.content && elements.contentJsonInput) {
-        try {
-          const parsed = JSON.parse(options.content);
-          elements.contentJsonInput.value = JSON.stringify(parsed, null, 2);
-        } catch {
-          elements.contentJsonInput.value = options.content;
+      if (elements.contentJsonInput) {
+        elements.contentJsonInput.readOnly = isViewOnly;
+        if (options.content) {
+          try {
+            const parsed = JSON.parse(options.content);
+            elements.contentJsonInput.value = JSON.stringify(parsed, null, 2);
+          } catch {
+            elements.contentJsonInput.value = options.content;
+          }
         }
       }
     }
     if (elements.contentInput) {
       elements.contentInput.disabled = false;
-      elements.contentInput.classList.remove("hidden");
     }
   } else if (type === CONFIG_TYPES.IMAGE) {
     if (elements.contentImageGroup) {
@@ -729,30 +778,36 @@ function setDataType(type, options = {}) {
     }
     if (elements.contentInput) {
       elements.contentInput.disabled = false;
-      elements.contentInput.classList.remove("hidden");
     }
   } else if (type === CONFIG_TYPES.COLOR) {
     if (elements.contentColorGroup) {
       elements.contentColorGroup.classList.remove("hidden");
+      if (elements.contentColorPicker) {
+        elements.contentColorPicker.disabled = isViewOnly;
+      }
+      if (elements.contentColorValue) {
+        elements.contentColorValue.readOnly = isViewOnly;
+      }
       if (options.content) {
         setColorValue(options.content, { fillPicker: true, forceContent: true });
       }
     }
     if (elements.contentInput) {
       elements.contentInput.disabled = false;
-      elements.contentInput.classList.remove("hidden");
     }
   } else {
     // text
     if (elements.contentTextGroup) {
       elements.contentTextGroup.classList.remove("hidden");
-      if (options.content && elements.contentTextInput) {
-        elements.contentTextInput.value = options.content;
+      if (elements.contentTextInput) {
+        elements.contentTextInput.readOnly = isViewOnly;
+        if (options.content) {
+          elements.contentTextInput.value = options.content;
+        }
       }
     }
     if (elements.contentInput) {
       elements.contentInput.disabled = false;
-      elements.contentInput.classList.remove("hidden");
     }
   }
 }
@@ -821,13 +876,20 @@ async function onImageUpload() {
 }
 
 function setImageReference(reference, asset) {
-  state.imageUpload.reference = reference || "";
-  state.imageUpload.url = reference || "";
-  state.imageUpload.fileName = asset?.file_name || "";
+  const trimmed = (reference || "").trim();
+  state.imageUpload.reference = trimmed;
+  
+  // Use resolveAssetUrl to determine the actual image URL
+  const url = resolveAssetUrl(asset?.url || trimmed, state.apiBase);
+  state.imageUpload.url = url;
+  
+  state.imageUpload.fileName = asset?.file_name || asset?.fileName || "";
   state.imageUpload.fileSize = asset?.file_size || 0;
+  
   if (elements.contentInput && state.dataType === CONFIG_TYPES.IMAGE) {
-    elements.contentInput.value = reference;
+    elements.contentInput.value = trimmed;
   }
+  
   const parts = [];
   if (state.imageUpload.fileName) {
     parts.push(`文件名：${state.imageUpload.fileName}`);

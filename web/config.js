@@ -1,7 +1,7 @@
 import { initPageLayout, initEnvSelector, initPipelineSelector, getCurrentEnvironment, getCurrentPipeline } from "./components.js";
 import { getDefaultApiBase } from "./runtime.js";
 import { createModal } from "./ui.js";
-import { escapeHtml, escapeAttr, normalizeDataType, displayDataType, summarizeContent, normalizeColorValue } from "./lib/utils.js";
+import { escapeHtml, escapeAttr, normalizeDataType, displayDataType, summarizeContent, normalizeColorValue, resolveAssetUrl } from "./lib/utils.js";
 import { extractError } from "./lib/api.js";
 import { createToast } from "./lib/toast.js";
 import { CONFIG_TYPES, normalizeConfigType } from "./lib/types.js";
@@ -31,16 +31,11 @@ const state = {
   },
   imageUploading: false,
   colorValue: "",
-  // 本地选择状态
-  environments: [],
-  pipelines: [],
   selectedEnv: getCurrentEnvironment(),
   selectedPipeline: getCurrentPipeline(),
 };
 
 const elements = {
-  envList: document.getElementById("envList"),
-  pipelineList: document.getElementById("pipelineList"),
   configTbody: document.getElementById("configTbody"),
   emptyState: document.getElementById("emptyState"),
   resourceCount: document.getElementById("resourceCount"),
@@ -102,33 +97,15 @@ const configModal = createModal("modalOverlay", {
 // ------------------------- Initialization -------------------------
 
 (async function init() {
-  // 初始化本地标签
-  await fetchEnvironments();
-  if (state.selectedEnv) {
-    await fetchPipelines();
-  }
-
-  // 绑定本地标签事件
-  if (elements.envList) {
-    elements.envList.addEventListener("click", onEnvSelect);
-  }
-  if (elements.pipelineList) {
-    elements.pipelineList.addEventListener("click", onPipelineSelect);
-  }
-
-  // 这里的全局选择器初始化仍然保留，用于同步
-  await initEnvSelector(state.apiBase, async (envKey) => {
-    // 全局环境切换时，同步更新本地标签并重刷配置
-    state.selectedEnv = envKey;
-    renderEnvTabs();
-    await fetchPipelines();
+  await initEnvSelector(state.apiBase, async () => {
+    // 环境切换时，重载全局渠道选择器的选项
+    if (pipelineReloader) {
+      await pipelineReloader.reload();
+    }
     fetchConfigs();
   });
   
-  pipelineReloader = await initPipelineSelector(state.apiBase, (pipelineKey) => {
-    // 全局渠道切换时，同步更新本地标签并重刷配置
-    state.selectedPipeline = pipelineKey;
-    renderPipelineTabs();
+  pipelineReloader = await initPipelineSelector(state.apiBase, () => {
     fetchConfigs();
   });
   
@@ -136,140 +113,29 @@ const configModal = createModal("modalOverlay", {
   fetchConfigs();
 })();
 
-async function fetchEnvironments() {
-  try {
-    const res = await fetch(`${state.apiBase}/api/v1/environment/list`);
-    const json = await res.json();
-    state.environments = json?.list || json?.data?.list || [];
-    
-    const current = getCurrentEnvironment();
-    if (state.environments.some(e => e.environment_key === current)) {
-      state.selectedEnv = current;
-    } else if (state.environments.length > 0) {
-      state.selectedEnv = state.environments[0].environment_key;
-      setCurrentEnvironment(state.selectedEnv);
-    }
-    renderEnvTabs();
-  } catch (err) {
-    showToast(`获取环境列表失败：${err.message}`);
-  }
+// ------------------------- Event Listeners -------------------------
+
+if (elements.searchInput) {
+  elements.searchInput.addEventListener("input", (evt) => {
+    state.search = evt.target.value.trim().toLowerCase();
+    renderConfigTable();
+  });
 }
 
-async function fetchPipelines() {
-  if (!state.selectedEnv) {
-    state.pipelines = [];
-    renderPipelineTabs();
-    return;
-  }
-  try {
-    const res = await fetch(`${state.apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(state.selectedEnv)}`);
-    const json = await res.json();
-    state.pipelines = json?.list || json?.data?.list || [];
-    
-    const current = getCurrentPipeline();
-    if (state.pipelines.some(p => p.pipeline_key === current)) {
-      state.selectedPipeline = current;
-    } else if (state.pipelines.length > 0) {
-      state.selectedPipeline = state.pipelines[0].pipeline_key;
-      setCurrentPipeline(state.selectedPipeline);
-    } else {
-      state.selectedPipeline = null;
-    }
-    renderPipelineTabs();
-  } catch (err) {
-    showToast(`获取渠道列表失败：${err.message}`);
-  }
+if (elements.newConfigBtn) {
+  elements.newConfigBtn.addEventListener("click", () => {
+    openConfigModal(null);
+  });
 }
 
-function renderEnvTabs() {
-  if (!elements.envList) return;
-  if (!state.environments.length) {
-    elements.envList.innerHTML = `<span class="selector-empty">暂无环境数据</span>`;
-    return;
-  }
-  elements.envList.innerHTML = state.environments.map((env) => `
-    <span class="selector-tab${state.selectedEnv === env.environment_key ? " active" : ""}" 
-          data-key="${env.environment_key}">
-      ${env.environment_name || env.environment_key}
-    </span>
-  `).join("");
+if (elements.modalForm) {
+  elements.modalForm.addEventListener("submit", onSubmit);
 }
 
-function renderPipelineTabs() {
-  if (!elements.pipelineList) return;
-  if (!state.pipelines.length) {
-    elements.pipelineList.innerHTML = `<span class="selector-empty">暂无渠道数据</span>`;
-    return;
-  }
-  elements.pipelineList.innerHTML = state.pipelines.map((pl) => `
-    <span class="selector-tab${state.selectedPipeline === pl.pipeline_key ? " active" : ""}" 
-          data-key="${pl.pipeline_key}">
-      ${pl.pipeline_name || pl.pipeline_key}
-    </span>
-  `).join("");
-}
-
-async function onEnvSelect(evt) {
-  const tab = evt.target.closest(".selector-tab");
-  if (!tab) return;
-  const envKey = tab.dataset.key;
-  state.selectedEnv = envKey;
-  setCurrentEnvironment(envKey);
-  renderEnvTabs();
-  
-  // 同步全局环境选择器
-  const globalEnvSelect = document.getElementById("globalEnvSelector");
-  if (globalEnvSelect) {
-    globalEnvSelect.value = envKey;
-  }
-  
-  // 环境变化，重载全局渠道选择器的选项
-  if (pipelineReloader) {
-    await pipelineReloader.reload();
-  }
-  
-  // 重新请求并渲染本地渠道标签
-  await fetchPipelines();
-  
-  // 渠道变化后，同步更新全局渠道选择器
-  const globalPipelineSelect = document.getElementById("globalPipelineSelector");
-  if (globalPipelineSelect && state.selectedPipeline) {
-    globalPipelineSelect.value = state.selectedPipeline;
-  }
-  
-  fetchConfigs();
-}
-
-function onPipelineSelect(evt) {
-  const tab = evt.target.closest(".selector-tab");
-  if (!tab) return;
-  const pipelineKey = tab.dataset.key;
-  state.selectedPipeline = pipelineKey;
-  setCurrentPipeline(pipelineKey);
-  renderPipelineTabs();
-  
-  // 同步全局选择器
-  const globalPipelineSelect = document.getElementById("globalPipelineSelector");
-  if (globalPipelineSelect) {
-    globalPipelineSelect.value = pipelineKey;
-  }
-  
-  fetchConfigs();
-}
-
-elements.searchInput.addEventListener("input", (evt) => {
-  state.search = evt.target.value.trim().toLowerCase();
-  renderConfigTable();
-});
-
-elements.newConfigBtn.addEventListener("click", () => openConfigModal());
-
-if (elements.identityModeRadios && elements.identityModeRadios.length) {
+if (elements.identityModeRadios) {
   elements.identityModeRadios.forEach((radio) => {
-    radio.addEventListener("change", async (evt) => {
-      if (!evt.target.checked) return;
-      const mode = evt.target.value === "system" ? "system" : "custom";
-      await setIdentityMode(mode);
+    radio.addEventListener("change", (evt) => {
+      setIdentityMode(evt.target.value);
     });
   });
 }
@@ -279,29 +145,14 @@ if (elements.systemKeySelect) {
 }
 
 if (elements.refreshSystemOptionsBtn) {
-  elements.refreshSystemOptionsBtn.addEventListener("click", async () => {
-    try {
-      await ensureSystemOptions(true);
-      if (state.identityMode === "system") {
-        await syncIdentityMode({ preserveSelection: true });
-      }
-    } catch (err) {
-      showToast(err.message || "刷新系统配置失败");
-    }
+  elements.refreshSystemOptionsBtn.addEventListener("click", () => {
+    syncIdentityMode({ forceRefresh: true }).catch(() => {});
   });
 }
 
 if (elements.modalTypeSelect) {
   elements.modalTypeSelect.addEventListener("change", (evt) => {
     setDataType(evt.target.value);
-  });
-}
-
-if (elements.contentTextInput) {
-  elements.contentTextInput.addEventListener("input", () => {
-    if (state.dataType === "text" && elements.modalContentInput) {
-      elements.modalContentInput.value = elements.contentTextInput.value;
-    }
   });
 }
 
@@ -321,12 +172,12 @@ if (elements.contentColorPicker) {
 
 if (elements.contentColorValue) {
   elements.contentColorValue.addEventListener("input", (evt) => {
-    const value = evt.target.value || "";
-    state.colorValue = value.trim();
+    const val = evt.target.value || "";
+    state.colorValue = val.trim();
     if (state.dataType === "color" && elements.modalContentInput) {
       elements.modalContentInput.value = state.colorValue;
     }
-    updateColorPreview(value);
+    updateColorPreview(val);
   });
   elements.contentColorValue.addEventListener("blur", (evt) => {
     setColorValue(evt.target.value, { fillPicker: true, forceContent: true });
@@ -335,151 +186,45 @@ if (elements.contentColorValue) {
 
 if (elements.addKvRowBtn) {
   elements.addKvRowBtn.addEventListener("click", () => {
-    addKvRow();
+    const row = addKvRow();
+    row?.querySelector("input")?.focus();
+    updateContentFromKvEditor();
   });
 }
 
 if (elements.kvList) {
+  elements.kvList.addEventListener("input", (evt) => {
+    if (evt.target.matches("input")) {
+      updateContentFromKvEditor();
+    }
+  });
   elements.kvList.addEventListener("click", (evt) => {
     if (evt.target.dataset.action === "kv-remove") {
       evt.target.closest(".kv-row")?.remove();
       updateContentFromKvEditor();
     }
   });
-  elements.kvList.addEventListener("input", () => {
-    updateContentFromKvEditor();
-  });
 }
 
-elements.modalForm.addEventListener("submit", async (evt) => {
-  evt.preventDefault();
-  const form = elements.modalForm;
-  const formData = new FormData(form);
-  const getTrim = (key) => ((formData.get(key) || "").toString().trim());
-  const environmentKey = getCurrentEnvironment();
-  const pipelineKey = getCurrentPipeline();
-  const resourceKey = getTrim("resourceKey");
-  const alias = getTrim("alias");
-  const name = getTrim("name");
-  const type = getTrim("type");
-  const dataType = normalizeDataType(type);
-  const normalizedType = normalizeConfigType(dataType);
-  let contentValue = "";
+document.addEventListener("click", async (evt) => {
+  const target = evt.target;
+  const action = target.dataset.action;
+  const key = target.dataset.key;
+  if (!action || !key) return;
 
-  if (normalizedType === CONFIG_TYPES.KV) {
-    // 键值对类型
-    const { data, errors } = collectKvData({ strict: true });
-    if (errors.length) {
-      showToast(errors[0]);
-      return;
-    }
-    if (!Object.keys(data).length) {
-      showToast("请至少添加一行 key 与 名称");
-      return;
-    }
-    contentValue = JSON.stringify(data);
-  } else if (dataType === "config") {
-    const raw = elements.contentJsonInput?.value.trim() || "";
-    if (!raw) {
-      showToast("请填写配置内容");
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("内容需为 JSON 对象");
-      }
-      contentValue = JSON.stringify(parsed);
-      if (elements.contentJsonInput) {
-        elements.contentJsonInput.value = JSON.stringify(parsed, null, 2);
-      }
-    } catch (err) {
-      showToast(err.message || "配置内容不是合法的 JSON 对象");
-      return;
-    }
-  } else if (dataType === "image") {
-    const reference = (elements.modalContentInput?.value || state.imageUpload.reference || "").trim();
-    if (!reference) {
-      showToast("请上传图片");
-      return;
-    }
-    contentValue = reference;
-  } else if (dataType === "color") {
-    const colorValue = getColorValue();
-    if (!colorValue) {
-      showToast("请选择色彩值");
-      return;
-    }
-    contentValue = colorValue;
-  } else {
-    const textContent = elements.contentTextInput?.value.trim() || "";
-    if (!textContent) {
-      showToast("请填写文案内容");
-      return;
-    }
-    contentValue = textContent;
-  }
+  const cfg = state.configs.find((c) => c.resource_key === key);
+  if (!cfg) return;
 
-  if (elements.modalContentInput) {
-    elements.modalContentInput.value = contentValue;
-  }
-  const remark = getTrim("remark");
-  const payload = {
-    config: {
-      environment_key: environmentKey,
-      pipeline_key: pipelineKey,
-      resource_key: resourceKey,
-      alias,
-      name,
-      type: dataType,
-      content: contentValue,
-      remark,
-      is_perm: formData.get("isPerm") === "true",
-    },
-  };
-  if (!payload.config.environment_key || !payload.config.pipeline_key || !payload.config.alias) {
-    showToast("请填写必填项");
-    return;
-  }
-
-  const isUpdate = Boolean(payload.config.resource_key);
-  const endpoint = isUpdate ? "/api/v1/config/update" : "/api/v1/config/create";
-  try {
-    const res = await fetch(`${state.apiBase}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
-    if (json.code && json.code !== 200) {
-      throw new Error(json.error || json.msg || "保存失败");
-    }
-    showToast("保存成功");
-    configModal.close();
-    await fetchConfigs();
-  } catch (err) {
-    showToast(err.message || "保存失败");
-  }
-});
-
-document.addEventListener("click", (evt) => {
-  const { target } = evt;
-  if (target.matches("button[data-action='edit']")) {
-    const key = target.dataset.key;
-    const cfg = state.configs.find((item) => item.resource_key === key);
-    if (cfg) openConfigModal(cfg);
-  }
-  if (target.matches("button[data-action='delete']")) {
-    const key = target.dataset.key;
-    const env = target.dataset.env;
-    const pipeline = target.dataset.pipeline;
-    if (confirm("确定删除该配置吗？")) {
-      deleteConfig(env, pipeline, key);
+  if (action === "view") {
+    openConfigModal(cfg, true);
+  } else if (action === "edit") {
+    openConfigModal(cfg);
+  } else if (action === "delete") {
+    if (confirm(`确定删除配置 "${cfg.name || cfg.alias}" 吗？`)) {
+      await deleteConfig(cfg.environment_key, cfg.pipeline_key, cfg.resource_key);
     }
   }
 });
-
-// ------------------------- Data Fetching -------------------------
 
 async function fetchConfigs() {
   const env = getCurrentEnvironment();
@@ -494,6 +239,94 @@ async function fetchConfigs() {
     renderConfigTable();
   } catch (err) {
     showToast(`获取配置失败: ${err.message}`);
+  }
+}
+
+async function onSubmit(evt) {
+  evt.preventDefault();
+  const form = elements.modalForm;
+  const formData = new FormData(form);
+  
+  const resourceKey = formData.get("resourceKey");
+  const name = formData.get("name").trim();
+  const alias = formData.get("alias").trim();
+  const type = formData.get("type");
+  const remark = formData.get("remark").trim();
+  const isPerm = formData.get("isPerm") === "true";
+  
+  let content = "";
+  if (type === CONFIG_TYPES.KV) {
+    const { data, errors } = collectKvData({ strict: true });
+    if (errors.length) {
+      showToast(errors[0]);
+      return;
+    }
+    content = JSON.stringify(data);
+  } else if (type === "config" || type === "json") {
+    const raw = elements.contentJsonInput.value.trim();
+    if (!raw) {
+      showToast("请填写配置内容");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      content = JSON.stringify(parsed);
+    } catch (err) {
+      showToast("JSON 格式错误");
+      return;
+    }
+  } else if (type === "text") {
+    content = elements.contentTextInput.value.trim();
+    if (!content) {
+      showToast("请填写文案内容");
+      return;
+    }
+  } else if (type === "image") {
+    content = state.imageUpload.reference || elements.modalContentInput.value.trim();
+    if (!content) {
+      showToast("请上传图片");
+      return;
+    }
+  } else if (type === "color") {
+    content = getColorValue();
+    if (!content) {
+      showToast("请选择颜色");
+      return;
+    }
+  }
+
+  const payload = {
+    config: {
+      resource_key: resourceKey || "",
+      name,
+      alias,
+      type,
+      content,
+      remark,
+      is_perm: isPerm,
+      environment_key: getCurrentEnvironment(),
+      pipeline_key: getCurrentPipeline(),
+    },
+  };
+
+  const isNew = !resourceKey;
+  const endpoint = isNew ? `${state.apiBase}/api/v1/config/create` : `${state.apiBase}/api/v1/config/update`;
+
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (json.code && json.code !== 200) {
+      throw new Error(json.error || json.msg || "保存失败");
+    }
+    showToast(isNew ? "创建成功" : "保存成功");
+    configModal.close();
+    fetchConfigs();
+  } catch (err) {
+    showToast(`保存失败: ${err.message}`);
   }
 }
 
@@ -693,9 +526,9 @@ function showSystemKeySelect() {
     elements.systemKeySelect.classList.remove("hidden");
     elements.systemKeySelect.disabled = false;
   }
-  if (elements.refreshSystemKeysBtn) {
-    elements.refreshSystemKeysBtn.classList.remove("hidden");
-    elements.refreshSystemKeysBtn.disabled = false;
+  if (elements.refreshSystemOptionsBtn) {
+    elements.refreshSystemOptionsBtn.classList.remove("hidden");
+    elements.refreshSystemOptionsBtn.disabled = false;
   }
   // 不设置 readonly，允许用户修改默认值
   if (elements.modalAliasInput) {
@@ -717,9 +550,9 @@ function hideSystemKeySelect(clear = false) {
       elements.systemKeySelect.value = "";
     }
   }
-  if (elements.refreshSystemKeysBtn) {
-    elements.refreshSystemKeysBtn.classList.add("hidden");
-    elements.refreshSystemKeysBtn.disabled = true;
+  if (elements.refreshSystemOptionsBtn) {
+    elements.refreshSystemOptionsBtn.classList.add("hidden");
+    elements.refreshSystemOptionsBtn.disabled = true;
   }
   if (elements.modalAliasInput) {
     elements.modalAliasInput.readOnly = false;
@@ -794,13 +627,13 @@ function resetDataType() {
   updateDataTypeViews("config");
 }
 
-function setDataType(type, options = {}) {
+function setDataType(type, options = {}, isViewOnly = false) {
   const normalized = normalizeDataType(type);
   state.dataType = normalized;
   if (elements.modalTypeSelect) {
     elements.modalTypeSelect.value = normalized;
   }
-  updateDataTypeViews(normalized, options);
+  updateDataTypeViews(normalized, options, isViewOnly);
   if (!options.initialize) {
     if (normalized === "config" && elements.modalContentInput) {
       elements.modalContentInput.value = "";
@@ -811,32 +644,51 @@ function setDataType(type, options = {}) {
     if (normalized === "image") {
       clearImageReference();
     }
-    if (normalized === "color") {
-      const initial = state.colorValue || elements.contentColorPicker?.value || DEFAULT_COLOR;
-      setColorValue(initial, { fillPicker: true, forceContent: true });
-    } else {
-      clearColorValue({ resetPicker: true });
-    }
+  }
+  if (normalized === "color") {
+    const preset = state.colorValue || elements.contentColorPicker?.value || DEFAULT_COLOR;
+    if (elements.contentColorPicker) elements.contentColorPicker.disabled = isViewOnly;
+    if (elements.contentColorValue) elements.contentColorValue.readOnly = isViewOnly;
+    setColorValue(preset, { fillPicker: true, forceContent: true });
+  } else if (!options.initialize) {
+    clearColorValue({ resetPicker: true });
   }
 }
 
-function updateDataTypeViews(type, options = {}) {
+function updateDataTypeViews(type, options = {}, isViewOnly = false) {
   const normalizedType = normalizeConfigType(type);
   
   if (elements.contentKvGroup) {
     elements.contentKvGroup.classList.toggle("hidden", normalizedType !== CONFIG_TYPES.KV);
+    if (normalizedType === CONFIG_TYPES.KV && isViewOnly && elements.kvList) {
+      elements.kvList.querySelectorAll("input").forEach(input => input.readOnly = true);
+      elements.kvList.querySelectorAll("button[data-action='kv-remove']").forEach(btn => btn.style.display = "none");
+    }
   }
   if (elements.contentJsonGroup) {
     elements.contentJsonGroup.classList.toggle("hidden", normalizedType !== "config" && normalizedType !== "json");
+    if (elements.contentJsonInput) {
+      elements.contentJsonInput.readOnly = isViewOnly;
+    }
   }
   if (elements.contentTextGroup) {
     elements.contentTextGroup.classList.toggle("hidden", normalizedType !== "text");
+    if (elements.contentTextInput) {
+      elements.contentTextInput.readOnly = isViewOnly;
+    }
   }
   if (elements.contentImageGroup) {
     elements.contentImageGroup.classList.toggle("hidden", normalizedType !== "image");
+    if (normalizedType === "image" && isViewOnly && elements.contentImageUploadBtn) {
+      elements.contentImageUploadBtn.style.display = "none";
+    }
   }
   if (elements.contentColorGroup) {
     elements.contentColorGroup.classList.toggle("hidden", normalizedType !== "color");
+    if (normalizedType === "color" && isViewOnly) {
+      if (elements.contentColorPicker) elements.contentColorPicker.disabled = true;
+      if (elements.contentColorValue) elements.contentColorValue.readOnly = true;
+    }
   }
   
   if (normalizedType !== "image" && !options.initialize) {
@@ -868,14 +720,14 @@ function updateDataTypeViews(type, options = {}) {
   }
 }
 
-function initializeDataTypeFields(type, content) {
+function initializeDataTypeFields(type, content, isViewOnly = false) {
   const normalized = normalizeDataType(type);
   const normalizedType = normalizeConfigType(normalized);
   
   if (elements.modalTypeSelect) {
     elements.modalTypeSelect.value = normalized;
   }
-  setDataType(normalized, { initialize: true });
+  setDataType(normalized, { initialize: true }, isViewOnly);
   const trimmed = (content || "").trim();
   if (elements.modalContentInput) {
     elements.modalContentInput.value = trimmed;
@@ -944,20 +796,11 @@ function setImageReference(reference, asset) {
   if (elements.modalContentInput) {
     elements.modalContentInput.value = trimmed;
   }
-  let url = asset?.url || "";
-  if (!url && trimmed.startsWith("asset://")) {
-    const assetId = trimmed.replace("asset://", "");
-    if (assetId) {
-      url = `${state.apiBase}/api/v1/asset/file/${encodeURIComponent(assetId)}`;
-    }
-  }
-  if (!url && trimmed.startsWith("/api/v1/asset/file/")) {
-    url = `${state.apiBase}${trimmed}`;
-  }
-  if (!url && /^https?:\/\//i.test(trimmed)) {
-    url = trimmed;
-  }
+  
+  // Use resolveAssetUrl to determine the actual image URL
+  const url = resolveAssetUrl(asset?.url || trimmed, state.apiBase);
   state.imageUpload.url = url;
+  
   state.imageUpload.filename = asset?.file_name || asset?.fileName || "";
   const parts = [];
   if (state.imageUpload.filename) {
@@ -1144,6 +987,7 @@ function renderConfigTable() {
       <td>${escapeHtml(summarizeContent(cfg.content))}</td>
       <td>
         <div class="table-actions">
+          <button class="ghost" data-action="view" data-key="${escapeAttr(cfg.resource_key || "")}">查看</button>
           <button class="ghost" data-action="edit" data-key="${escapeAttr(cfg.resource_key || "")}">编辑</button>
           <button class="danger" data-action="delete" data-key="${escapeAttr(cfg.resource_key || "")}" data-env="${escapeAttr(cfg.environment_key || "")}" data-pipeline="${escapeAttr(cfg.pipeline_key || "")}">删除</button>
         </div>
@@ -1152,15 +996,22 @@ function renderConfigTable() {
   });
 }
 
-async function openConfigModal(cfg) {
+async function openConfigModal(cfg, isViewOnly = false) {
   state.editing = cfg || null;
   const isEditing = Boolean(cfg);
   
-  elements.modalTitle.textContent = isEditing ? "编辑配置" : "新建配置";
+  elements.modalTitle.textContent = isViewOnly ? "查看配置" : (isEditing ? "编辑配置" : "新建配置");
   elements.modalForm.reset();
   resetIdentityMode();
   
   const form = elements.modalForm;
+  
+  // 控制确定按钮显示
+  const submitBtn = form.querySelector("button[type='submit']");
+  if (submitBtn) {
+    submitBtn.style.display = isViewOnly ? "none" : "";
+  }
+
   if (cfg) {
     form.elements.resourceKey.value = cfg.resource_key || "";
     form.elements.name.value = cfg.name || "";
@@ -1174,8 +1025,23 @@ async function openConfigModal(cfg) {
     });
   }
   
+  // 基础字段只读控制
+  if (elements.modalNameInput) {
+    elements.modalNameInput.readOnly = isViewOnly;
+    elements.modalNameInput.classList.toggle("readonly", isViewOnly);
+  }
+  const remarkInput = form.elements.remark;
+  if (remarkInput) {
+    remarkInput.readOnly = isViewOnly;
+    remarkInput.classList.toggle("readonly", isViewOnly);
+  }
+  const isPermRadios = form.elements.isPerm;
+  if (isPermRadios) {
+    [...isPermRadios].forEach(radio => radio.disabled = isViewOnly);
+  }
+
   // 编辑模式下隐藏配置来源选项，别名和类型只读
-  if (isEditing) {
+  if (isEditing || isViewOnly) {
     // 隐藏配置来源整个 label
     const identityModeContainer = elements.identityModeRadios[0]?.closest('.identity-mode');
     const identityModeLabel = identityModeContainer?.closest('label.full');
@@ -1215,8 +1081,25 @@ async function openConfigModal(cfg) {
     }
   }
   
+  // KV 编辑器只读控制
+  if (elements.addKvRowBtn) {
+    elements.addKvRowBtn.style.display = isViewOnly ? "none" : "";
+  }
+  
+  // 图片上传按钮只读控制
+  if (elements.contentImageUploadBtn) {
+    elements.contentImageUploadBtn.style.display = isViewOnly ? "none" : "";
+  }
+  if (elements.contentImageFile) {
+    elements.contentImageFile.disabled = isViewOnly;
+  }
+  
+  // 重置状态
+  clearImageReference();
+  clearColorValue({ resetPicker: true, forceContent: true });
+  
   const initialType = normalizeDataType(form.elements.type.value || "config");
-  initializeDataTypeFields(initialType, form.elements.content.value || "");
+  initializeDataTypeFields(initialType, form.elements.content.value || "", isViewOnly);
 
   // 编辑模式下不需要检查系统配置
   if (!isEditing) {

@@ -159,6 +159,38 @@ export function downloadBlob(blob, filename) {
 }
 
 /**
+ * Resolve asset reference or path to a full URL
+ * @param {string} reference - Asset reference (asset://id), relative path (/api/...) or full URL
+ * @param {string} apiBase - API base URL
+ * @returns {string} Resolved URL
+ */
+export function resolveAssetUrl(reference = "", apiBase = "") {
+  const trimmed = reference.trim();
+  if (!trimmed) return "";
+
+  // Full URL
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // asset:// protocol
+  if (trimmed.startsWith("asset://")) {
+    const assetId = trimmed.replace("asset://", "");
+    return assetId ? `${apiBase}/api/v1/asset/file/${encodeURIComponent(assetId)}` : "";
+  }
+
+  // Relative path
+  if (trimmed.startsWith("/")) {
+    return `${apiBase}${trimmed}`;
+  }
+
+  // fallback or already relative/absolute path without leading slash
+  // If it doesn't match any, and isn't empty, we could try to prefix it if it looks like a path
+  // but for now let's be conservative.
+  return trimmed;
+}
+
+/**
  * Set button loading state
  * @param {HTMLButtonElement} button - Button element
  * @param {boolean} loading - Loading state

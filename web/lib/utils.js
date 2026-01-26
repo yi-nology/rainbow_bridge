@@ -26,7 +26,7 @@ export function escapeAttr(str = "") {
 /**
  * Normalize data type to internal format
  * @param {string} value - Input type value
- * @returns {string} Normalized type: 'image', 'text', 'color', 'json', or 'kv'
+ * @returns {string} Normalized type: 'image', 'text', 'color', 'config', or 'kv'
  */
 export function normalizeDataType(value = "") {
   const str = value.toString().toLowerCase();
@@ -34,8 +34,8 @@ export function normalizeDataType(value = "") {
   if (["text", "string", "copy", "文案", "文本"].includes(str)) return CONFIG_TYPES.TEXT;
   if (["color", "colour", "color_tag", "color-tag", "色彩", "色彩标签"].includes(str)) return CONFIG_TYPES.COLOR;
   if (["kv", "keyvalue", "key-value", "键值对"].includes(str)) return CONFIG_TYPES.KV;
-  if (["json", "config", "对象", "配置对象"].includes(str)) return CONFIG_TYPES.JSON;
-  return CONFIG_TYPES.JSON; // default
+  if (["json", "config", "对象", "配置对象"].includes(str)) return "config"; // 使用 'config' 以匹配 HTML select 选项
+  return "config"; // default
 }
 
 /**

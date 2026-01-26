@@ -91,8 +91,19 @@
                 <p class="hint small">设置键值对，系统会以 JSON 对象格式保存。</p>
               </div>
               <div id="contentConfigGroup" class="content-group">
+                <div class="json-editor-toolbar">
+                  <button type="button" id="formatJsonBtn" class="ghost mini">🎨 格式化</button>
+                  <button type="button" id="previewJsonBtn" class="ghost mini">👁️ 预览</button>
+                </div>
                 <textarea id="contentJsonInput" rows="5" placeholder='请输入合法的 JSON 对象，例如 {"foo":"bar"}'></textarea>
                 <p class="hint small">内容需为 JSON 对象，系统会在保存时校验格式。</p>
+                <div id="jsonPreview" class="json-preview hidden">
+                  <div class="json-preview-header">
+                    <span>数据预览</span>
+                    <button type="button" id="closePreviewBtn" class="ghost mini">✕</button>
+                  </div>
+                  <div id="jsonPreviewContent" class="json-preview-content"></div>
+                </div>
               </div>
               <div id="contentTextGroup" class="content-group hidden">
                 <textarea id="contentTextInput" rows="4" placeholder="请输入文案内容"></textarea>

@@ -63,6 +63,11 @@ const elements = {
   keyValueEditor: document.getElementById("systemKeyValueEditor"),
   keyValueList: document.getElementById("systemKeyValueList"),
   keyValueAddBtn: document.getElementById("systemKeyValueAdd"),
+  formatJsonBtn: document.getElementById("systemFormatJsonBtn"),
+  previewJsonBtn: document.getElementById("systemPreviewJsonBtn"),
+  jsonPreview: document.getElementById("systemJsonPreview"),
+  jsonPreviewContent: document.getElementById("systemJsonPreviewContent"),
+  closePreviewBtn: document.getElementById("systemClosePreviewBtn"),
 };
 
 const showToast = createToast("systemToast");
@@ -82,12 +87,13 @@ const systemModal = createModal("systemModal", {
 });
 
 (async function init() {
-  await fetchConfigs();
-  
   await initEnvSelector(state.apiBase, async (envKey) => {
     state.currentEnvironment = envKey;
-    fetchConfigs();
+    await fetchConfigs();
   });
+  
+  // 环境选择器初始化后，加载配置
+  await fetchConfigs();
 })();
 
 if (elements.search) {
@@ -177,6 +183,18 @@ if (elements.keyValueList) {
       updateContentFromEditor();
     }
   });
+}
+
+if (elements.formatJsonBtn) {
+  elements.formatJsonBtn.addEventListener("click", formatJson);
+}
+
+if (elements.previewJsonBtn) {
+  elements.previewJsonBtn.addEventListener("click", previewJson);
+}
+
+if (elements.closePreviewBtn) {
+  elements.closePreviewBtn.addEventListener("click", closeJsonPreview);
 }
 
 document.addEventListener("click", (evt) => {
@@ -1063,4 +1081,100 @@ function normalizeColorValue(value) {
     return `#${expanded.toUpperCase()}`;
   }
   return trimmed;
+}
+
+// ------------------------- JSON Format & Preview Functions -------------------------
+
+function formatJson() {
+  if (!elements.contentJsonInput) return;
+  const raw = elements.contentJsonInput.value.trim();
+  if (!raw) {
+    showToast("请先输入 JSON 内容");
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    const formatted = JSON.stringify(parsed, null, 2);
+    elements.contentJsonInput.value = formatted;
+    showToast("格式化成功");
+  } catch (err) {
+    showToast(`格式化失败: ${err.message}`);
+  }
+}
+
+function previewJson() {
+  if (!elements.contentJsonInput || !elements.jsonPreview || !elements.jsonPreviewContent) return;
+  const raw = elements.contentJsonInput.value.trim();
+  if (!raw) {
+    showToast("请先输入 JSON 内容");
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    elements.jsonPreviewContent.innerHTML = renderJsonTree(parsed);
+    elements.jsonPreview.classList.remove("hidden");
+  } catch (err) {
+    showToast(`解析失败: ${err.message}`);
+  }
+}
+
+function closeJsonPreview() {
+  if (!elements.jsonPreview) return;
+  elements.jsonPreview.classList.add("hidden");
+}
+
+function renderJsonTree(obj, level = 0) {
+  const indent = level * 20;
+  let html = '';
+  
+  if (obj === null) {
+    return `<div class="json-item" style="padding-left: ${indent}px"><span class="json-null">null</span></div>`;
+  }
+  
+  if (typeof obj !== 'object') {
+    const className = typeof obj === 'string' ? 'json-string' : 
+                     typeof obj === 'number' ? 'json-number' : 
+                     typeof obj === 'boolean' ? 'json-boolean' : 'json-value';
+    const displayValue = typeof obj === 'string' ? `"${escapeHtml(obj)}"` : String(obj);
+    return `<div class="json-item" style="padding-left: ${indent}px"><span class="${className}">${displayValue}</span></div>`;
+  }
+  
+  if (Array.isArray(obj)) {
+    html += `<div class="json-item" style="padding-left: ${indent}px"><span class="json-bracket">[</span></div>`;
+    obj.forEach((item, index) => {
+      const comma = index < obj.length - 1 ? ',' : '';
+      html += `<div class="json-item" style="padding-left: ${indent + 20}px">`;
+      html += renderJsonTree(item, level + 1).replace(`padding-left: ${(level + 1) * 20}px`, `padding-left: 0px`);
+      html += `<span class="json-comma">${comma}</span></div>`;
+    });
+    html += `<div class="json-item" style="padding-left: ${indent}px"><span class="json-bracket">]</span></div>`;
+    return html;
+  }
+  
+  const keys = Object.keys(obj);
+  html += `<div class="json-item" style="padding-left: ${indent}px"><span class="json-bracket">{</span></div>`;
+  keys.forEach((key, index) => {
+    const value = obj[key];
+    const comma = index < keys.length - 1 ? ',' : '';
+    html += `<div class="json-item" style="padding-left: ${indent + 20}px">`;
+    html += `<span class="json-key">"${escapeHtml(key)}"</span><span class="json-colon">: </span>`;
+    
+    if (value === null) {
+      html += `<span class="json-null">null</span>`;
+    } else if (typeof value === 'object') {
+      html += `</div>`;
+      html += renderJsonTree(value, level + 1);
+      html += `<div class="json-item" style="padding-left: ${indent + 20}px">`;
+    } else {
+      const className = typeof value === 'string' ? 'json-string' : 
+                       typeof value === 'number' ? 'json-number' : 
+                       typeof value === 'boolean' ? 'json-boolean' : 'json-value';
+      const displayValue = typeof value === 'string' ? `"${escapeHtml(value)}"` : String(value);
+      html += `<span class="${className}">${displayValue}</span>`;
+    }
+    
+    html += `<span class="json-comma">${comma}</span></div>`;
+  });
+  html += `<div class="json-item" style="padding-left: ${indent}px"><span class="json-bracket">}</span></div>`;
+  return html;
 }

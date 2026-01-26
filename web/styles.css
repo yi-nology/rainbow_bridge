@@ -1376,3 +1376,95 @@ button.danger {
     gap: 12px;
   }
 }
+
+/* JSON 编辑器工具栏 */
+.json-editor-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.json-editor-toolbar button {
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
+/* JSON 预览面板 */
+.json-preview {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.json-preview.hidden {
+  display: none;
+}
+
+.json-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #eef2f8;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.json-preview-header button {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.json-preview-content {
+  padding: 12px;
+  max-height: 400px;
+  overflow: auto;
+  font-family: "JetBrains Mono", "Consolas", "Monaco", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #ffffff;
+}
+
+.json-item {
+  margin: 2px 0;
+}
+
+.json-key {
+  color: #0066cc;
+  font-weight: 600;
+}
+
+.json-string {
+  color: #00a854;
+}
+
+.json-number {
+  color: #d36aff;
+}
+
+.json-boolean {
+  color: #ff6b35;
+  font-weight: 500;
+}
+
+.json-null {
+  color: #999;
+  font-style: italic;
+}
+
+.json-bracket {
+  color: #666;
+  font-weight: 600;
+}
+
+.json-colon {
+  color: #666;
+}
+
+.json-comma {
+  color: #666;
+}

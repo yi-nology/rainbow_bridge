@@ -80,8 +80,19 @@
             </label>
             <label class="full">配置值
               <div id="systemContentConfig" class="content-group hidden">
+                <div class="json-editor-toolbar">
+                  <button type="button" id="systemFormatJsonBtn" class="ghost mini">🎨 格式化</button>
+                  <button type="button" id="systemPreviewJsonBtn" class="ghost mini">👁️ 预览</button>
+                </div>
                 <textarea id="systemContentJson" rows="5" placeholder='请输入合法的 JSON 对象'></textarea>
                 <p class="hint small">内容需为 JSON 对象，系统会在保存时校验格式。</p>
+                <div id="systemJsonPreview" class="json-preview hidden">
+                  <div class="json-preview-header">
+                    <span>数据预览</span>
+                    <button type="button" id="systemClosePreviewBtn" class="ghost mini">✕</button>
+                  </div>
+                  <div id="systemJsonPreviewContent" class="json-preview-content"></div>
+                </div>
               </div>
               <div id="systemContentText" class="content-group hidden">
                 <textarea id="systemContentTextInput" rows="4" placeholder="请输入配置值"></textarea>

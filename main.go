@@ -7,18 +7,16 @@ import (
 	"embed"
 	"io/fs"
 	"log"
-	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	hconfig "github.com/cloudwego/hertz/pkg/common/config"
-	resourcemodel "github.com/yi-nology/rainbow_bridge/biz/dal/model"
+	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/biz/middleware"
 	bizrouter "github.com/yi-nology/rainbow_bridge/biz/router"
-	resourceservice "github.com/yi-nology/rainbow_bridge/biz/service"
+	"github.com/yi-nology/rainbow_bridge/biz/service"
 	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
-	"gorm.io/gorm"
 )
 
 //go:embed web/*
@@ -35,26 +33,16 @@ func main() {
 		log.Fatalf("open database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&resourcemodel.Config{}, &resourcemodel.Asset{}, &resourcemodel.Environment{}, &resourcemodel.Pipeline{}, &resourcemodel.SystemConfig{}); err != nil {
+	if err := db.AutoMigrate(&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{}, &model.SystemConfig{}); err != nil {
 		log.Fatalf("auto migrate: %v", err)
 	}
 
-	// Drop old unique index on pipeline table if it exists
-	if err := dropOldPipelineIndex(db); err != nil {
-		log.Fatalf("drop old pipeline index: %v", err)
-	}
-
-	// Drop old unique index on system_config table if it exists
-	if err := dropOldSystemConfigIndex(db); err != nil {
-		log.Fatalf("drop old system_config index: %v", err)
-	}
-
 	// Migrate existing configs with default environment_key and pipeline_key
-	if err := resourceservice.MigrateConfigDefaults(db); err != nil {
+	if err := service.MigrateConfigDefaults(db); err != nil {
 		log.Fatalf("migrate config defaults: %v", err)
 	}
 
-	if err := resourceservice.EnsureSystemDefaults(context.Background(), db); err != nil {
+	if err := service.EnsureSystemDefaults(context.Background(), db); err != nil {
 		log.Fatalf("seed system defaults: %v", err)
 	}
 
@@ -65,13 +53,13 @@ func main() {
 	}
 	h := server.Default(opts...)
 
-	resourceService := resourceservice.NewService(db, basePath)
+	service := service.NewService(db, basePath)
 
 	// Initialize handlers with service
-	bizrouter.InitHandlers(resourceService)
+	bizrouter.InitHandlers(service)
 
 	// Migrate to full asset paths
-	if err := resourceService.MigrateToFullAssetPaths(context.Background()); err != nil {
+	if err := service.MigrateToFullAssetPaths(context.Background()); err != nil {
 		log.Printf("Warning: failed to migrate asset paths: %v", err)
 	}
 
@@ -144,215 +132,4 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
 	serve("/lib/api.js", "lib/api.js", "application/javascript")
 	serve("/lib/toast.js", "lib/toast.js", "application/javascript")
 	serve("/lib/init.js", "lib/init.js", "application/javascript")
-}
-
-// dropOldPipelineIndex removes the old uk_pipeline_key unique index if it exists.
-// This is needed because we changed from single-key to composite unique index.
-func dropOldPipelineIndex(db *gorm.DB) error {
-	// Check if the old index exists
-	var indexExists bool
-	switch db.Dialector.Name() {
-	case "sqlite":
-		// SQLite: Check sqlite_master table
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='uk_pipeline_key'").Scan(&count).Error; err != nil {
-			return err
-		}
-		indexExists = count > 0
-	case "mysql":
-		// MySQL: Check information_schema
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM information_schema.statistics WHERE table_name='pipeline' AND index_name='uk_pipeline_key'").Scan(&count).Error; err != nil {
-			return err
-		}
-		indexExists = count > 0
-	case "postgres":
-		// PostgreSQL: Check pg_indexes
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM pg_indexes WHERE tablename='pipeline' AND indexname='uk_pipeline_key'").Scan(&count).Error; err != nil {
-			return err
-		}
-		indexExists = count > 0
-	default:
-		// Unknown database, skip
-		return nil
-	}
-
-	if !indexExists {
-		// Index doesn't exist, nothing to do
-		return nil
-	}
-
-	log.Println("[Migration] Dropping old uk_pipeline_key index...")
-
-	// Drop the old index
-	migrator := db.Migrator()
-	if err := migrator.DropIndex(&resourcemodel.Pipeline{}, "uk_pipeline_key"); err != nil {
-		log.Printf("[Migration] Warning: Failed to drop old index: %v", err)
-		// Don't fail the startup, just warn
-		return nil
-	}
-
-	log.Println("[Migration] ✓ Dropped old uk_pipeline_key index")
-	return nil
-}
-
-// dropOldSystemConfigIndex removes the old uk_system_config unique index that includes pipeline_key.
-// This is needed because we changed from (environment_key, pipeline_key, config_key) to (environment_key, config_key).
-func dropOldSystemConfigIndex(db *gorm.DB) error {
-	var indexExists bool
-	var hasPipelineKey bool
-
-	switch db.Dialector.Name() {
-	case "sqlite":
-		// Check if index exists and contains pipeline_key
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='uk_system_config'").Scan(&count).Error; err != nil {
-			return err
-		}
-		if count > 0 {
-			indexExists = true
-			// Check if the index includes pipeline_key
-			var sqlDef string
-			if err := db.Raw("SELECT sql FROM sqlite_master WHERE type='index' AND name='uk_system_config'").Scan(&sqlDef).Error; err != nil {
-				return err
-			}
-			hasPipelineKey = len(sqlDef) > 0 && contains(sqlDef, "pipeline_key")
-		}
-	case "mysql":
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM information_schema.statistics WHERE table_name='system_config' AND index_name='uk_system_config'").Scan(&count).Error; err != nil {
-			return err
-		}
-		if count > 0 {
-			indexExists = true
-			var colCount int64
-			if err := db.Raw("SELECT COUNT(*) FROM information_schema.statistics WHERE table_name='system_config' AND index_name='uk_system_config' AND column_name='pipeline_key'").Scan(&colCount).Error; err != nil {
-				return err
-			}
-			hasPipelineKey = colCount > 0
-		}
-	case "postgres":
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM pg_indexes WHERE tablename='system_config' AND indexname='uk_system_config'").Scan(&count).Error; err != nil {
-			return err
-		}
-		indexExists = count > 0
-		if indexExists {
-			// Check if index definition contains pipeline_key
-			var indexDef string
-			if err := db.Raw("SELECT indexdef FROM pg_indexes WHERE tablename='system_config' AND indexname='uk_system_config'").Scan(&indexDef).Error; err != nil {
-				return err
-			}
-			hasPipelineKey = contains(indexDef, "pipeline_key")
-		}
-	default:
-		return nil
-	}
-
-	if !indexExists {
-		return nil
-	}
-
-	// If the index includes pipeline_key, we need to migrate
-	if hasPipelineKey {
-		log.Println("[Migration] Detected old system_config index with pipeline_key, starting migration...")
-
-		// Step 1: Deduplicate data - keep records with pipeline_key='default' when duplicates exist
-		if err := deduplicateSystemConfigs(db); err != nil {
-			log.Printf("[Migration] Warning: Failed to deduplicate system_config: %v", err)
-			// Continue anyway, GORM will handle unique constraint violations
-		}
-
-		// Step 2: Drop the old index
-		log.Println("[Migration] Dropping old uk_system_config index (with pipeline_key)...")
-		migrator := db.Migrator()
-		if err := migrator.DropIndex(&resourcemodel.SystemConfig{}, "uk_system_config"); err != nil {
-			log.Printf("[Migration] Warning: Failed to drop old system_config index: %v", err)
-			return nil
-		}
-		log.Println("[Migration] ✓ Dropped old uk_system_config index")
-
-		// Step 3: Drop the pipeline_key column index if it exists
-		if db.Migrator().HasIndex(&resourcemodel.SystemConfig{}, "idx_sys_cfg_pipeline") {
-			if err := migrator.DropIndex(&resourcemodel.SystemConfig{}, "idx_sys_cfg_pipeline"); err != nil {
-				log.Printf("[Migration] Warning: Failed to drop idx_sys_cfg_pipeline index: %v", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// deduplicateSystemConfigs removes duplicate records keeping pipeline_key='default' ones
-func deduplicateSystemConfigs(db *gorm.DB) error {
-	log.Println("[Migration] Deduplicating system_config records...")
-
-	// Find duplicates (same environment_key + config_key with different pipeline_key)
-	type DuplicateGroup struct {
-		EnvironmentKey string
-		ConfigKey      string
-		Count          int64
-	}
-	var duplicates []DuplicateGroup
-
-	if err := db.Raw(`
-		SELECT environment_key, config_key, COUNT(*) as count 
-		FROM system_config 
-		WHERE deleted_at IS NULL
-		GROUP BY environment_key, config_key 
-		HAVING COUNT(*) > 1
-	`).Scan(&duplicates).Error; err != nil {
-		return err
-	}
-
-	if len(duplicates) == 0 {
-		log.Println("[Migration] No duplicate system_config records found")
-		return nil
-	}
-
-	log.Printf("[Migration] Found %d duplicate groups in system_config", len(duplicates))
-
-	// For each duplicate group, keep the 'default' pipeline record or the first one
-	for _, dup := range duplicates {
-		// Get all records in this group
-		var records []resourcemodel.SystemConfig
-		if err := db.Unscoped().Where("environment_key = ? AND config_key = ? AND deleted_at IS NULL", dup.EnvironmentKey, dup.ConfigKey).Order("CASE WHEN pipeline_key = 'default' THEN 0 ELSE 1 END, created_at ASC").Find(&records).Error; err != nil {
-			log.Printf("[Migration] Warning: Failed to query duplicates for %s/%s: %v", dup.EnvironmentKey, dup.ConfigKey, err)
-			continue
-		}
-
-		if len(records) <= 1 {
-			continue
-		}
-
-		// Keep the first record (which is 'default' pipeline if exists, otherwise earliest)
-		keepID := records[0].ID
-		var deleteIDs []uint
-		for _, r := range records[1:] {
-			deleteIDs = append(deleteIDs, r.ID)
-		}
-
-		if len(deleteIDs) > 0 {
-			log.Printf("[Migration] Keeping record ID %d for %s/%s, deleting %d duplicates", keepID, dup.EnvironmentKey, dup.ConfigKey, len(deleteIDs))
-			if err := db.Unscoped().Where("id IN ?", deleteIDs).Delete(&resourcemodel.SystemConfig{}).Error; err != nil {
-				log.Printf("[Migration] Warning: Failed to delete duplicates: %v", err)
-			}
-		}
-	}
-
-	log.Println("[Migration] ✓ System_config deduplication complete")
-	return nil
-}
-
-// contains checks if a string contains a substring (case-insensitive)
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && containsIgnoreCase(s, substr)))
-}
-
-func containsIgnoreCase(s, substr string) bool {
-	s = strings.ToLower(s)
-	substr = strings.ToLower(substr)
-	return strings.Contains(s, substr)
 }

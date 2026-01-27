@@ -22,6 +22,8 @@ func Register(r *server.Hertz) {
 		{
 			_v1 := _api.Group("/v1", _v1Mw()...)
 			_v1.GET("/version", append(_getversionMw(), version.GetVersion)...)
+			_version := _v1.Group("/version", _versionMw()...)
+			_version.GET("/latest", append(_getlatestreleaseMw(), version.GetLatestRelease)...)
 		}
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	hconfig "github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
+	versionhandler "github.com/yi-nology/rainbow_bridge/biz/handler/version"
 	"github.com/yi-nology/rainbow_bridge/biz/middleware"
 	bizrouter "github.com/yi-nology/rainbow_bridge/biz/router"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
@@ -21,6 +22,13 @@ import (
 
 //go:embed web/*
 var embeddedWeb embed.FS
+
+var (
+	// Version information, injected at build time
+	Version   = "dev"
+	GitCommit = "unknown"
+	BuildTime = "unknown"
+)
 
 func main() {
 	cfg, err := appconfig.Load("config.yaml")
@@ -54,6 +62,11 @@ func main() {
 	h := server.Default(opts...)
 
 	service := service.NewService(db, basePath)
+
+	// Set version information for version handler
+	versionhandler.AppVersion = Version
+	versionhandler.AppGitCommit = GitCommit
+	versionhandler.AppBuildTime = BuildTime
 
 	// Initialize handlers with service
 	bizrouter.InitHandlers(service)

@@ -8,7 +8,7 @@ import { CONFIG_TYPES, getConfigTypeName, normalizeConfigType } from "./lib/type
 initPageLayout({
   activeKey: "system",
   title: "系统业务配置",
-  caption: "管理环境维度的系统业务配置",
+  caption: "管理环境维度的系统业务配置，同环境多渠道间可以共享配置",
   showEnvSelector: true,
   showPipelineSelector: false,
 });

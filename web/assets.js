@@ -46,6 +46,7 @@ const assetModal = createModal("assetModal", {
   
   let pipelineReloader = null;
   
+  // 初始化环境选择器，并在切换时重载渠道和资源
   await initEnvSelector(state.apiBase, async () => {
     // 环境切换时，重新加载渠道列表
     if (pipelineReloader) {
@@ -54,7 +55,19 @@ const assetModal = createModal("assetModal", {
     loadAssets();
   });
   
+  // 初始化渠道选择器（但不自动加载数据）
   pipelineReloader = await initPipelineSelector(state.apiBase, () => loadAssets());
+  
+  // 先禁用渠道选择器
+  const pipelineSelect = document.getElementById("globalPipelineSelector");
+  if (pipelineSelect) {
+    pipelineSelect.disabled = true;
+  }
+  
+  // 等待环境选择器初始化完成后，再加载渠道列表
+  if (pipelineReloader) {
+    await pipelineReloader.reload();
+  }
 })();
 
 el.search.addEventListener("input", (evt) => {

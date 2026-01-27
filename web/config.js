@@ -33,6 +33,7 @@ const state = {
   colorValue: "",
   selectedEnv: getCurrentEnvironment(),
   selectedPipeline: getCurrentPipeline(),
+  isInitializingModal: false, // 标记是否正在初始化 modal
 };
 
 const elements = {
@@ -85,6 +86,7 @@ let pipelineReloader = null;
 const configModal = createModal("modalOverlay", {
   onClose: () => {
     state.editing = null;
+    state.isInitializingModal = false; // 重置初始化标志
     elements.modalForm.reset();
     resetIdentityMode();
     resetDataType();
@@ -102,6 +104,7 @@ const configModal = createModal("modalOverlay", {
 // ------------------------- Initialization -------------------------
 
 (async function init() {
+  // 初始化环境选择器，并在切换时重载渠道和配置
   await initEnvSelector(state.apiBase, async () => {
     // 环境切换时，重载全局渠道选择器的选项
     if (pipelineReloader) {
@@ -110,9 +113,21 @@ const configModal = createModal("modalOverlay", {
     fetchConfigs();
   });
   
+  // 初始化渠道选择器（但不自动加载数据）
   pipelineReloader = await initPipelineSelector(state.apiBase, () => {
     fetchConfigs();
   });
+  
+  // 先禁用渠道选择器
+  const pipelineSelect = document.getElementById("globalPipelineSelector");
+  if (pipelineSelect) {
+    pipelineSelect.disabled = true;
+  }
+  
+  // 等待环境选择器初始化完成后，再加载渠道列表
+  if (pipelineReloader) {
+    await pipelineReloader.reload();
+  }
   
   // 初始化完成后，加载业务配置列表
   fetchConfigs();
@@ -157,6 +172,8 @@ if (elements.refreshSystemOptionsBtn) {
 
 if (elements.modalTypeSelect) {
   elements.modalTypeSelect.addEventListener("change", (evt) => {
+    // 如果正在初始化 modal，忽略类型变化事件
+    if (state.isInitializingModal) return;
     setDataType(evt.target.value);
   });
 }
@@ -1155,6 +1172,8 @@ function setFormFieldsState(form, modeConfig) {
 
 async function openConfigModal(cfg, isViewOnly = false) {
   state.editing = cfg || null;
+  state.isInitializingModal = true; // 开始初始化
+  
   const modeConfig = getModalModeConfig(cfg, isViewOnly);
   
   // 设置标题
@@ -1212,6 +1231,7 @@ async function openConfigModal(cfg, isViewOnly = false) {
     });
   }
   
+  state.isInitializingModal = false; // 初始化完成
   configModal.open();
 }
 

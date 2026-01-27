@@ -256,7 +256,7 @@ func TestExportImportArchive(t *testing.T) {
 	// Import into new service
 	other, cleanupOther := newTestService(t)
 	defer cleanupOther()
-	imported, err := other.ImportConfigsArchive(ctx, archive, false)
+	imported, err := other.ImportConfigsArchive(ctx, archive, "", "", false)
 	if err != nil {
 		t.Fatalf("ImportConfigsArchive: %v", err)
 	}

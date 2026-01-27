@@ -1070,22 +1070,105 @@ function renderConfigTable() {
   });
 }
 
+// 获取模态框模式配置
+function getModalModeConfig(cfg, isViewOnly) {
+  const isEditing = Boolean(cfg);
+  const isCreating = !cfg;
+  
+  return {
+    title: isViewOnly ? "查看配置" : (isEditing ? "编辑配置" : "新建配置"),
+    isViewOnly,
+    isEditing,
+    isCreating,
+    showSubmitBtn: !isViewOnly,
+    showIdentityMode: isCreating, // 仅新建时显示配置来源
+    enableAlias: isCreating, // 仅新建时可编辑别名
+    enableType: isCreating, // 仅新建时可选择类型
+    enableName: !isViewOnly,
+    enableRemark: !isViewOnly,
+    enableIsPerm: !isViewOnly,
+    enableKvAdd: !isViewOnly,
+    enableImageUpload: !isViewOnly,
+    needSystemCheck: isCreating, // 仅新建时检查系统配置
+  };
+}
+
+// 设置表单字段状态
+function setFormFieldsState(form, modeConfig) {
+  // 提交按钮
+  const submitBtn = form.querySelector("button[type='submit']");
+  if (submitBtn) {
+    submitBtn.style.display = modeConfig.showSubmitBtn ? "" : "none";
+  }
+  
+  // 名称字段
+  if (elements.modalNameInput) {
+    elements.modalNameInput.readOnly = !modeConfig.enableName;
+    elements.modalNameInput.classList.toggle("readonly", !modeConfig.enableName);
+  }
+  
+  // 别名字段
+  if (elements.modalAliasInput) {
+    elements.modalAliasInput.readOnly = !modeConfig.enableAlias;
+    elements.modalAliasInput.classList.toggle("readonly", !modeConfig.enableAlias);
+  }
+  
+  // 类型选择器
+  if (elements.modalTypeSelect) {
+    elements.modalTypeSelect.disabled = !modeConfig.enableType;
+    elements.modalTypeSelect.classList.toggle("disabled", !modeConfig.enableType);
+  }
+  
+  // 备注字段
+  const remarkInput = form.elements.remark;
+  if (remarkInput) {
+    remarkInput.readOnly = !modeConfig.enableRemark;
+    remarkInput.classList.toggle("readonly", !modeConfig.enableRemark);
+  }
+  
+  // 是否永久配置
+  const isPermRadios = form.elements.isPerm;
+  if (isPermRadios) {
+    [...isPermRadios].forEach(radio => radio.disabled = !modeConfig.enableIsPerm);
+  }
+  
+  // 配置来源选项
+  const identityModeContainer = elements.identityModeRadios[0]?.closest('.identity-mode');
+  const identityModeLabel = identityModeContainer?.closest('label.full');
+  if (identityModeLabel) {
+    identityModeLabel.style.display = modeConfig.showIdentityMode ? '' : 'none';
+  }
+  
+  // KV 编辑器添加按钮
+  if (elements.addKvRowBtn) {
+    elements.addKvRowBtn.style.display = modeConfig.enableKvAdd ? "" : "none";
+  }
+  
+  // 图片上传控件
+  if (elements.contentImageUploadBtn) {
+    elements.contentImageUploadBtn.style.display = modeConfig.enableImageUpload ? "" : "none";
+  }
+  if (elements.contentImageFile) {
+    elements.contentImageFile.disabled = !modeConfig.enableImageUpload;
+  }
+}
+
 async function openConfigModal(cfg, isViewOnly = false) {
   state.editing = cfg || null;
-  const isEditing = Boolean(cfg);
+  const modeConfig = getModalModeConfig(cfg, isViewOnly);
   
-  elements.modalTitle.textContent = isViewOnly ? "查看配置" : (isEditing ? "编辑配置" : "新建配置");
+  // 设置标题
+  elements.modalTitle.textContent = modeConfig.title;
+  
+  // 重置表单和状态
   elements.modalForm.reset();
   resetIdentityMode();
+  clearImageReference();
+  clearColorValue({ resetPicker: true, forceContent: true });
   
   const form = elements.modalForm;
   
-  // 控制确定按钮显示
-  const submitBtn = form.querySelector("button[type='submit']");
-  if (submitBtn) {
-    submitBtn.style.display = isViewOnly ? "none" : "";
-  }
-
+  // 填充表单数据
   if (cfg) {
     form.elements.resourceKey.value = cfg.resource_key || "";
     form.elements.name.value = cfg.name || "";
@@ -1099,84 +1182,15 @@ async function openConfigModal(cfg, isViewOnly = false) {
     });
   }
   
-  // 基础字段只读控制
-  if (elements.modalNameInput) {
-    elements.modalNameInput.readOnly = isViewOnly;
-    elements.modalNameInput.classList.toggle("readonly", isViewOnly);
-  }
-  const remarkInput = form.elements.remark;
-  if (remarkInput) {
-    remarkInput.readOnly = isViewOnly;
-    remarkInput.classList.toggle("readonly", isViewOnly);
-  }
-  const isPermRadios = form.elements.isPerm;
-  if (isPermRadios) {
-    [...isPermRadios].forEach(radio => radio.disabled = isViewOnly);
-  }
-
-  // 编辑模式下隐藏配置来源选项，别名和类型只读
-  if (isEditing || isViewOnly) {
-    // 隐藏配置来源整个 label
-    const identityModeContainer = elements.identityModeRadios[0]?.closest('.identity-mode');
-    const identityModeLabel = identityModeContainer?.closest('label.full');
-    if (identityModeLabel) {
-      identityModeLabel.style.display = 'none';
-    }
-    
-    // 别名只读
-    if (elements.modalAliasInput) {
-      elements.modalAliasInput.readOnly = true;
-      elements.modalAliasInput.classList.add('readonly');
-    }
-    
-    // 类型只读
-    if (elements.modalTypeSelect) {
-      elements.modalTypeSelect.disabled = true;
-      elements.modalTypeSelect.classList.add('disabled');
-    }
-  } else {
-    // 新建模式下显示所有选项
-    const identityModeContainer = elements.identityModeRadios[0]?.closest('.identity-mode');
-    const identityModeLabel = identityModeContainer?.closest('label.full');
-    if (identityModeLabel) {
-      identityModeLabel.style.display = '';
-    }
-    
-    // 别名可编辑
-    if (elements.modalAliasInput) {
-      elements.modalAliasInput.readOnly = false;
-      elements.modalAliasInput.classList.remove('readonly');
-    }
-    
-    // 类型可选择
-    if (elements.modalTypeSelect) {
-      elements.modalTypeSelect.disabled = false;
-      elements.modalTypeSelect.classList.remove('disabled');
-    }
-  }
+  // 设置表单字段状态（只读、禁用等）
+  setFormFieldsState(form, modeConfig);
   
-  // KV 编辑器只读控制
-  if (elements.addKvRowBtn) {
-    elements.addKvRowBtn.style.display = isViewOnly ? "none" : "";
-  }
-  
-  // 图片上传按钮只读控制
-  if (elements.contentImageUploadBtn) {
-    elements.contentImageUploadBtn.style.display = isViewOnly ? "none" : "";
-  }
-  if (elements.contentImageFile) {
-    elements.contentImageFile.disabled = isViewOnly;
-  }
-  
-  // 重置状态
-  clearImageReference();
-  clearColorValue({ resetPicker: true, forceContent: true });
-  
+  // 初始化数据类型编辑器
   const initialType = normalizeDataType(form.elements.type.value || "config");
-  initializeDataTypeFields(initialType, form.elements.content.value || "", isViewOnly);
+  initializeDataTypeFields(initialType, form.elements.content.value || "", modeConfig.isViewOnly);
 
-  // 编辑模式下不需要检查系统配置
-  if (!isEditing) {
+  // 处理系统配置（仅新建模式需要）
+  if (modeConfig.needSystemCheck) {
     let initialMode = "custom";
     if (cfg && (form.elements.alias.value || form.elements.name.value)) {
       try {

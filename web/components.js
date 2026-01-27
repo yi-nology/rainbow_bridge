@@ -133,8 +133,21 @@ export function initSidebar(options = {}) {
             `<a class="side-footer-link" href="${link.href}" target="_blank" rel="noopener">${link.label}</a>`,
         )
         .join("")}
+      <div class="sidebar-version-info" id="sidebarVersionInfo">
+        <div class="version-line">
+          <span class="version-label">当前：</span>
+          <span id="sidebarCurrentVersion" class="version-value">加载中...</span>
+        </div>
+        <div class="version-line">
+          <span class="version-label">最新：</span>
+          <span id="sidebarLatestVersion" class="version-value">加载中...</span>
+        </div>
+      </div>
     </div>
   `;
+  
+  // 加载版本信息
+  loadSidebarVersionInfo();
 }
 
 export function initPageHeader(options = {}) {
@@ -281,4 +294,82 @@ export async function initPipelineSelector(apiBase, onChange) {
 
 export function getNavItem(key) {
   return NAV_ITEMS.find((item) => item.key === key);
+}
+
+// 加载侧边栏版本信息
+async function loadSidebarVersionInfo() {
+  const currentVersionEl = document.getElementById("sidebarCurrentVersion");
+  const latestVersionEl = document.getElementById("sidebarLatestVersion");
+  
+  if (!currentVersionEl || !latestVersionEl) return;
+  
+  // 动态导入 runtime 模块获取 API base
+  const { getDefaultApiBase } = await import("./runtime.js");
+  const apiBase = getDefaultApiBase();
+  
+  // 并行加载当前版本和最新版本
+  await Promise.all([
+    loadCurrentVersion(apiBase, currentVersionEl),
+    loadLatestVersion(apiBase, latestVersionEl),
+  ]);
+}
+
+async function loadCurrentVersion(apiBase, element) {
+  try {
+    const res = await fetch(`${apiBase}/api/v1/version`);
+    if (!res.ok) throw new Error("Failed to fetch");
+    
+    const json = await res.json();
+    const versionInfo = json?.data?.version_info || json?.version_info;
+    
+    if (versionInfo && versionInfo.version) {
+      element.textContent = versionInfo.version;
+      element.style.color = "rgba(255, 255, 255, 0.88)";
+    } else {
+      element.textContent = "未知";
+    }
+  } catch (err) {
+    element.textContent = "获取失败";
+    element.style.color = "rgba(255, 255, 255, 0.4)";
+  }
+}
+
+async function loadLatestVersion(apiBase, element) {
+  try {
+    const res = await fetch(`${apiBase}/api/v1/version/latest`);
+    if (!res.ok) throw new Error("Failed to fetch");
+    
+    const json = await res.json();
+    const releaseInfo = json?.data?.release_info || json?.release_info;
+    
+    if (releaseInfo && releaseInfo.tag_name) {
+      // 创建可点击的链接
+      const link = document.createElement("a");
+      link.href = releaseInfo.html_url || "https://github.com/yi-nology/rainbow_bridge/releases";
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = releaseInfo.tag_name;
+      link.style.color = "rgba(255, 255, 255, 0.88)";
+      link.style.textDecoration = "none";
+      link.style.borderBottom = "1px dashed rgba(255, 255, 255, 0.3)";
+      link.title = `查看 ${releaseInfo.tag_name} 发布说明`;
+      
+      link.addEventListener("mouseenter", () => {
+        link.style.color = "#fff";
+        link.style.borderBottomColor = "rgba(255, 255, 255, 0.6)";
+      });
+      link.addEventListener("mouseleave", () => {
+        link.style.color = "rgba(255, 255, 255, 0.88)";
+        link.style.borderBottomColor = "rgba(255, 255, 255, 0.3)";
+      });
+      
+      element.innerHTML = "";
+      element.appendChild(link);
+    } else {
+      element.textContent = "未知";
+    }
+  } catch (err) {
+    element.textContent = "获取失败";
+    element.style.color = "rgba(255, 255, 255, 0.4)";
+  }
 }

@@ -282,16 +282,6 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 
 	_, err := svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "system",
-		Alias:       "business_select",
-		Name:        "默认业务",
-		Type:        "text",
-		Content:     "biz-realtime",
-	}})
-	if err != nil {
-		t.Fatalf("seed business_select: %v", err)
-	}
-	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
-		BusinessKey: "system",
 		Alias:       "system_options",
 		Name:        "系统选项",
 		Type:        "key",
@@ -316,11 +306,6 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 		t.Fatalf("GetRealtimeStaticConfig: %v", err)
 	}
 
-	selectKey, ok := payload["default_key"].(string)
-	if selectKey != "biz-realtime" {
-		t.Fatalf("unexpected business_select %q", selectKey)
-	}
-
 	bizKeys, ok := payload["business_keys"].([]string)
 	if !ok {
 		t.Fatalf("business_keys not []string: %T", payload["business_keys"])
@@ -332,9 +317,6 @@ func TestGetRealtimeStaticConfig(t *testing.T) {
 	systemData, ok := payload["system"].(map[string]any)
 	if !ok {
 		t.Fatalf("system data missing or wrong type")
-	}
-	if _, ok := systemData["business_select"]; !ok {
-		t.Fatalf("system payload missing business_select entry")
 	}
 
 	bizData, ok := payload["biz-realtime"].(map[string]any)
@@ -357,17 +339,6 @@ func TestExportSystemSelectedStaticBundle(t *testing.T) {
 
 	// Seed system configs
 	_, err := svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
-		BusinessKey: "system",
-		Alias:       "business_select",
-		Name:        "默认业务",
-		Type:        "text",
-		Content:     "biz-main",
-	}})
-	if err != nil {
-		t.Fatalf("seed business_select: %v", err)
-	}
-
-	_, err = svc.AddConfig(ctx, &api.CreateOrUpdateConfigRequest{Config: &api.ResourceConfig{
 		BusinessKey: "system",
 		Alias:       "system_copy",
 		Name:        "系统文案",
@@ -403,9 +374,9 @@ func TestExportSystemSelectedStaticBundle(t *testing.T) {
 
 	payload := readStaticConfig(t, bundle)
 	systemData := getStaticSection(t, payload, "system")
-	entry := getStaticEntry(t, systemData, "business_select")
-	if content := entry["content"]; content != "biz-main" {
-		t.Fatalf("unexpected business_select content %v", content)
+	entry := getStaticEntry(t, systemData, "system_copy")
+	if content := entry["content"]; content != "hello-system" {
+		t.Fatalf("unexpected system_copy content %v", content)
 	}
 
 	bizData := getStaticSection(t, payload, "biz-main")

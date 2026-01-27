@@ -8,6 +8,9 @@ FROM golang:${GO_VERSION}-bookworm AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
 
 ENV CGO_ENABLED=1 \
     GOOS=${TARGETOS:-linux} \
@@ -27,7 +30,9 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /out/hertz_service .
+RUN go build \
+    -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}'" \
+    -o /out/hertz_service .
 
 ##
 ## Runtime stage

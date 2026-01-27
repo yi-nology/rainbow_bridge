@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package version;
+
+import "api.proto";
+import "common.proto";
+
+option go_package = "github.com/yi-nology/rainbow_bridge/biz/model/version";
+
+// VersionInfo represents the application version information
+message VersionInfo {
+  string version = 1;      // Version tag (e.g., v1.1.4)
+  string git_commit = 2;   // Git commit hash
+  string build_time = 3;   // Build timestamp
+}
+
+// VersionRequest is empty since version endpoint doesn't need parameters
+message VersionRequest {}
+
+// VersionResponse contains version information
+message VersionResponse {
+  common.OperateResponse operate_response = 1;
+  VersionInfo version_info = 2;
+}
+
+service VersionService {
+  // GetVersion returns the current application version information
+  rpc GetVersion(VersionRequest) returns (VersionResponse) {
+    option (api.get) = "/api/v1/version";
+  }
+}

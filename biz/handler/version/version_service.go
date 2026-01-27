@@ -19,7 +19,7 @@ var (
 	AppVersion   = "dev"
 	AppGitCommit = "unknown"
 	AppBuildTime = "unknown"
-	
+
 	// GitHub repository information
 	GitHubOwner = "yi-nology"
 	GitHubRepo  = "rainbow_bridge"
@@ -99,35 +99,35 @@ func GetLatestRelease(ctx context.Context, c *app.RequestContext) {
 
 func fetchLatestGitHubRelease(ctx context.Context) (*version.GitHubReleaseInfo, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", GitHubOwner, GitHubRepo)
-	
+
 	httpCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	
+
 	req, err := http.NewRequestWithContext(httpCtx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	
+
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "rainbow-bridge")
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch release: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("GitHub API returned %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	var release GitHubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	
+
 	return &version.GitHubReleaseInfo{
 		TagName:     release.TagName,
 		Name:        release.Name,

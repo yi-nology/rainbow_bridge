@@ -101,7 +101,10 @@ if (elements.pipelineSelector) {
     await fetchRuntimeConfig();
   }
   // Fetch version information
-  await fetchVersionInfo();
+  await Promise.all([
+    fetchVersionInfo(),
+    fetchLatestRelease(),
+  ]);
 })();
 
 async function fetchVersionInfo() {
@@ -118,22 +121,62 @@ async function fetchVersionInfo() {
       if (versionText) {
         const parts = [];
         if (versionInfo.version) {
-          parts.push(`版本 ${versionInfo.version}`);
+          parts.push(versionInfo.version);
         }
         if (versionInfo.git_commit) {
-          parts.push(`Commit ${versionInfo.git_commit}`);
+          parts.push(`(${versionInfo.git_commit})`);
         }
-        if (versionInfo.build_time) {
-          parts.push(`构建时间 ${versionInfo.build_time}`);
-        }
-        versionText.textContent = parts.length > 0 ? parts.join(" | ") : "版本信息不可用";
+        versionText.textContent = parts.length > 0 ? parts.join(" ") : "版本信息不可用";
       }
     }
   } catch (err) {
     const versionText = document.getElementById("versionText");
     if (versionText) {
-      versionText.textContent = `获取版本信息失败：${err.message}`;
+      versionText.textContent = `获取失败`;
       versionText.style.color = "#f5222d";
+    }
+  }
+}
+
+async function fetchLatestRelease() {
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/version/latest`);
+    if (!res.ok) {
+      throw new Error(await extractError(res));
+    }
+    const json = await res.json();
+    const releaseInfo = json?.data?.release_info || json?.release_info;
+    
+    if (releaseInfo && releaseInfo.tag_name) {
+      const latestVersionText = document.getElementById("latestVersionText");
+      if (latestVersionText) {
+        // Create a clickable link to the release page
+        const link = document.createElement("a");
+        link.href = releaseInfo.html_url || "https://github.com/yi-nology/rainbow_bridge/releases";
+        link.target = "_blank";
+        link.style.color = "#1890ff";
+        link.style.textDecoration = "none";
+        
+        const parts = [];
+        parts.push(releaseInfo.tag_name);
+        if (releaseInfo.name && releaseInfo.name !== releaseInfo.tag_name) {
+          parts.push(`- ${releaseInfo.name}`);
+        }
+        if (releaseInfo.published_at) {
+          const date = new Date(releaseInfo.published_at);
+          parts.push(`(${date.toLocaleDateString("zh-CN")})`);
+        }
+        
+        link.textContent = parts.join(" ");
+        latestVersionText.innerHTML = "";
+        latestVersionText.appendChild(link);
+      }
+    }
+  } catch (err) {
+    const latestVersionText = document.getElementById("latestVersionText");
+    if (latestVersionText) {
+      latestVersionText.textContent = `获取失败`;
+      latestVersionText.style.color = "#f5222d";
     }
   }
 }

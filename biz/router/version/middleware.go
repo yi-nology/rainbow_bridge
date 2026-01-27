@@ -25,3 +25,13 @@ func _getversionMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _versionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getlatestreleaseMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

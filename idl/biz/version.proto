@@ -23,9 +23,33 @@ message VersionResponse {
   VersionInfo version_info = 2;
 }
 
+// GitHubReleaseInfo represents GitHub latest release information
+message GitHubReleaseInfo {
+  string tag_name = 1;        // Release tag name (e.g., v1.2.0)
+  string name = 2;            // Release name
+  string published_at = 3;    // Published timestamp
+  string html_url = 4;        // Release page URL
+  bool prerelease = 5;        // Is prerelease
+  string body = 6;            // Release notes/description
+}
+
+// GitHubReleaseRequest is empty
+message GitHubReleaseRequest {}
+
+// GitHubReleaseResponse contains GitHub release information
+message GitHubReleaseResponse {
+  common.OperateResponse operate_response = 1;
+  GitHubReleaseInfo release_info = 2;
+}
+
 service VersionService {
   // GetVersion returns the current application version information
   rpc GetVersion(VersionRequest) returns (VersionResponse) {
     option (api.get) = "/api/v1/version";
+  }
+  
+  // GetLatestRelease returns the latest GitHub release information
+  rpc GetLatestRelease(GitHubReleaseRequest) returns (GitHubReleaseResponse) {
+    option (api.get) = "/api/v1/version/latest";
   }
 }

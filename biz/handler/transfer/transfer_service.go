@@ -44,8 +44,13 @@ func Import(ctx context.Context, c *app.RequestContext) {
 			handler.RespondError(c, consts.StatusInternalServerError, err)
 			return
 		}
+
+		// 获取目标环境和渠道（用户在前端选择的）
+		targetEnv := strings.TrimSpace(string(c.FormValue("environment_key")))
+		targetPipeline := strings.TrimSpace(string(c.FormValue("pipeline_key")))
 		overwrite := strings.ToLower(string(c.FormValue("overwrite"))) == "true"
-		configs, err := svc.ImportConfigsArchive(handler.EnrichContext(ctx, c), data, overwrite)
+
+		configs, err := svc.ImportConfigsArchive(handler.EnrichContext(ctx, c), data, targetEnv, targetPipeline, overwrite)
 		if err != nil {
 			handler.RespondError(c, consts.StatusInternalServerError, err)
 			return

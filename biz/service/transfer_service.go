@@ -335,7 +335,7 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 	return buf.Bytes(), nil
 }
 
-func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwrite bool) ([]*common.ResourceConfig, error) {
+func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetEnv, targetPipeline string, overwrite bool) ([]*common.ResourceConfig, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
@@ -374,27 +374,58 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, overwri
 				return nil, err
 			}
 
-			// 导入 environments
-			if envs, ok := archiveData["environments"]; ok {
-				if err := s.importEnvironments(ctx, envs); err != nil {
-					// 记录错误但继续导入
-					fmt.Printf("Warning: failed to import environments: %v\n", err)
+			// 规范化图片类型配置的引用格式
+			for i := range configs {
+				if configs[i].Type == "image" && configs[i].Content != "" {
+					configs[i].Content = normalizeImageReference(configs[i].Content)
 				}
 			}
 
-			// 导入 pipelines
-			if pipes, ok := archiveData["pipelines"]; ok {
-				if err := s.importPipelines(ctx, pipes); err != nil {
-					// 记录错误但继续导入
-					fmt.Printf("Warning: failed to import pipelines: %v\n", err)
+			// 如果指定了目标环境和渠道，将所有配置映射到目标环境/渠道
+			if targetEnv != "" && targetPipeline != "" {
+				for i := range configs {
+					configs[i].EnvironmentKey = targetEnv
+					configs[i].PipelineKey = targetPipeline
 				}
 			}
 
-			// 导入 system_configs
-			if sysConfigs, ok := archiveData["system_configs"]; ok {
-				if err := s.importSystemConfigs(ctx, sysConfigs); err != nil {
-					// 记录错误但继续导入
-					fmt.Printf("Warning: failed to import system configs: %v\n", err)
+			// 导入 environments（仅当未指定目标环境时）
+			if targetEnv == "" {
+				if envs, ok := archiveData["environments"]; ok {
+					if err := s.importEnvironments(ctx, envs); err != nil {
+						// 记录错误但继续导入
+						fmt.Printf("Warning: failed to import environments: %v\n", err)
+					}
+				}
+			} else {
+				// 确保目标环境存在
+				if err := s.ensureEnvironmentExists(ctx, targetEnv); err != nil {
+					fmt.Printf("Warning: target environment may not exist: %v\n", err)
+				}
+			}
+
+			// 导入 pipelines（仅当未指定目标渠道时）
+			if targetPipeline == "" {
+				if pipes, ok := archiveData["pipelines"]; ok {
+					if err := s.importPipelines(ctx, pipes); err != nil {
+						// 记录错误但继续导入
+						fmt.Printf("Warning: failed to import pipelines: %v\n", err)
+					}
+				}
+			} else {
+				// 确保目标渠道存在
+				if err := s.ensurePipelineExists(ctx, targetEnv, targetPipeline); err != nil {
+					fmt.Printf("Warning: target pipeline may not exist: %v\n", err)
+				}
+			}
+
+			// 导入 system_configs（仅当未指定目标环境时）
+			if targetEnv == "" {
+				if sysConfigs, ok := archiveData["system_configs"]; ok {
+					if err := s.importSystemConfigs(ctx, sysConfigs); err != nil {
+						// 记录错误但继续导入
+						fmt.Printf("Warning: failed to import system configs: %v\n", err)
+					}
 				}
 			}
 			continue
@@ -706,4 +737,74 @@ func containsString(list []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// ensureEnvironmentExists 确保环境存在，如果不存在则返回错误
+func (s *Service) ensureEnvironmentExists(ctx context.Context, envKey string) error {
+	_, err := s.logic.environmentDAO.GetByKey(ctx, s.logic.db, envKey)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("environment %s does not exist", envKey)
+		}
+		return err
+	}
+	return nil
+}
+
+// ensurePipelineExists 确保渠道存在，如果不存在则返回错误
+func (s *Service) ensurePipelineExists(ctx context.Context, envKey, pipelineKey string) error {
+	_, err := s.logic.pipelineDAO.GetByKey(ctx, s.logic.db, envKey, pipelineKey)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("pipeline %s/%s does not exist", envKey, pipelineKey)
+		}
+		return err
+	}
+	return nil
+}
+
+// normalizeImageReference 规范化图片引用格式
+// 支持将旧格式转换为新格式：
+// - /api/v1/files/{fileId} -> asset://{fileId}
+// - /api/v1/asset/file/{fileId}/{fileName} -> asset://{fileId}
+// - /api/v1/asset/file/{fileId} -> asset://{fileId}
+// - asset://{fileId} -> asset://{fileId} (保持不变)
+// - http(s)://... -> http(s)://... (保持不变)
+func normalizeImageReference(ref string) string {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return ref
+	}
+
+	// 如果已经是 asset:// 格式，保持不变
+	if strings.HasPrefix(ref, "asset://") {
+		return ref
+	}
+
+	// 如果是 http:// 或 https://，保持不变
+	if strings.HasPrefix(strings.ToLower(ref), "http://") ||
+		strings.HasPrefix(strings.ToLower(ref), "https://") {
+		return ref
+	}
+
+	// 转换 /api/v1/files/{fileId} 格式
+	if strings.HasPrefix(ref, "/api/v1/files/") {
+		fileID := strings.TrimPrefix(ref, "/api/v1/files/")
+		// 移除可能的文件名部分
+		if idx := strings.Index(fileID, "/"); idx > 0 {
+			fileID = fileID[:idx]
+		}
+		return "asset://" + fileID
+	}
+
+	// 转换 /api/v1/asset/file/{fileId}/{fileName} 或 /api/v1/asset/file/{fileId} 格式
+	if strings.HasPrefix(ref, "/api/v1/asset/file/") {
+		parts := strings.Split(strings.TrimPrefix(ref, "/api/v1/asset/file/"), "/")
+		if len(parts) > 0 && parts[0] != "" {
+			return "asset://" + parts[0]
+		}
+	}
+
+	// 其他格式保持不变
+	return ref
 }

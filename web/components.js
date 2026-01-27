@@ -260,6 +260,9 @@ export async function initPipelineSelector(apiBase, onChange) {
 
   const loadPipelines = async () => {
     try {
+      // 加载渠道前禁用选择器
+      select.disabled = true;
+      
       const currentEnv = getCurrentEnvironment();
       const res = await fetch(`${apiBase}/api/v1/pipeline/list?environment_key=${encodeURIComponent(currentEnv)}`);
       const json = await res.json();
@@ -276,12 +279,18 @@ export async function initPipelineSelector(apiBase, onChange) {
         select.value = list[0].pipeline_key;
         setCurrentPipeline(select.value);
       }
+      
+      // 加载完成后启用选择器
+      select.disabled = false;
     } catch (err) {
       console.error("Failed to load pipelines:", err);
+      // 出错时也要启用选择器
+      select.disabled = false;
     }
   };
 
-  await loadPipelines();
+  // 初始加载不自动执行，由调用方控制
+  // await loadPipelines();
 
   select.addEventListener("change", (e) => {
     setCurrentPipeline(e.target.value);

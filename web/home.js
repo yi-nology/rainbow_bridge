@@ -100,7 +100,44 @@ if (elements.pipelineSelector) {
   if (state.runtime.selectedEnv && state.runtime.selectedPipeline) {
     await fetchRuntimeConfig();
   }
+  // Fetch version information
+  await fetchVersionInfo();
 })();
+
+async function fetchVersionInfo() {
+  try {
+    const res = await fetch(`${state.apiBase}/api/v1/version`);
+    if (!res.ok) {
+      throw new Error(await extractError(res));
+    }
+    const json = await res.json();
+    const versionInfo = json?.data?.version_info || json?.version_info;
+    
+    if (versionInfo) {
+      const versionText = document.getElementById("versionText");
+      if (versionText) {
+        const parts = [];
+        if (versionInfo.version) {
+          parts.push(`版本 ${versionInfo.version}`);
+        }
+        if (versionInfo.git_commit) {
+          parts.push(`Commit ${versionInfo.git_commit}`);
+        }
+        if (versionInfo.build_time) {
+          parts.push(`构建时间 ${versionInfo.build_time}`);
+        }
+        versionText.textContent = parts.length > 0 ? parts.join(" | ") : "版本信息不可用";
+      }
+    }
+  } catch (err) {
+    const versionText = document.getElementById("versionText");
+    if (versionText) {
+      versionText.textContent = `获取版本信息失败：${err.message}`;
+      versionText.style.color = "#f5222d";
+    }
+  }
+}
+
 
 async function fetchEnvironments() {
   try {

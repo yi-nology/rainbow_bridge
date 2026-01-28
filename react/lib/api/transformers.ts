@@ -156,8 +156,8 @@ export function fromApiConfig(api: ApiResourceConfig): ConfigItem {
   
   return {
     id: api.resource_key,
-    name: api.resource_key,
-    alias: api.alias || api.name,
+    name: api.name,
+    alias: api.alias,
     type: type as ConfigItem['type'],
     content,
     environmentId: api.environment_key,
@@ -180,9 +180,9 @@ export function toApiConfig(
   const backendContent = transformContentToBackend(config.type, config.content)
   
   return {
-    resource_key: config.name,
-    alias: config.alias || config.name,
-    name: config.alias || config.name,
+    resource_key: config.id || '',
+    alias: config.alias || '',
+    name: config.name,
     environment_key: config.environmentId,
     pipeline_key: config.pipelineId,
     content: backendContent,

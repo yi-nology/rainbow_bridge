@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -184,22 +183,24 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 		if err != nil {
 			return nil, err
 		}
-		fullPath := filepath.Join(dataDirectory, asset.Path)
-		file, err := os.Open(fullPath)
+
+		// 从存储中读取文件
+		reader, err := s.storage.GetObject(ctx, asset.Path)
 		if err != nil {
 			return nil, err
 		}
+
 		zipPath := filepath.Join("files", asset.FileID, asset.FileName)
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
 		if err != nil {
-			file.Close()
+			reader.Close()
 			return nil, err
 		}
-		if _, err := io.Copy(writer, file); err != nil {
-			file.Close()
+		if _, err := io.Copy(writer, reader); err != nil {
+			reader.Close()
 			return nil, err
 		}
-		file.Close()
+		reader.Close()
 	}
 
 	if err := zipWriter.Close(); err != nil {
@@ -346,18 +347,24 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 		if err != nil {
 			return nil, err
 		}
-		data, err := io.ReadAll(rc)
+		fileData, err := io.ReadAll(rc)
 		rc.Close()
 		if err != nil {
 			return nil, err
 		}
 
-		if err := ensureUploadDir(fileID); err != nil {
+		// 构建存储 key
+		key := fmt.Sprintf("%s/%s", fileID, fileName)
+
+		// 使用存储接口写入文件
+		contentType := http.DetectContentType(fileData)
+		if err := s.storage.PutObject(ctx, key, bytes.NewReader(fileData), contentType, int64(len(fileData))); err != nil {
 			return nil, err
 		}
-		relativePath := filepath.Join(uploadDirectory, fileID, fileName)
-		fullPath := filepath.Join(dataDirectory, relativePath)
-		if err := os.WriteFile(fullPath, data, 0o644); err != nil {
+
+		// 生成 URL
+		url, err := s.storage.GenerateURL(ctx, key, fileName)
+		if err != nil {
 			return nil, err
 		}
 
@@ -374,11 +381,11 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 			EnvironmentKey: envKey,
 			PipelineKey:    pipeKey,
 			FileName:       fileName,
-			FileSize:       int64(len(data)),
-			ContentType:    http.DetectContentType(data),
-			Path:           relativePath,
+			FileSize:       int64(len(fileData)),
+			ContentType:    contentType,
+			Path:           key,
+			URL:            url,
 		}
-		asset.URL = s.generateFileURL(asset)
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
 			if !errors.Is(err, ErrAssetNotFound) {
 				return nil, err
@@ -746,22 +753,28 @@ func (s *Service) copyConfigAssets(ctx context.Context, cfg *model.Config, targe
 			continue // 跳过不存在的资源
 		}
 
-		// 读取原文件
-		oldPath := filepath.Join(dataDirectory, oldAsset.Path)
-		data, err := os.ReadFile(oldPath)
+		// 从存储中读取原文件
+		reader, err := s.storage.GetObject(ctx, oldAsset.Path)
+		if err != nil {
+			continue
+		}
+		data, err := io.ReadAll(reader)
+		reader.Close()
 		if err != nil {
 			continue
 		}
 
-		// 生成新 ID 并写入文件
+		// 生成新 ID 并写入存储
 		newID := uuid.NewString()
-		if err := ensureUploadDir(newID); err != nil {
+		newKey := fmt.Sprintf("%s/%s", newID, oldAsset.FileName)
+
+		if err := s.storage.PutObject(ctx, newKey, bytes.NewReader(data), oldAsset.ContentType, int64(len(data))); err != nil {
 			return err
 		}
 
-		newRelPath := filepath.Join(uploadDirectory, newID, oldAsset.FileName)
-		newFullPath := filepath.Join(dataDirectory, newRelPath)
-		if err := os.WriteFile(newFullPath, data, 0o644); err != nil {
+		// 生成 URL
+		url, err := s.storage.GenerateURL(ctx, newKey, oldAsset.FileName)
+		if err != nil {
 			return err
 		}
 
@@ -773,9 +786,9 @@ func (s *Service) copyConfigAssets(ctx context.Context, cfg *model.Config, targe
 			FileName:       oldAsset.FileName,
 			FileSize:       oldAsset.FileSize,
 			ContentType:    oldAsset.ContentType,
-			Path:           newRelPath,
+			Path:           newKey,
+			URL:            url,
 		}
-		newAsset.URL = s.generateFileURL(newAsset)
 		if err := s.logic.CreateAsset(ctx, newAsset); err != nil {
 			return err
 		}

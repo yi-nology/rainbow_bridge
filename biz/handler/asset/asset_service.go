@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -194,17 +193,19 @@ func GetFile(ctx context.Context, c *app.RequestContext) {
 		fileID = c.Param("fileID")
 	}
 
-	assetItem, path, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
+	assetItem, reader, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
 	if err != nil {
-		if errors.Is(err, service.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, service.ErrAssetNotFound) || strings.Contains(err.Error(), "not found") {
 			handler.WriteNotFound(c, err)
 			return
 		}
 		handler.WriteInternalError(c, err)
 		return
 	}
+	defer reader.Close()
 
-	content, err := os.ReadFile(path)
+	// Read content
+	content, err := io.ReadAll(reader)
 	if err != nil {
 		handler.WriteInternalError(c, err)
 		return

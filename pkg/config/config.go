@@ -14,8 +14,33 @@ import (
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
+	Storage  StorageConfig  `yaml:"storage"`
 	CORS     CORSConfig     `yaml:"cors"`
 	Upload   UploadConfig   `yaml:"upload"`
+}
+
+// StorageConfig defines the storage backend configuration.
+type StorageConfig struct {
+	Type  string             `yaml:"type"` // "local" or "s3"
+	Local LocalStorageConfig `yaml:"local"`
+	S3    S3StorageConfig    `yaml:"s3"`
+}
+
+// LocalStorageConfig contains local filesystem storage settings.
+type LocalStorageConfig struct {
+	BasePath string `yaml:"base_path"` // Default: "data/uploads"
+}
+
+// S3StorageConfig contains S3-compatible storage settings.
+type S3StorageConfig struct {
+	Endpoint  string `yaml:"endpoint"`   // S3 endpoint URL (e.g., http://minio:9000)
+	Region    string `yaml:"region"`     // AWS region
+	Bucket    string `yaml:"bucket"`     // Bucket name
+	AccessKey string `yaml:"access_key"` // Access key ID
+	SecretKey string `yaml:"secret_key"` // Secret access key
+	UseSSL    bool   `yaml:"use_ssl"`    // Use HTTPS
+	PathStyle bool   `yaml:"path_style"` // Use path-style URLs (required for MinIO)
+	URLMode   string `yaml:"url_mode"`   // "presigned" or "proxy"
 }
 
 // CORSConfig defines CORS middleware settings.
@@ -96,6 +121,16 @@ func defaultConfig() *Config {
 				Path: "data/resource.db",
 			},
 		},
+		Storage: StorageConfig{
+			Type: "local",
+			Local: LocalStorageConfig{
+				BasePath: "data/uploads",
+			},
+			S3: S3StorageConfig{
+				Region:  "us-east-1",
+				URLMode: "presigned",
+			},
+		},
 		CORS: CORSConfig{
 			AllowOrigin:      "*",
 			AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
@@ -125,6 +160,19 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Database.SQLite.Path == "" {
 		cfg.Database.SQLite.Path = "data/resource.db"
+	}
+	// Storage defaults
+	if cfg.Storage.Type == "" {
+		cfg.Storage.Type = "local"
+	}
+	if cfg.Storage.Local.BasePath == "" {
+		cfg.Storage.Local.BasePath = "data/uploads"
+	}
+	if cfg.Storage.S3.Region == "" {
+		cfg.Storage.S3.Region = "us-east-1"
+	}
+	if cfg.Storage.S3.URLMode == "" {
+		cfg.Storage.S3.URLMode = "presigned"
 	}
 }
 

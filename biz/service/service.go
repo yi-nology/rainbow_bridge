@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/biz/model/common"
+	"github.com/yi-nology/rainbow_bridge/pkg/storage"
 
 	"gorm.io/gorm"
 )
@@ -43,14 +42,21 @@ type FileUploadInput struct {
 // Service orchestrates config and asset operations using Logic.
 type Service struct {
 	logic    *Logic
+	storage  storage.Storage
 	basePath string
 }
 
-func NewService(db *gorm.DB, basePath string) *Service {
+func NewService(db *gorm.DB, store storage.Storage, basePath string) *Service {
 	return &Service{
 		logic:    NewLogic(db),
+		storage:  store,
 		basePath: sanitizeServiceBasePath(basePath),
 	}
+}
+
+// Storage returns the storage adapter.
+func (s *Service) Storage() storage.Storage {
+	return s.storage
 }
 
 // --------------------- Model conversion helpers ---------------------
@@ -280,11 +286,6 @@ func (s *Service) decorateRealtimePayload(payload map[string]any) map[string]any
 		payload[key] = s.expandNestedValue(value)
 	}
 	return payload
-}
-
-func ensureUploadDir(fileID string) error {
-	relative := filepath.Join(uploadDirectory, fileID)
-	return os.MkdirAll(filepath.Join(dataDirectory, relative), 0o755)
 }
 
 func detectContentType(provided string, data []byte) string {

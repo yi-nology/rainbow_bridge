@@ -8,9 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -216,8 +214,8 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 			continue
 		}
 
-		fullPath := filepath.Join(dataDirectory, asset.Path)
-		file, err := os.Open(fullPath)
+		// 从存储中读取文件
+		reader, err := s.storage.GetObject(ctx, asset.Path)
 		if err != nil {
 			// 如果文件不存在，跳过
 			continue
@@ -227,14 +225,14 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 		zipPath := path.Join(filesPrefix, asset.FileID, asset.FileName)
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
 		if err != nil {
-			file.Close()
+			reader.Close()
 			return nil, err
 		}
-		if _, err := io.Copy(writer, file); err != nil {
-			file.Close()
+		if _, err := io.Copy(writer, reader); err != nil {
+			reader.Close()
 			return nil, err
 		}
-		file.Close()
+		reader.Close()
 	}
 
 	if err := zipWriter.Close(); err != nil {

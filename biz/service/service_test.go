@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	"github.com/yi-nology/rainbow_bridge/biz/model/api"
+	"github.com/yi-nology/rainbow_bridge/pkg/storage/local"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -37,15 +37,21 @@ func newTestService(t *testing.T, basePath ...string) (*Service, func()) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Config{}, &model.Asset{}); err != nil {
+	if err := db.AutoMigrate(&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
+	}
+
+	// Create local storage adapter
+	store, err := local.New(filepath.Join(tmp, "data/uploads"))
+	if err != nil {
+		t.Fatalf("create local storage: %v", err)
 	}
 
 	pathPrefix := ""
 	if len(basePath) > 0 {
 		pathPrefix = basePath[0]
 	}
-	svc := NewService(db, pathPrefix)
+	svc := NewService(db, store, pathPrefix)
 	cleanup := func() { _ = os.Chdir(cwd) }
 	return svc, cleanup
 }

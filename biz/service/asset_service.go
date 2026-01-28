@@ -1,11 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 	"strings"
 
 	"github.com/google/uuid"
@@ -45,14 +45,21 @@ func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*com
 		fileName = fileID
 	}
 
-	if err := ensureUploadDir(fileID); err != nil {
-		return nil, "", err
+	// Build storage key
+	key := fmt.Sprintf("%s/%s", fileID, fileName)
+	contentType := detectContentType(input.ContentType, input.Data)
+
+	// Upload to storage
+	if err := s.storage.PutObject(ctx, key, bytes.NewReader(input.Data), contentType, int64(len(input.Data))); err != nil {
+		return nil, "", fmt.Errorf("upload file: %w", err)
 	}
 
-	relativePath := filepath.Join(uploadDirectory, fileID, fileName)
-	fullPath := filepath.Join(dataDirectory, relativePath)
-	if err := os.WriteFile(fullPath, input.Data, 0o644); err != nil {
-		return nil, "", err
+	// Generate URL
+	url, err := s.storage.GenerateURL(ctx, key, fileName)
+	if err != nil {
+		// Rollback: delete uploaded file
+		_ = s.storage.DeleteObject(ctx, key)
+		return nil, "", fmt.Errorf("generate url: %w", err)
 	}
 
 	asset := &model.Asset{
@@ -60,14 +67,16 @@ func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*com
 		EnvironmentKey: input.EnvironmentKey,
 		PipelineKey:    input.PipelineKey,
 		FileName:       fileName,
-		ContentType:    detectContentType(input.ContentType, input.Data),
+		ContentType:    contentType,
 		FileSize:       int64(len(input.Data)),
-		Path:           relativePath,
+		Path:           key,
+		URL:            url,
 		Remark:         input.Remark,
 	}
-	asset.URL = s.generateFileURL(asset)
+
 	if err := s.logic.CreateAsset(ctx, asset); err != nil {
-		_ = os.Remove(fullPath)
+		// Rollback: delete uploaded file
+		_ = s.storage.DeleteObject(ctx, key)
 		return nil, "", err
 	}
 
@@ -75,17 +84,20 @@ func (s *Service) UploadAsset(ctx context.Context, input *FileUploadInput) (*com
 	return s.decorateAsset(assetModelToPB(asset)), reference, nil
 }
 
-func (s *Service) GetAssetFile(ctx context.Context, fileID string) (*model.Asset, string, error) {
+func (s *Service) GetAssetFile(ctx context.Context, fileID string) (*model.Asset, io.ReadCloser, error) {
 	if fileID == "" {
-		return nil, "", ErrAssetNotFound
+		return nil, nil, ErrAssetNotFound
 	}
 	asset, err := s.logic.GetAsset(ctx, fileID)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-	fullPath := filepath.Join(dataDirectory, asset.Path)
-	if _, err := os.Stat(fullPath); err != nil {
-		return nil, "", err
+
+	// Get file from storage
+	reader, err := s.storage.GetObject(ctx, asset.Path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get file: %w", err)
 	}
-	return asset, fullPath, nil
+
+	return asset, reader, nil
 }

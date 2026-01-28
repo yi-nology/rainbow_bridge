@@ -21,6 +21,7 @@ import (
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
+	"github.com/yi-nology/rainbow_bridge/pkg/storage"
 )
 
 //go:embed all:web
@@ -48,6 +49,28 @@ func main() {
 		log.Fatalf("auto migrate: %v", err)
 	}
 
+	// Initialize storage adapter
+	store, err := storage.New(storage.Config{
+		Type: cfg.Storage.Type,
+		Local: storage.LocalConfig{
+			BasePath: cfg.Storage.Local.BasePath,
+		},
+		S3: storage.S3Config{
+			Endpoint:  cfg.Storage.S3.Endpoint,
+			Region:    cfg.Storage.S3.Region,
+			Bucket:    cfg.Storage.S3.Bucket,
+			AccessKey: cfg.Storage.S3.AccessKey,
+			SecretKey: cfg.Storage.S3.SecretKey,
+			UseSSL:    cfg.Storage.S3.UseSSL,
+			PathStyle: cfg.Storage.S3.PathStyle,
+			URLMode:   cfg.Storage.S3.URLMode,
+		},
+	})
+	if err != nil {
+		log.Fatalf("init storage: %v", err)
+	}
+	log.Printf("storage initialized: type=%s", store.Type())
+
 	// Migrate existing configs with default environment_key and pipeline_key
 	if err := service.MigrateConfigDefaults(db); err != nil {
 		log.Fatalf("migrate config defaults: %v", err)
@@ -64,7 +87,7 @@ func main() {
 	}
 	h := server.Default(opts...)
 
-	service := service.NewService(db, basePath)
+	svc := service.NewService(db, store, basePath)
 
 	// Set version information for version handler
 	versionhandler.AppVersion = Version
@@ -72,10 +95,10 @@ func main() {
 	versionhandler.AppBuildTime = BuildTime
 
 	// Initialize handlers with service
-	bizrouter.InitHandlers(service)
+	bizrouter.InitHandlers(svc)
 
 	// Migrate to full asset paths
-	if err := service.MigrateToFullAssetPaths(context.Background()); err != nil {
+	if err := svc.MigrateToFullAssetPaths(context.Background()); err != nil {
 		log.Printf("Warning: failed to migrate asset paths: %v", err)
 	}
 

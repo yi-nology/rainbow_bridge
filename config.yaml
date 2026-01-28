@@ -1,6 +1,7 @@
 server:
   address: ":8080"
-  base_path: "rainbow-bridge" # optional path prefix (e.g. "/rainbow-bridge")
+  # 注意：base_path 已移至编译时参数，不再从配置文件读取
+  # 修改 base_path 需要重新编译：BASE_PATH=xxx ./build.sh
 
 database:
   driver: "sqlite"

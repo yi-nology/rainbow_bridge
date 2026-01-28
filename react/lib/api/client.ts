@@ -46,7 +46,11 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 function buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
-  const url = new URL(path, window.location.origin)
+  // 从环境变量获取 API 基础地址（开发环境指向后端服务器，生产环境使用相对路径）
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+  const baseUrl = apiBaseUrl || window.location.origin
+  
+  const url = new URL(path, baseUrl)
   
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

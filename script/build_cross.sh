@@ -6,6 +6,12 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 RUN_NAME="${RUN_NAME:-hertz_service}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-output/cross}"
 
+# Build configuration
+BASE_PATH="${BASE_PATH:-rainbow-bridge}"
+VERSION="${VERSION:-$(git describe --tags --always 2>/dev/null || echo "dev")}"
+GIT_COMMIT="${GIT_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")}"
+BUILD_TIME="${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')}"
+
 targets=(
   "linux amd64"
   "linux arm64"
@@ -29,7 +35,9 @@ for target in "${targets[@]}"; do
   fi
 
   echo "Building for ${GOOS}/${GOARCH}..."
-  env CGO_ENABLED=0 GOOS="${GOOS}" GOARCH="${GOARCH}" go build -o "${target_dir}/${RUN_NAME}${extension}" .
+  LDFLAGS="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'"
+  env CGO_ENABLED=0 GOOS="${GOOS}" GOARCH="${GOARCH}" go build -ldflags="${LDFLAGS}" -o "${target_dir}/${RUN_NAME}${extension}" .
 done
 
 echo "Cross compilation artifacts are available under ${OUTPUT_ROOT}"
+echo "Built with BASE_PATH=${BASE_PATH}, VERSION=${VERSION}"

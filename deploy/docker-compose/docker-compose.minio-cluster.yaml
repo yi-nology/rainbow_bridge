@@ -1,0 +1,198 @@
+version: "3.9"
+
+# MinIO 分布式集群部署（4 节点）
+# 提供高可用和数据冗余能力
+
+services:
+  # MinIO 节点 1
+  minio1:
+    image: minio/minio:latest
+    container_name: rainbow-bridge-minio1
+    restart: unless-stopped
+    command: server --console-address ":9001" http://minio{1...4}/data{1...2}
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      TZ: Asia/Shanghai
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio1_data1:/data1
+      - minio1_data2:/data2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # MinIO 节点 2
+  minio2:
+    image: minio/minio:latest
+    container_name: rainbow-bridge-minio2
+    restart: unless-stopped
+    command: server --console-address ":9001" http://minio{1...4}/data{1...2}
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      TZ: Asia/Shanghai
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio2_data1:/data1
+      - minio2_data2:/data2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # MinIO 节点 3
+  minio3:
+    image: minio/minio:latest
+    container_name: rainbow-bridge-minio3
+    restart: unless-stopped
+    command: server --console-address ":9001" http://minio{1...4}/data{1...2}
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      TZ: Asia/Shanghai
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio3_data1:/data1
+      - minio3_data2:/data2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # MinIO 节点 4
+  minio4:
+    image: minio/minio:latest
+    container_name: rainbow-bridge-minio4
+    restart: unless-stopped
+    command: server --console-address ":9001" http://minio{1...4}/data{1...2}
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      TZ: Asia/Shanghai
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio4_data1:/data1
+      - minio4_data2:/data2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Nginx 负载均衡器
+  nginx:
+    image: nginx:alpine
+    container_name: rainbow-bridge-minio-lb
+    restart: unless-stopped
+    ports:
+      - "9000:9000"    # MinIO API
+      - "9001:9001"    # MinIO Console
+    volumes:
+      - ./nginx-minio.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - minio1
+      - minio2
+      - minio3
+      - minio4
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: rainbow-bridge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rainbow_bridge
+      POSTGRES_USER: rainbow_bridge
+      POSTGRES_PASSWORD: rainbow_bridge_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rainbow_bridge -d rainbow_bridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Rainbow Bridge 应用
+  rainbow-bridge:
+    image: ghcr.io/yi-nology/rainbow_bridge:latest
+    container_name: rainbow-bridge
+    restart: unless-stopped
+    command:
+      - "--config"
+      - "/etc/rainbow_bridge/config.yaml"
+    environment:
+      TZ: Asia/Shanghai
+      # MinIO 配置（通过 Nginx 负载均衡访问）
+      MINIO_ENDPOINT: "nginx:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin123"
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: "rainbow-bridge"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.minio-cluster.yaml:/etc/rainbow_bridge/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nginx:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/rainbow-bridge/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  # MinIO 节点 1 数据卷
+  minio1_data1:
+    driver: local
+  minio1_data2:
+    driver: local
+  # MinIO 节点 2 数据卷
+  minio2_data1:
+    driver: local
+  minio2_data2:
+    driver: local
+  # MinIO 节点 3 数据卷
+  minio3_data1:
+    driver: local
+  minio3_data2:
+    driver: local
+  # MinIO 节点 4 数据卷
+  minio4_data1:
+    driver: local
+  minio4_data2:
+    driver: local
+  # PostgreSQL 数据卷
+  postgres_data:
+    driver: local

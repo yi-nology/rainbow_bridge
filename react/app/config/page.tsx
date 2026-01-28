@@ -846,7 +846,6 @@ export default function ConfigPage() {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className={getFieldError("name") ? "border-destructive" : ""}
-            disabled={!!editingConfig}
           />
           {getFieldError("name") && (
             <p className="text-sm text-destructive flex items-center gap-1">

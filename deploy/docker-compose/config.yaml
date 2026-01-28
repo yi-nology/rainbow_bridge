@@ -1,12 +1,25 @@
+# Rainbow Bridge Configuration
+# Default configuration using SQLite database
+
 server:
   address: ":8080"
   base_path: "rainbow-bridge"
 
 database:
-  driver: "sqlite"
+  driver: "sqlite"  # Options: sqlite, mysql, postgres
   sqlite:
     path: "/var/lib/rainbow_bridge/resource.db"
-  mysql:
-    dsn: "user:password@tcp(mysql:3306)/resource?charset=utf8mb4&parseTime=True&loc=Local"
-  postgres:
-    dsn: "host=postgres user=postgres password=postgres dbname=resource port=5432 sslmode=disable TimeZone=UTC"
+  # Uncomment and configure if using MySQL
+  # mysql:
+  #   dsn: "user:password@tcp(mysql:3306)/rainbow_bridge?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai"
+  # Uncomment and configure if using PostgreSQL
+  # postgres:
+  #   dsn: "host=postgres user=postgres password=postgres dbname=rainbow_bridge port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+
+upload:
+  path: "/var/lib/rainbow_bridge/uploads"
+  max_size: 10485760  # 10MB
+
+log:
+  level: "info"
+  output: "stdout"

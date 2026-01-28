@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: rainbow-bridge-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rainbow_bridge_root_pass
+      MYSQL_DATABASE: rainbow_bridge
+      MYSQL_USER: rainbow_bridge
+      MYSQL_PASSWORD: rainbow_bridge_pass
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prainbow_bridge_root_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  rainbow-bridge:
+    image: ghcr.io/yi-nology/rainbow_bridge:latest
+    container_name: rainbow-bridge
+    restart: unless-stopped
+    command:
+      - "--config"
+      - "/etc/rainbow_bridge/config.yaml"
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.mysql.yaml:/etc/rainbow_bridge/config.yaml:ro
+      - rainbow_bridge_uploads:/var/lib/rainbow_bridge/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/rainbow-bridge/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mysql_data:
+    driver: local
+  rainbow_bridge_uploads:
+    driver: local

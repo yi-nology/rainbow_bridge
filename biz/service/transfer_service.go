@@ -259,6 +259,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 	}
 
 	var configs []*common.ResourceConfig
+	var archiveData map[string]any
 	assetFiles := make(map[string]*zip.File)
 
 	for _, f := range reader.File {
@@ -274,8 +275,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 				return nil, err
 			}
 
-			// 解析新格式（包含 environments, pipelines, business_configs）
-			var archiveData map[string]any
+			// 解析新格式（包含 environments, pipelines, business_configs, assets）
 			if err := json.Unmarshal(payload, &archiveData); err != nil {
 				return nil, errors.New("invalid configs.json format")
 			}
@@ -346,70 +346,83 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 		return nil, errors.New("config content not found in archive")
 	}
 
-	// Import configs
-	configModels := make([]model.Config, 0, len(configs))
-	// 构建 fileID 到 环境/渠道 的映射
-	assetEnvPipeMap := make(map[string]struct {
-		EnvironmentKey string
-		PipelineKey    string
-	})
-
-	for _, cfg := range configs {
-		configModels = append(configModels, *pbConfigToModel(cfg))
-
-		// 提取配置中引用的图片资源 ID
-		for _, rx := range []*regexp.Regexp{assetRefRegexp, fileURLRefRegexp} {
-			matches := rx.FindAllStringSubmatch(cfg.GetContent(), -1)
-			for _, match := range matches {
-				if len(match) < 2 {
-					continue
-				}
-				fileID := match[1]
-				if _, exists := assetEnvPipeMap[fileID]; !exists {
-					assetEnvPipeMap[fileID] = struct {
-						EnvironmentKey string
-						PipelineKey    string
-					}{
-						EnvironmentKey: cfg.GetEnvironmentKey(),
-						PipelineKey:    cfg.GetPipelineKey(),
-					}
+	// Parse asset metadata from archive
+	assetMetaMap := make(map[string]map[string]any) // fileID -> metadata
+	if assetsData, ok := archiveData["assets"]; ok {
+		assetsBytes, _ := json.Marshal(assetsData)
+		var assetMetas []map[string]any
+		if err := json.Unmarshal(assetsBytes, &assetMetas); err == nil {
+			for _, meta := range assetMetas {
+				if fileID, ok := meta["file_id"].(string); ok && fileID != "" {
+					assetMetaMap[fileID] = meta
 				}
 			}
 		}
+	}
+
+	// Import configs
+	configModels := make([]model.Config, 0, len(configs))
+	for _, cfg := range configs {
+		configModels = append(configModels, *pbConfigToModel(cfg))
 	}
 	if err := s.logic.ImportConfigs(ctx, configModels, overwrite); err != nil {
 		return nil, err
 	}
 
-	// Restore assets present in archive
+	// Restore all assets present in archive
 	for path, f := range assetFiles {
 		fileID := filepath.Base(filepath.Dir(path))
 		fileName := filepath.Base(path)
 		rc, err := f.Open()
 		if err != nil {
-			return nil, err
+			continue
 		}
-		data, err := io.ReadAll(rc)
+		fileData, err := io.ReadAll(rc)
 		rc.Close()
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		if err := ensureUploadDir(fileID); err != nil {
-			return nil, err
+			continue
 		}
 		relativePath := filepath.Join(uploadDirectory, fileID, fileName)
 		fullPath := filepath.Join(dataDirectory, relativePath)
-		if err := os.WriteFile(fullPath, data, 0o644); err != nil {
-			return nil, err
+		if err := os.WriteFile(fullPath, fileData, 0o644); err != nil {
+			continue
 		}
 
-		// 从映射中获取环境和渠道信息
+		// Get asset metadata
+		meta, hasMeta := assetMetaMap[fileID]
 		envKey := ""
 		pipeKey := ""
-		if info, exists := assetEnvPipeMap[fileID]; exists {
-			envKey = info.EnvironmentKey
-			pipeKey = info.PipelineKey
+		contentType := ""
+		remark := ""
+
+		if hasMeta {
+			if v, ok := meta["environment_key"].(string); ok {
+				envKey = v
+			}
+			if v, ok := meta["pipeline_key"].(string); ok {
+				pipeKey = v
+			}
+			if v, ok := meta["content_type"].(string); ok {
+				contentType = v
+			}
+			if v, ok := meta["remark"].(string); ok {
+				remark = v
+			}
+		}
+
+		// If target env/pipeline specified, use those instead
+		if targetEnv != "" && targetPipeline != "" {
+			envKey = targetEnv
+			pipeKey = targetPipeline
+		}
+
+		// Use metadata content type if available, otherwise detect
+		if contentType == "" {
+			contentType = http.DetectContentType(fileData)
 		}
 
 		asset := &model.Asset{
@@ -417,17 +430,18 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 			EnvironmentKey: envKey,
 			PipelineKey:    pipeKey,
 			FileName:       fileName,
-			FileSize:       int64(len(data)),
-			ContentType:    http.DetectContentType(data),
+			FileSize:       int64(len(fileData)),
+			ContentType:    contentType,
 			Path:           relativePath,
+			Remark:         remark,
 		}
 		asset.URL = s.generateFileURL(asset)
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
 			if !errors.Is(err, ErrAssetNotFound) {
-				return nil, err
+				continue
 			}
 			if err := s.logic.CreateAsset(ctx, asset); err != nil {
-				return nil, err
+				continue
 			}
 		}
 	}
@@ -1526,6 +1540,20 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 		}
 	}
 
+	// Parse asset metadata from archive
+	assetMetaMap := make(map[string]map[string]any) // fileID -> metadata
+	if assetsData, ok := archiveData["assets"]; ok {
+		assetsBytes, _ := json.Marshal(assetsData)
+		var assetMetas []map[string]any
+		if err := json.Unmarshal(assetsBytes, &assetMetas); err == nil {
+			for _, meta := range assetMetas {
+				if fileID, ok := meta["file_id"].(string); ok && fileID != "" {
+					assetMetaMap[fileID] = meta
+				}
+			}
+		}
+	}
+
 	// Parse configs
 	if configData, ok := archiveData["business_configs"]; ok {
 		configBytes, _ := json.Marshal(configData)
@@ -1536,6 +1564,7 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 
 	// Filter configs based on selections
 	filteredConfigs := make([]*common.ResourceConfig, 0)
+	selectedEnvPipes := make(map[string]bool) // "env:pipe" -> true
 	for _, cfg := range allConfigs {
 		if shouldImport(cfg.GetEnvironmentKey(), cfg.GetPipelineKey(), cfg.GetResourceKey()) {
 			// Normalize image references
@@ -1543,6 +1572,9 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 				cfg.Content = normalizeImageReference(cfg.Content)
 			}
 			filteredConfigs = append(filteredConfigs, cfg)
+			// Track selected environment/pipeline combinations
+			key := fmt.Sprintf("%s:%s", cfg.GetEnvironmentKey(), cfg.GetPipelineKey())
+			selectedEnvPipes[key] = true
 		}
 	}
 
@@ -1552,46 +1584,44 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 
 	// Import configs
 	configModels := make([]model.Config, 0, len(filteredConfigs))
-	assetEnvPipeMap := make(map[string]struct {
-		EnvironmentKey string
-		PipelineKey    string
-	})
-
 	for _, cfg := range filteredConfigs {
 		configModels = append(configModels, *pbConfigToModel(cfg))
-
-		// Extract asset references
-		for _, rx := range []*regexp.Regexp{assetRefRegexp, fileURLRefRegexp} {
-			matches := rx.FindAllStringSubmatch(cfg.GetContent(), -1)
-			for _, match := range matches {
-				if len(match) < 2 {
-					continue
-				}
-				fileID := match[1]
-				if _, exists := assetEnvPipeMap[fileID]; !exists {
-					assetEnvPipeMap[fileID] = struct {
-						EnvironmentKey string
-						PipelineKey    string
-					}{
-						EnvironmentKey: cfg.GetEnvironmentKey(),
-						PipelineKey:    cfg.GetPipelineKey(),
-					}
-				}
-			}
-		}
 	}
 
 	if err := s.logic.ImportConfigs(ctx, configModels, overwrite); err != nil {
 		return nil, err
 	}
 
-	// Restore assets
+	// Restore all assets that belong to selected environments/pipelines
 	for path, f := range assetFiles {
 		fileID := filepath.Base(filepath.Dir(path))
 		fileName := filepath.Base(path)
 
-		// Only import assets that are referenced by selected configs
-		if _, exists := assetEnvPipeMap[fileID]; !exists {
+		// Get asset metadata
+		meta, hasMeta := assetMetaMap[fileID]
+		envKey := ""
+		pipeKey := ""
+		contentType := ""
+		remark := ""
+
+		if hasMeta {
+			if v, ok := meta["environment_key"].(string); ok {
+				envKey = v
+			}
+			if v, ok := meta["pipeline_key"].(string); ok {
+				pipeKey = v
+			}
+			if v, ok := meta["content_type"].(string); ok {
+				contentType = v
+			}
+			if v, ok := meta["remark"].(string); ok {
+				remark = v
+			}
+		}
+
+		// Check if this asset belongs to a selected environment/pipeline
+		key := fmt.Sprintf("%s:%s", envKey, pipeKey)
+		if !selectedEnvPipes[key] && envKey != "" && pipeKey != "" {
 			continue
 		}
 
@@ -1615,15 +1645,20 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 			continue
 		}
 
-		info := assetEnvPipeMap[fileID]
+		// Use metadata content type if available, otherwise detect
+		if contentType == "" {
+			contentType = http.DetectContentType(fileData)
+		}
+
 		asset := &model.Asset{
 			FileID:         fileID,
-			EnvironmentKey: info.EnvironmentKey,
-			PipelineKey:    info.PipelineKey,
+			EnvironmentKey: envKey,
+			PipelineKey:    pipeKey,
 			FileName:       fileName,
 			FileSize:       int64(len(fileData)),
-			ContentType:    http.DetectContentType(fileData),
+			ContentType:    contentType,
 			Path:           relativePath,
+			Remark:         remark,
 		}
 		asset.URL = s.generateFileURL(asset)
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
@@ -1695,6 +1730,20 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 		}
 	}
 
+	// Parse asset metadata from archive
+	assetMetaMap := make(map[string]map[string]any) // fileID -> metadata
+	if assetsData, ok := archiveData["assets"]; ok {
+		assetsBytes, _ := json.Marshal(assetsData)
+		var assetMetas []map[string]any
+		if err := json.Unmarshal(assetsBytes, &assetMetas); err == nil {
+			for _, meta := range assetMetas {
+				if fileID, ok := meta["file_id"].(string); ok && fileID != "" {
+					assetMetaMap[fileID] = meta
+				}
+			}
+		}
+	}
+
 	// Parse configs
 	if configData, ok := archiveData["business_configs"]; ok {
 		configBytes, _ := json.Marshal(configData)
@@ -1705,12 +1754,16 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 
 	// Filter configs based on selections
 	filteredConfigs := make([]*common.ResourceConfig, 0)
+	selectedEnvPipes := make(map[string]bool) // "env:pipe" -> true
 	for _, cfg := range allConfigs {
 		if shouldImport(cfg.GetEnvironmentKey(), cfg.GetPipelineKey(), cfg.GetResourceKey()) {
 			if cfg.Type == "image" && cfg.Content != "" {
 				cfg.Content = normalizeImageReference(cfg.Content)
 			}
 			filteredConfigs = append(filteredConfigs, cfg)
+			// Track selected environment/pipeline combinations
+			key := fmt.Sprintf("%s:%s", cfg.GetEnvironmentKey(), cfg.GetPipelineKey())
+			selectedEnvPipes[key] = true
 		}
 	}
 
@@ -1720,44 +1773,44 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 
 	// Import configs
 	configModels := make([]model.Config, 0, len(filteredConfigs))
-	assetEnvPipeMap := make(map[string]struct {
-		EnvironmentKey string
-		PipelineKey    string
-	})
-
 	for _, cfg := range filteredConfigs {
 		configModels = append(configModels, *pbConfigToModel(cfg))
-
-		for _, rx := range []*regexp.Regexp{assetRefRegexp, fileURLRefRegexp} {
-			matches := rx.FindAllStringSubmatch(cfg.GetContent(), -1)
-			for _, match := range matches {
-				if len(match) < 2 {
-					continue
-				}
-				fileID := match[1]
-				if _, exists := assetEnvPipeMap[fileID]; !exists {
-					assetEnvPipeMap[fileID] = struct {
-						EnvironmentKey string
-						PipelineKey    string
-					}{
-						EnvironmentKey: cfg.GetEnvironmentKey(),
-						PipelineKey:    cfg.GetPipelineKey(),
-					}
-				}
-			}
-		}
 	}
 
 	if err := s.logic.ImportConfigs(ctx, configModels, overwrite); err != nil {
 		return nil, err
 	}
 
-	// Restore assets
+	// Restore all assets that belong to selected environments/pipelines
 	for path, fileData := range assetFiles {
 		fileID := filepath.Base(filepath.Dir(path))
 		fileName := filepath.Base(path)
 
-		if _, exists := assetEnvPipeMap[fileID]; !exists {
+		// Get asset metadata
+		meta, hasMeta := assetMetaMap[fileID]
+		envKey := ""
+		pipeKey := ""
+		contentType := ""
+		remark := ""
+
+		if hasMeta {
+			if v, ok := meta["environment_key"].(string); ok {
+				envKey = v
+			}
+			if v, ok := meta["pipeline_key"].(string); ok {
+				pipeKey = v
+			}
+			if v, ok := meta["content_type"].(string); ok {
+				contentType = v
+			}
+			if v, ok := meta["remark"].(string); ok {
+				remark = v
+			}
+		}
+
+		// Check if this asset belongs to a selected environment/pipeline
+		key := fmt.Sprintf("%s:%s", envKey, pipeKey)
+		if !selectedEnvPipes[key] && envKey != "" && pipeKey != "" {
 			continue
 		}
 
@@ -1771,15 +1824,20 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 			continue
 		}
 
-		info := assetEnvPipeMap[fileID]
+		// Use metadata content type if available, otherwise detect
+		if contentType == "" {
+			contentType = http.DetectContentType(fileData)
+		}
+
 		asset := &model.Asset{
 			FileID:         fileID,
-			EnvironmentKey: info.EnvironmentKey,
-			PipelineKey:    info.PipelineKey,
+			EnvironmentKey: envKey,
+			PipelineKey:    pipeKey,
 			FileName:       fileName,
 			FileSize:       int64(len(fileData)),
-			ContentType:    http.DetectContentType(fileData),
+			ContentType:    contentType,
 			Path:           relativePath,
+			Remark:         remark,
 		}
 		asset.URL = s.generateFileURL(asset)
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {

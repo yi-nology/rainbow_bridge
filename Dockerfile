@@ -1,6 +1,11 @@
 # syntax=docker/dockerfile:1.6
 
 ##
+## Global build arguments
+##
+ARG GO_VERSION=1.25
+
+##
 ## Frontend build stage
 ##
 FROM node:20-bookworm AS frontend
@@ -16,7 +21,6 @@ RUN npm run build
 ##
 ## Go build stage
 ##
-ARG GO_VERSION=1.25
 FROM golang:${GO_VERSION}-bookworm AS builder
 
 ARG TARGETOS

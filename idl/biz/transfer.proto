@@ -97,6 +97,123 @@ message MigrateResponse {
   MigrateSummary data = 4;
 }
 
+// ==================== Export Tree ====================
+
+// ExportTreeConfig represents a config in the export tree.
+message ExportTreeConfig {
+  string resource_key = 1;
+  string name = 2;
+  string alias = 3;
+  string type = 4;
+}
+
+// ExportTreePipeline represents a pipeline in the export tree.
+message ExportTreePipeline {
+  string pipeline_key = 1;
+  string pipeline_name = 2;
+  string description = 3;
+  bool is_active = 4;
+  int32 config_count = 5;
+  repeated ExportTreeConfig configs = 6;
+}
+
+// ExportTreeEnvironment represents an environment in the export tree.
+message ExportTreeEnvironment {
+  string environment_key = 1;
+  string environment_name = 2;
+  string description = 3;
+  bool is_active = 4;
+  repeated ExportTreePipeline pipelines = 5;
+}
+
+// ExportTreeData is the data wrapper for export tree.
+message ExportTreeData {
+  repeated ExportTreeEnvironment environments = 1;
+}
+
+// ExportTreeResponse is the response for export tree.
+message ExportTreeResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  ExportTreeData data = 4;
+}
+
+// ==================== Selective Export ====================
+
+// ExportSelection represents a selection for export.
+message ExportSelection {
+  string environment_key = 1;
+  string pipeline_key = 2;          // empty means all pipelines in this environment
+  repeated string resource_keys = 3; // empty means all configs in this pipeline
+}
+
+// ExportSelectiveRequest is used to export selected configurations.
+message ExportSelectiveRequest {
+  string format = 1;                    // "zip" or "tar.gz"
+  repeated ExportSelection selections = 2;
+}
+
+// ==================== Import Preview ====================
+
+// ImportPreviewConfig represents a config in the import preview.
+message ImportPreviewConfig {
+  string resource_key = 1;
+  string name = 2;
+  string alias = 3;
+  string type = 4;
+  string status = 5;  // "new", "exists", "conflict"
+}
+
+// ImportPreviewPipeline represents a pipeline in the import preview.
+message ImportPreviewPipeline {
+  string pipeline_key = 1;
+  string pipeline_name = 2;
+  string status = 3;  // "new", "exists"
+  repeated ImportPreviewConfig configs = 4;
+}
+
+// ImportPreviewEnvironment represents an environment in the import preview.
+message ImportPreviewEnvironment {
+  string environment_key = 1;
+  string environment_name = 2;
+  string status = 3;  // "new", "exists"
+  repeated ImportPreviewPipeline pipelines = 4;
+}
+
+// ImportPreviewSummary contains summary counts for import preview.
+message ImportPreviewSummary {
+  int32 total_environments = 1;
+  int32 total_pipelines = 2;
+  int32 total_configs = 3;
+  int32 new_count = 4;
+  int32 existing_count = 5;
+  int32 conflict_count = 6;
+}
+
+// ImportPreviewData is the data wrapper for import preview.
+message ImportPreviewData {
+  string format = 1;
+  repeated ImportPreviewEnvironment environments = 2;
+  ImportPreviewSummary summary = 3;
+}
+
+// ImportPreviewResponse is the response for import preview.
+message ImportPreviewResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  ImportPreviewData data = 4;
+}
+
+// ==================== Selective Import ====================
+
+// ImportSelectiveRequest is used to import selected configurations.
+message ImportSelectiveRequest {
+  bool overwrite = 1;
+  repeated ExportSelection selections = 2;
+}
+
 // TransferService handles import and export operations.
 service TransferService {
   // Import imports configurations from a request or ZIP archive.
@@ -109,6 +226,22 @@ service TransferService {
   // Use format query param: json (default), zip, static
   rpc Export(ExportRequest) returns (ExportResponse) {
     option (api.get) = "/api/v1/transfer/export";
+  }
+
+  // ExportSelective exports selected configurations.
+  // Supports POST with selections array for fine-grained control.
+  rpc ExportSelective(ExportSelectiveRequest) returns (ExportResponse) {
+    option (api.post) = "/api/v1/transfer/export";
+  }
+
+  // ExportTree returns the tree structure of environments, pipelines, and configs.
+  rpc ExportTree(ExportRequest) returns (ExportTreeResponse) {
+    option (api.get) = "/api/v1/transfer/export-tree";
+  }
+
+  // ImportPreview previews the import file contents and detects conflicts.
+  rpc ImportPreview(ImportRequest) returns (ImportPreviewResponse) {
+    option (api.post) = "/api/v1/transfer/import-preview";
   }
 
   // Migrate migrates configurations between environments/pipelines.

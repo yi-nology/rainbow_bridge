@@ -1,8 +1,6 @@
 "use client"
 
-import React from "react"
-
-import { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,68 +17,42 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
   Download,
   Upload,
-  FileJson,
-  FileText,
   Check,
   AlertCircle,
   Info,
   Loader2,
   FolderDown,
   FolderUp,
-  Settings,
-  Layers,
-  Database,
-  ChevronRight,
+  FileArchive,
   X,
   FileWarning,
 } from "lucide-react"
-import { mockEnvironments, mockConfigs, mockResources } from "@/lib/mock-data"
+import { ExportTreeSelect, ImportPreviewTree } from "@/components/transfer-tree-select"
+import {
+  transferApi,
+  type ExportTreeEnvironment,
+  type ExportSelection,
+  type ImportPreviewData,
+} from "@/lib/api/transfer"
 
-type ExportFormat = "json" | "yaml"
-type DataCategory = "environments" | "configs" | "resources" | "all"
-
-interface ImportPreview {
-  environments: number
-  pipelines: number
-  configs: number
-  resources: number
-  conflicts: ConflictItem[]
-}
-
-interface ConflictItem {
-  type: "environment" | "config" | "resource"
-  name: string
-  existing: string
-  incoming: string
-}
+type ExportFormat = "zip" | "tar.gz"
 
 export default function ImportExportPage() {
   // Export state
-  const [exportFormat, setExportFormat] = useState<ExportFormat>("json")
-  const [exportCategories, setExportCategories] = useState<DataCategory[]>(["all"])
+  const [exportTree, setExportTree] = useState<ExportTreeEnvironment[]>([])
+  const [exportSelections, setExportSelections] = useState<ExportSelection[]>([])
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("zip")
+  const [isLoadingTree, setIsLoadingTree] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
   const [exportSuccess, setExportSuccess] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null)
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
+  const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null)
+  const [importSelections, setImportSelections] = useState<ExportSelection[]>([])
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [importSuccess, setImportSuccess] = useState(false)
@@ -90,75 +62,46 @@ export default function ImportExportPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Export category toggle
-  const toggleExportCategory = (category: DataCategory) => {
-    if (category === "all") {
-      setExportCategories(["all"])
-    } else {
-      const newCategories = exportCategories.filter((c) => c !== "all")
-      if (newCategories.includes(category)) {
-        const filtered = newCategories.filter((c) => c !== category)
-        setExportCategories(filtered.length === 0 ? ["all"] : filtered)
-      } else {
-        setExportCategories([...newCategories, category])
-      }
+  // Load export tree on mount
+  useEffect(() => {
+    loadExportTree()
+  }, [])
+
+  const loadExportTree = async () => {
+    setIsLoadingTree(true)
+    setExportError(null)
+    try {
+      const tree = await transferApi.getExportTree()
+      setExportTree(tree)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "加载数据失败")
+    } finally {
+      setIsLoadingTree(false)
     }
-  }
-
-  // Generate export data
-  const generateExportData = () => {
-    const data: Record<string, unknown> = {
-      version: "1.0",
-      exportedAt: new Date().toISOString(),
-      source: "rainbow-bridge",
-    }
-
-    const includeAll = exportCategories.includes("all")
-
-    if (includeAll || exportCategories.includes("environments")) {
-      data.environments = mockEnvironments
-    }
-
-    if (includeAll || exportCategories.includes("configs")) {
-      data.configs = mockConfigs
-    }
-
-    if (includeAll || exportCategories.includes("resources")) {
-      data.resources = mockResources
-    }
-
-    return data
   }
 
   // Handle export
   const handleExport = async () => {
+    if (exportSelections.length === 0) {
+      setExportError("请选择要导出的内容")
+      return
+    }
+
     setIsExporting(true)
     setExportSuccess(false)
+    setExportError(null)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      const blob = await transferApi.exportSelective({
+        format: exportFormat,
+        selections: exportSelections,
+      })
 
-      const data = generateExportData()
-      let content: string
-      let filename: string
-      let mimeType: string
-
-      if (exportFormat === "json") {
-        content = JSON.stringify(data, null, 2)
-        filename = `rainbow-bridge-export-${Date.now()}.json`
-        mimeType = "application/json"
-      } else {
-        // Simple YAML conversion
-        content = convertToYaml(data)
-        filename = `rainbow-bridge-export-${Date.now()}.yaml`
-        mimeType = "text/yaml"
-      }
-
-      const blob = new Blob([content], { type: mimeType })
+      // Download file
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = filename
+      a.download = `rainbow-bridge-export-${Date.now()}.${exportFormat === "tar.gz" ? "tar.gz" : "zip"}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -166,35 +109,11 @@ export default function ImportExportPage() {
 
       setExportSuccess(true)
       setTimeout(() => setExportSuccess(false), 3000)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "导出失败")
     } finally {
       setIsExporting(false)
     }
-  }
-
-  // Simple YAML converter
-  const convertToYaml = (obj: unknown, indent = 0): string => {
-    const spaces = "  ".repeat(indent)
-    let yaml = ""
-
-    if (Array.isArray(obj)) {
-      for (const item of obj) {
-        if (typeof item === "object" && item !== null) {
-          yaml += `${spaces}-\n${convertToYaml(item, indent + 1)}`
-        } else {
-          yaml += `${spaces}- ${item}\n`
-        }
-      }
-    } else if (typeof obj === "object" && obj !== null) {
-      for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === "object" && value !== null) {
-          yaml += `${spaces}${key}:\n${convertToYaml(value, indent + 1)}`
-        } else {
-          yaml += `${spaces}${key}: ${value}\n`
-        }
-      }
-    }
-
-    return yaml
   }
 
   // Handle file selection
@@ -202,29 +121,33 @@ export default function ImportExportPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Validate file type
+    const fileName = file.name.toLowerCase()
+    if (!fileName.endsWith(".zip") && !fileName.endsWith(".tar.gz") && !fileName.endsWith(".tgz")) {
+      setImportError("不支持的文件格式，请上传 .zip 或 .tar.gz 文件")
+      return
+    }
+
     setImportFile(file)
     setImportError(null)
     setImportPreview(null)
     setIsParsing(true)
 
     try {
-      const text = await file.text()
-      let data: Record<string, unknown>
-
-      if (file.name.endsWith(".json")) {
-        data = JSON.parse(text)
-      } else if (file.name.endsWith(".yaml") || file.name.endsWith(".yml")) {
-        // Simple YAML parsing (for demo purposes)
-        setImportError("YAML 导入功能开发中，请使用 JSON 格式")
-        setIsParsing(false)
-        return
-      } else {
-        throw new Error("不支持的文件格式")
+      const preview = await transferApi.importPreview(file)
+      if (preview) {
+        setImportPreview(preview)
+        // Initialize selections with all items selected
+        const allSelections: ExportSelection[] = []
+        preview.environments.forEach((env) => {
+          allSelections.push({
+            environment_key: env.environment_key,
+            pipeline_key: "",
+            resource_keys: [],
+          })
+        })
+        setImportSelections(allSelections)
       }
-
-      // Validate and generate preview
-      const preview = generateImportPreview(data)
-      setImportPreview(preview)
     } catch (err) {
       setImportError(err instanceof Error ? err.message : "文件解析失败")
     } finally {
@@ -232,85 +155,30 @@ export default function ImportExportPage() {
     }
   }
 
-  // Generate import preview
-  const generateImportPreview = (data: Record<string, unknown>): ImportPreview => {
-    const preview: ImportPreview = {
-      environments: 0,
-      pipelines: 0,
-      configs: 0,
-      resources: 0,
-      conflicts: [],
-    }
-
-    if (Array.isArray(data.environments)) {
-      preview.environments = data.environments.length
-      for (const env of data.environments) {
-        if (env && typeof env === "object" && "pipelines" in env && Array.isArray(env.pipelines)) {
-          preview.pipelines += env.pipelines.length
-        }
-        // Check for conflicts
-        const existing = mockEnvironments.find(
-          (e) => e.key === (env as { key?: string }).key
-        )
-        if (existing) {
-          preview.conflicts.push({
-            type: "environment",
-            name: (env as { name?: string }).name || (env as { key?: string }).key || "未知",
-            existing: existing.name,
-            incoming: (env as { name?: string }).name || "未知",
-          })
-        }
-      }
-    }
-
-    if (Array.isArray(data.configs)) {
-      preview.configs = data.configs.length
-      // Check for config conflicts
-      for (const config of data.configs) {
-        const existing = mockConfigs.find(
-          (c) =>
-            c.name === (config as { name?: string }).name &&
-            c.environmentId === (config as { environmentId?: string }).environmentId &&
-            c.pipelineId === (config as { pipelineId?: string }).pipelineId
-        )
-        if (existing) {
-          preview.conflicts.push({
-            type: "config",
-            name: (config as { name?: string }).name || "未知",
-            existing: existing.content.substring(0, 50),
-            incoming: ((config as { content?: string }).content || "").substring(0, 50),
-          })
-        }
-      }
-    }
-
-    if (Array.isArray(data.resources)) {
-      preview.resources = data.resources.length
-    }
-
-    return preview
-  }
-
   // Handle import
   const handleImport = async () => {
-    if (!importPreview) return
+    if (!importFile || !importPreview) return
 
-    if (importPreview.conflicts.length > 0 && !overwriteConflicts) {
+    if (importPreview.summary.conflict_count > 0 && !overwriteConflicts && !showConfirmDialog) {
       setShowConfirmDialog(true)
       return
     }
 
     setIsImporting(true)
     setImportSuccess(false)
+    setImportError(null)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await transferApi.importSelective(importFile, importSelections, overwriteConflicts)
       setImportSuccess(true)
       setTimeout(() => {
         setImportSuccess(false)
-        setImportFile(null)
-        setImportPreview(null)
+        clearImport()
+        // Reload export tree to reflect changes
+        loadExportTree()
       }, 3000)
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "导入失败")
     } finally {
       setIsImporting(false)
       setShowConfirmDialog(false)
@@ -321,24 +189,46 @@ export default function ImportExportPage() {
   const clearImport = () => {
     setImportFile(null)
     setImportPreview(null)
+    setImportSelections([])
     setImportError(null)
+    setOverwriteConflicts(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
   }
 
-  // Get category stats
-  const getCategoryStats = () => {
-    const totalPipelines = mockEnvironments.reduce((sum, env) => sum + env.pipelines.length, 0)
-    return {
-      environments: mockEnvironments.length,
-      pipelines: totalPipelines,
-      configs: mockConfigs.length,
-      resources: mockResources.length,
-    }
+  // Get export stats
+  const getExportStats = () => {
+    let envCount = 0
+    let pipeCount = 0
+    let configCount = 0
+
+    exportSelections.forEach((sel) => {
+      const env = exportTree.find((e) => e.environment_key === sel.environment_key)
+      if (!env) return
+
+      if (!sel.pipeline_key) {
+        // Entire environment
+        envCount++
+        pipeCount += env.pipelines.length
+        configCount += env.pipelines.reduce((sum, p) => sum + p.config_count, 0)
+      } else if (!sel.resource_keys || sel.resource_keys.length === 0) {
+        // Entire pipeline
+        const pipe = env.pipelines.find((p) => p.pipeline_key === sel.pipeline_key)
+        if (pipe) {
+          pipeCount++
+          configCount += pipe.config_count
+        }
+      } else {
+        // Specific configs
+        configCount += sel.resource_keys.length
+      }
+    })
+
+    return { envCount, pipeCount, configCount }
   }
 
-  const stats = getCategoryStats()
+  const exportStats = getExportStats()
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -348,7 +238,7 @@ export default function ImportExportPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-foreground">导入导出</h1>
             <p className="text-muted-foreground mt-1">
-              批量导入导出配置数据，支持 JSON 和 YAML 格式
+              批量导入导出配置数据，支持 ZIP 和 TAR.GZ 格式
             </p>
           </div>
 
@@ -367,119 +257,28 @@ export default function ImportExportPage() {
             {/* Export Tab */}
             <TabsContent value="export" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Export Options */}
+                {/* Export Tree */}
                 <div className="lg:col-span-2 space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">选择导出内容</CardTitle>
                       <CardDescription>
-                        选择要导出的数据类型，可以选择全部或按类型导出
+                        选择要导出的环境、渠道或配置项
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div
-                        className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                          exportCategories.includes("all")
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-muted-foreground/50"
-                        }`}
-                        onClick={() => toggleExportCategory("all")}
-                      >
-                        <Checkbox checked={exportCategories.includes("all")} />
-                        <div className="flex-1">
-                          <div className="font-medium">全部数据</div>
-                          <div className="text-sm text-muted-foreground">
-                            包含所有环境、配置和资源数据
-                          </div>
-                        </div>
-                        <Badge variant="secondary">
-                          {stats.environments + stats.configs + stats.resources} 项
-                        </Badge>
-                      </div>
-
-                      <div className="grid gap-3">
-                        <div
-                          className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                            exportCategories.includes("environments") &&
-                            !exportCategories.includes("all")
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-muted-foreground/50"
-                          } ${exportCategories.includes("all") ? "opacity-50" : ""}`}
-                          onClick={() =>
-                            !exportCategories.includes("all") &&
-                            toggleExportCategory("environments")
-                          }
-                        >
-                          <Checkbox
-                            checked={
-                              exportCategories.includes("all") ||
-                              exportCategories.includes("environments")
-                            }
-                            disabled={exportCategories.includes("all")}
-                          />
-                          <Layers className="w-5 h-5 text-blue-500" />
-                          <div className="flex-1">
-                            <div className="font-medium">环境与渠道</div>
-                            <div className="text-sm text-muted-foreground">
-                              {stats.environments} 个环境，{stats.pipelines} 个渠道
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
-                          className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                            exportCategories.includes("configs") &&
-                            !exportCategories.includes("all")
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-muted-foreground/50"
-                          } ${exportCategories.includes("all") ? "opacity-50" : ""}`}
-                          onClick={() =>
-                            !exportCategories.includes("all") && toggleExportCategory("configs")
-                          }
-                        >
-                          <Checkbox
-                            checked={
-                              exportCategories.includes("all") ||
-                              exportCategories.includes("configs")
-                            }
-                            disabled={exportCategories.includes("all")}
-                          />
-                          <Settings className="w-5 h-5 text-emerald-500" />
-                          <div className="flex-1">
-                            <div className="font-medium">配置项</div>
-                            <div className="text-sm text-muted-foreground">
-                              {stats.configs} 个配置项
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
-                          className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                            exportCategories.includes("resources") &&
-                            !exportCategories.includes("all")
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-muted-foreground/50"
-                          } ${exportCategories.includes("all") ? "opacity-50" : ""}`}
-                          onClick={() =>
-                            !exportCategories.includes("all") && toggleExportCategory("resources")
-                          }
-                        >
-                          <Checkbox
-                            checked={
-                              exportCategories.includes("all") ||
-                              exportCategories.includes("resources")
-                            }
-                            disabled={exportCategories.includes("all")}
-                          />
-                          <Database className="w-5 h-5 text-amber-500" />
-                          <div className="flex-1">
-                            <div className="font-medium">静态资源</div>
-                            <div className="text-sm text-muted-foreground">
-                              {stats.resources} 个资源文件
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    <CardContent>
+                      {exportError && (
+                        <Alert variant="destructive" className="mb-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>错误</AlertTitle>
+                          <AlertDescription>{exportError}</AlertDescription>
+                        </Alert>
+                      )}
+                      <ExportTreeSelect
+                        data={exportTree}
+                        onChange={setExportSelections}
+                        loading={isLoadingTree}
+                      />
                     </CardContent>
                   </Card>
 
@@ -492,30 +291,30 @@ export default function ImportExportPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div
                           className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                            exportFormat === "json"
+                            exportFormat === "zip"
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-muted-foreground/50"
                           }`}
-                          onClick={() => setExportFormat("json")}
+                          onClick={() => setExportFormat("zip")}
                         >
-                          <FileJson className="w-8 h-8 text-amber-500" />
+                          <FileArchive className="w-8 h-8 text-amber-500" />
                           <div>
-                            <div className="font-medium">JSON</div>
+                            <div className="font-medium">ZIP</div>
                             <div className="text-sm text-muted-foreground">推荐格式</div>
                           </div>
                         </div>
                         <div
                           className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                            exportFormat === "yaml"
+                            exportFormat === "tar.gz"
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-muted-foreground/50"
                           }`}
-                          onClick={() => setExportFormat("yaml")}
+                          onClick={() => setExportFormat("tar.gz")}
                         >
-                          <FileText className="w-8 h-8 text-blue-500" />
+                          <FileArchive className="w-8 h-8 text-blue-500" />
                           <div>
-                            <div className="font-medium">YAML</div>
-                            <div className="text-sm text-muted-foreground">可读性更好</div>
+                            <div className="font-medium">TAR.GZ</div>
+                            <div className="text-sm text-muted-foreground">通用压缩格式</div>
                           </div>
                         </div>
                       </div>
@@ -537,30 +336,15 @@ export default function ImportExportPage() {
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">环境</span>
-                          <span>
-                            {exportCategories.includes("all") ||
-                            exportCategories.includes("environments")
-                              ? stats.environments
-                              : 0}
-                          </span>
+                          <span>{exportStats.envCount || "-"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">渠道</span>
+                          <span>{exportStats.pipeCount || "-"}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">配置项</span>
-                          <span>
-                            {exportCategories.includes("all") ||
-                            exportCategories.includes("configs")
-                              ? stats.configs
-                              : 0}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">资源</span>
-                          <span>
-                            {exportCategories.includes("all") ||
-                            exportCategories.includes("resources")
-                              ? stats.resources
-                              : 0}
-                          </span>
+                          <span>{exportStats.configCount || "-"}</span>
                         </div>
                       </div>
 
@@ -568,7 +352,7 @@ export default function ImportExportPage() {
                         <Button
                           className="w-full"
                           onClick={handleExport}
-                          disabled={isExporting}
+                          disabled={isExporting || exportSelections.length === 0}
                         >
                           {isExporting ? (
                             <>
@@ -616,7 +400,7 @@ export default function ImportExportPage() {
                     <CardHeader>
                       <CardTitle className="text-lg">上传文件</CardTitle>
                       <CardDescription>
-                        支持 JSON 格式的配置文件，可以是从本系统导出的备份文件
+                        支持 ZIP 和 TAR.GZ 格式的配置备份文件
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -630,12 +414,12 @@ export default function ImportExportPage() {
                             点击或拖拽文件到此处
                           </span>
                           <span className="text-xs text-muted-foreground mt-1">
-                            支持 .json 文件
+                            支持 .zip 和 .tar.gz 文件
                           </span>
                           <input
                             id="import-file"
                             type="file"
-                            accept=".json,.yaml,.yml"
+                            accept=".zip,.tar.gz,.tgz"
                             className="hidden"
                             ref={fileInputRef}
                             onChange={handleFileSelect}
@@ -644,7 +428,7 @@ export default function ImportExportPage() {
                       ) : (
                         <div className="space-y-4">
                           <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-                            <FileJson className="w-10 h-10 text-amber-500" />
+                            <FileArchive className="w-10 h-10 text-amber-500" />
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">{importFile.name}</div>
                               <div className="text-sm text-muted-foreground">
@@ -682,110 +466,61 @@ export default function ImportExportPage() {
                   {importPreview && (
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">数据预览</CardTitle>
+                        <CardTitle className="text-lg">选择导入内容</CardTitle>
                         <CardDescription>
-                          以下是将要导入的数据概览
+                          选择要导入的环境、渠道或配置项
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {/* Summary */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                           <div className="p-4 bg-muted rounded-lg text-center">
                             <div className="text-2xl font-bold text-blue-600">
-                              {importPreview.environments}
+                              {importPreview.summary.total_environments}
                             </div>
                             <div className="text-sm text-muted-foreground">环境</div>
                           </div>
                           <div className="p-4 bg-muted rounded-lg text-center">
                             <div className="text-2xl font-bold text-indigo-600">
-                              {importPreview.pipelines}
+                              {importPreview.summary.total_pipelines}
                             </div>
                             <div className="text-sm text-muted-foreground">渠道</div>
                           </div>
                           <div className="p-4 bg-muted rounded-lg text-center">
                             <div className="text-2xl font-bold text-emerald-600">
-                              {importPreview.configs}
+                              {importPreview.summary.new_count}
                             </div>
-                            <div className="text-sm text-muted-foreground">配置项</div>
+                            <div className="text-sm text-muted-foreground">新增</div>
                           </div>
                           <div className="p-4 bg-muted rounded-lg text-center">
                             <div className="text-2xl font-bold text-amber-600">
-                              {importPreview.resources}
+                              {importPreview.summary.conflict_count}
                             </div>
-                            <div className="text-sm text-muted-foreground">资源</div>
+                            <div className="text-sm text-muted-foreground">冲突</div>
                           </div>
                         </div>
 
-                        {importPreview.conflicts.length > 0 && (
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-amber-600">
-                              <FileWarning className="w-5 h-5" />
-                              <span className="font-medium">
-                                发现 {importPreview.conflicts.length} 个冲突项
-                              </span>
-                            </div>
-                            <div className="border rounded-lg overflow-hidden">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>类型</TableHead>
-                                    <TableHead>名称</TableHead>
-                                    <TableHead>现有值</TableHead>
-                                    <TableHead>
-                                      <ChevronRight className="w-4 h-4 inline" />
-                                    </TableHead>
-                                    <TableHead>导入值</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {importPreview.conflicts.slice(0, 5).map((conflict, index) => (
-                                    <TableRow key={index}>
-                                      <TableCell>
-                                        <Badge variant="outline">
-                                          {conflict.type === "environment"
-                                            ? "环境"
-                                            : conflict.type === "config"
-                                            ? "配置"
-                                            : "资源"}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell className="font-medium">
-                                        {conflict.name}
-                                      </TableCell>
-                                      <TableCell className="text-muted-foreground max-w-[120px] truncate">
-                                        {conflict.existing}
-                                      </TableCell>
-                                      <TableCell>
-                                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                                      </TableCell>
-                                      <TableCell className="max-w-[120px] truncate">
-                                        {conflict.incoming}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                              {importPreview.conflicts.length > 5 && (
-                                <div className="px-4 py-2 bg-muted text-sm text-muted-foreground text-center">
-                                  还有 {importPreview.conflicts.length - 5} 个冲突项...
-                                </div>
-                              )}
-                            </div>
+                        {/* Tree */}
+                        <ImportPreviewTree
+                          data={importPreview.environments}
+                          onChange={setImportSelections}
+                        />
 
-                            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                              <Checkbox
-                                id="overwrite"
-                                checked={overwriteConflicts}
-                                onCheckedChange={(checked) =>
-                                  setOverwriteConflicts(checked === true)
-                                }
-                              />
-                              <label
-                                htmlFor="overwrite"
-                                className="text-sm cursor-pointer"
-                              >
-                                覆盖现有冲突数据
-                              </label>
-                            </div>
+                        {importPreview.summary.conflict_count > 0 && (
+                          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg mt-4">
+                            <Checkbox
+                              id="overwrite"
+                              checked={overwriteConflicts}
+                              onCheckedChange={(checked) =>
+                                setOverwriteConflicts(checked === true)
+                              }
+                            />
+                            <label
+                              htmlFor="overwrite"
+                              className="text-sm cursor-pointer"
+                            >
+                              覆盖现有冲突数据
+                            </label>
                           </div>
                         )}
                       </CardContent>
@@ -804,24 +539,25 @@ export default function ImportExportPage() {
                         <>
                           <div className="space-y-3">
                             <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">文件格式</span>
+                              <Badge variant="outline">{importPreview.format}</Badge>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
                               <span className="text-muted-foreground">待导入总数</span>
                               <span className="font-medium">
-                                {importPreview.environments +
-                                  importPreview.configs +
-                                  importPreview.resources}{" "}
-                                项
+                                {importPreview.summary.total_configs} 项
                               </span>
                             </div>
                             <div className="flex items-center justify-between text-sm">
                               <span className="text-muted-foreground">冲突项</span>
                               <span
                                 className={
-                                  importPreview.conflicts.length > 0
+                                  importPreview.summary.conflict_count > 0
                                     ? "text-amber-600 font-medium"
                                     : ""
                                 }
                               >
-                                {importPreview.conflicts.length} 项
+                                {importPreview.summary.conflict_count} 项
                               </span>
                             </div>
                             <div className="flex items-center justify-between text-sm">
@@ -836,7 +572,7 @@ export default function ImportExportPage() {
                             <Button
                               className="w-full"
                               onClick={handleImport}
-                              disabled={isImporting}
+                              disabled={isImporting || importSelections.length === 0}
                             >
                               {isImporting ? (
                                 <>
@@ -891,10 +627,13 @@ export default function ImportExportPage() {
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认导入</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileWarning className="w-5 h-5 text-amber-500" />
+              确认导入
+            </DialogTitle>
             <DialogDescription>
-              检测到 {importPreview?.conflicts.length} 个冲突项，是否继续导入？
-              未选择"覆盖冲突数据"时，冲突项将被跳过。
+              检测到 {importPreview?.summary.conflict_count} 个冲突项，是否继续导入？
+              未选择&quot;覆盖冲突数据&quot;时，冲突项将被跳过。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

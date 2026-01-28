@@ -26,14 +26,13 @@ RUN npm ci
 
 COPY react/ ./
 
-# 根据 BASE_PATH 动态修改 next.config.mjs
+# 设置 NEXT_PUBLIC_BASE_PATH 环境变量供 Next.js 使用
 RUN if [ -n "$BASE_PATH" ]; then \
-      sed -i "s|basePath: '/rainbow-bridge'|basePath: '/${BASE_PATH}'|g" next.config.mjs; \
+      export NEXT_PUBLIC_BASE_PATH="/${BASE_PATH}"; \
     else \
-      sed -i "s|basePath: '/rainbow-bridge'|basePath: ''|g" next.config.mjs; \
-    fi
-
-RUN npm run build
+      export NEXT_PUBLIC_BASE_PATH=""; \
+    fi && \
+    npm run build
 
 
 FROM golang:${GO_VERSION}-bookworm AS builder

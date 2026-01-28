@@ -6,7 +6,6 @@ import (
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/db"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	"github.com/yi-nology/rainbow_bridge/pkg/constants"
 	"gorm.io/gorm"
 )
 
@@ -104,12 +103,11 @@ func MigrateConfigDefaults(db *gorm.DB) error {
 	return nil
 }
 
-// EnsureSystemDefaults initializes default environment, pipeline, and system configs at startup.
+// EnsureSystemDefaults initializes default environment and pipeline at startup.
 // This is a package-level function that can be called before Service is created.
 func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 	envDAO := db.NewEnvironmentDAO()
 	plDAO := db.NewPipelineDAO()
-	sysConfigDAO := db.NewSystemConfigDAO()
 
 	// Create default environment
 	envExists, err := envDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey)
@@ -128,28 +126,6 @@ func EnsureSystemDefaults(ctx context.Context, dbConn *gorm.DB) error {
 			return err
 		}
 		log.Printf("[Init] Created default environment: %s", DefaultEnvironmentKey)
-	}
-
-	// Initialize system configs for default environment if not exists
-	// SystemConfig is environment-scoped only (no pipeline_key dependency)
-	sysConfigExists, err := sysConfigDAO.ExistsByKey(ctx, dbConn, DefaultEnvironmentKey, constants.SysConfigSystemOptions)
-	if err != nil {
-		return err
-	}
-	if !sysConfigExists {
-		configs := []model.SystemConfig{
-			{
-				EnvironmentKey: DefaultEnvironmentKey,
-				ConfigKey:      constants.SysConfigSystemOptions,
-				ConfigValue:    constants.DefaultSystemOptions,
-				ConfigType:     constants.DefaultSystemConfigType,
-				Remark:         constants.DefaultSystemConfigRemark[constants.SysConfigSystemOptions],
-			},
-		}
-		if err := sysConfigDAO.BatchCreate(ctx, dbConn, configs); err != nil {
-			return err
-		}
-		log.Printf("[Init] Created default system configs for environment: %s", DefaultEnvironmentKey)
 	}
 
 	// Create default pipeline

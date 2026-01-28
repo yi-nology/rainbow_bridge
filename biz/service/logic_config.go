@@ -10,7 +10,6 @@ import (
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/pkg/common"
-	"github.com/yi-nology/rainbow_bridge/pkg/constants"
 	"github.com/yi-nology/rainbow_bridge/pkg/util"
 
 	"gorm.io/gorm"
@@ -63,16 +62,12 @@ func (l *Logic) UpdateConfig(ctx context.Context, cfg *model.Config) error {
 }
 
 func (l *Logic) DeleteConfig(ctx context.Context, environmentKey, pipelineKey, resourceKey string) error {
-	cfg, err := l.configDAO.GetByResourceKey(ctx, l.db, environmentKey, pipelineKey, resourceKey)
+	_, err := l.configDAO.GetByResourceKey(ctx, l.db, environmentKey, pipelineKey, resourceKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrResourceNotFound
 		}
 		return err
-	}
-	// Remove business key check as it's no longer relevant
-	if constants.IsProtectedSystemConfig(cfg.Alias) {
-		return ErrProtectedSystemConfig
 	}
 	return l.configDAO.DeleteByEnvironmentPipelineAndResourceKey(ctx, l.db, environmentKey, pipelineKey, resourceKey)
 }
@@ -101,7 +96,7 @@ func (l *Logic) ListConfigs(ctx context.Context, environmentKey, pipelineKey, mi
 	return l.configDAO.ListByEnvironmentAndPipelineWithFilter(ctx, l.db, environmentKey, pipelineKey, minVersion, maxVersion, resourceType)
 }
 
-func (l *Logic) ListSystemConfigs(ctx context.Context, environmentKey, pipelineKey string) (map[string]any, error) {
+func (l *Logic) ListConfigsAsMap(ctx context.Context, environmentKey, pipelineKey string) (map[string]any, error) {
 	// No longer using targetBusiness, just use provided environment/pipeline
 	data, err := l.configDAO.ListByEnvironmentAndPipelineWithFilter(ctx, l.db, environmentKey, pipelineKey, "", "", "")
 	if err != nil {
@@ -227,10 +222,13 @@ func (l *Logic) validateConfigContent(ctx context.Context, cfg *model.Config) er
 		if cfg.Content == "" {
 			return errors.New("图片类型内容不能为空")
 		}
+		// 支持多种路径格式
+		contentLower := strings.ToLower(cfg.Content)
 		if strings.HasPrefix(cfg.Content, "asset://") ||
 			strings.HasPrefix(cfg.Content, "/api/v1/asset/file/") ||
-			strings.HasPrefix(strings.ToLower(cfg.Content), "http://") ||
-			strings.HasPrefix(strings.ToLower(cfg.Content), "https://") {
+			strings.Contains(cfg.Content, "/api/v1/asset/file/") || // 支持带路由前缀的路径
+			strings.HasPrefix(contentLower, "http://") ||
+			strings.HasPrefix(contentLower, "https://") {
 			if strings.HasPrefix(cfg.Content, "asset://") {
 				fileID := strings.TrimPrefix(cfg.Content, "asset://")
 				asset, err := l.assetDAO.GetByFileID(ctx, l.db, fileID)

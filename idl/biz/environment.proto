@@ -38,20 +38,50 @@ message EnvironmentDetailRequest {
   string environment_key = 1;
 }
 
-// EnvironmentResponse is a response containing an environment.
+// EnvironmentData is the data wrapper for a single environment.
+message EnvironmentData {
+  Environment environment = 1;
+}
+
+// EnvironmentListData is the data wrapper for environment list.
+message EnvironmentListData {
+  int32 total = 1;
+  repeated Environment list = 2;
+}
+
+// EnvironmentResponse is a unified response for single environment operations.
+// Format: { code, msg, data: { environment } }
 message EnvironmentResponse {
-  common.OperateResponse operate_response = 1;
-  Environment environment = 2;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  EnvironmentData data = 4;
 }
 
-// EnvironmentListResponse contains a list of environments.
+// EnvironmentListResponse is a unified response for environment list.
+// Format: { code, msg, data: { total, list } }
 message EnvironmentListResponse {
-  repeated Environment list = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  EnvironmentListData data = 4;
 }
 
-// EnvironmentDetailResponse contains a single environment.
+// EnvironmentDetailResponse is a unified response for environment detail.
+// Format: { code, msg, data: { environment } }
 message EnvironmentDetailResponse {
-  Environment detail = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  EnvironmentData data = 4;
+}
+
+// DeleteEnvironmentResponse is a unified response for delete operation.
+// Format: { code, msg, data: null }
+message DeleteEnvironmentResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
 }
 
 // EnvironmentService handles environment CRUD operations.
@@ -67,7 +97,7 @@ service EnvironmentService {
   }
 
   // Delete removes an environment.
-  rpc Delete(DeleteEnvironmentRequest) returns (common.OperateResponse) {
+  rpc Delete(DeleteEnvironmentRequest) returns (DeleteEnvironmentResponse) {
     option (api.post) = "/api/v1/environment/delete";
   }
 

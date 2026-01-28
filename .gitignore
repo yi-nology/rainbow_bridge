@@ -46,3 +46,10 @@ data/resource.db-*
 data/uploads/
 
 ./AGENT.md
+
+# Next.js build output
+/react/out/
+/react/.next/
+
+# Generated web directory (built from react)
+/web/

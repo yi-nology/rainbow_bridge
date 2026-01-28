@@ -13,8 +13,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
+	asset "github.com/yi-nology/rainbow_bridge/biz/model/asset"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
-	"github.com/yi-nology/rainbow_bridge/pkg/common"
 )
 
 var svc *service.Service
@@ -29,18 +29,28 @@ func List(ctx context.Context, c *app.RequestContext) {
 	environmentKey := strings.TrimSpace(c.Query("environment_key"))
 	pipelineKey := strings.TrimSpace(c.Query("pipeline_key"))
 	if environmentKey == "" || pipelineKey == "" {
-		handler.WriteBadRequest(c, errors.New("environment_key and pipeline_key are required"))
+		c.JSON(consts.StatusOK, &asset.AssetListResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key and pipeline_key are required",
+		})
 		return
 	}
 	assets, err := svc.ListAssets(handler.EnrichContext(ctx, c), environmentKey, pipelineKey)
 	if err != nil {
-		handler.WriteInternalError(c, err)
+		c.JSON(consts.StatusOK, &asset.AssetListResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
-	c.JSON(consts.StatusOK, common.CommonResponse{
+	c.JSON(consts.StatusOK, &asset.AssetListResponse{
 		Code: consts.StatusOK,
-		Data: map[string]any{
-			"assets": assets,
+		Msg:  "OK",
+		Data: &asset.AssetListData{
+			Total: int32(len(assets)),
+			List:  assets,
 		},
 	})
 }
@@ -51,24 +61,40 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 	// Check Content-Length header first
 	contentLength := c.Request.Header.ContentLength()
 	if contentLength > handler.MaxUploadSize {
-		handler.WriteBadRequest(c, errors.New("file too large"))
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "file too large",
+		})
 		return
 	}
 
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		handler.WriteBadRequest(c, err)
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	// Validate file size
 	if fileHeader.Size > handler.MaxUploadSize {
-		handler.WriteBadRequest(c, errors.New("file too large"))
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "file too large",
+		})
 		return
 	}
 
 	if fileHeader.Size == 0 {
-		handler.WriteBadRequest(c, errors.New("file is empty"))
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "file is empty",
+		})
 		return
 	}
 
@@ -79,7 +105,11 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 		normalizedType = strings.TrimSpace(normalizedType[:idx])
 	}
 	if !handler.AllowedMimeTypes[normalizedType] {
-		handler.WriteBadRequest(c, errors.New("unsupported file type"))
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "unsupported file type",
+		})
 		return
 	}
 
@@ -87,13 +117,21 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 	environmentKey := string(c.FormValue("environment_key"))
 	pipelineKey := string(c.FormValue("pipeline_key"))
 	if environmentKey == "" || pipelineKey == "" {
-		handler.WriteBadRequest(c, errors.New("environment_key and pipeline_key are required"))
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key and pipeline_key are required",
+		})
 		return
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		handler.WriteBadRequest(c, err)
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 	defer file.Close()
@@ -101,13 +139,21 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 	// Use LimitReader to prevent reading more than allowed
 	data, err := io.ReadAll(io.LimitReader(file, handler.MaxUploadSize+1))
 	if err != nil {
-		handler.WriteInternalError(c, err)
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	// Double-check size after reading
 	if int64(len(data)) > handler.MaxUploadSize {
-		handler.WriteBadRequest(c, errors.New("file too large"))
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "file too large",
+		})
 		return
 	}
 
@@ -120,17 +166,22 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 		Data:           data,
 	}
 
-	asset, reference, err := svc.UploadAsset(handler.EnrichContext(ctx, c), input)
+	assetItem, reference, err := svc.UploadAsset(handler.EnrichContext(ctx, c), input)
 	if err != nil {
-		handler.WriteInternalError(c, err)
+		c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(consts.StatusOK, common.CommonResponse{
+	c.JSON(consts.StatusOK, &asset.UploadAssetResponse{
 		Code: consts.StatusOK,
-		Data: map[string]any{
-			"asset":     asset,
-			"reference": reference,
+		Msg:  "OK",
+		Data: &asset.AssetData{
+			Asset:     assetItem,
+			Reference: reference,
 		},
 	})
 }
@@ -143,7 +194,7 @@ func GetFile(ctx context.Context, c *app.RequestContext) {
 		fileID = c.Param("fileID")
 	}
 
-	asset, path, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
+	assetItem, path, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
 	if err != nil {
 		if errors.Is(err, service.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {
 			handler.WriteNotFound(c, err)
@@ -159,13 +210,13 @@ func GetFile(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	contentType := asset.ContentType
+	contentType := assetItem.ContentType
 	if contentType == "" {
 		contentType = consts.MIMEApplicationOctetStream
 	}
 	c.Response.Header.Set("Content-Type", contentType)
-	if asset.FileName != "" {
-		c.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", asset.FileName))
+	if assetItem.FileName != "" {
+		c.Response.Header.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", assetItem.FileName))
 	}
 	c.Data(consts.StatusOK, contentType, content)
 }

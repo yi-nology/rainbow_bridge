@@ -55,3 +55,8 @@ func _importMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _migrateMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

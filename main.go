@@ -7,6 +7,9 @@ import (
 	"embed"
 	"io/fs"
 	"log"
+	"mime"
+	"path/filepath"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -20,7 +23,7 @@ import (
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
 )
 
-//go:embed web/*
+//go:embed all:web
 var embeddedWeb embed.FS
 
 var (
@@ -41,7 +44,7 @@ func main() {
 		log.Fatalf("open database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{}, &model.SystemConfig{}); err != nil {
+	if err := db.AutoMigrate(&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{}); err != nil {
 		log.Fatalf("auto migrate: %v", err)
 	}
 
@@ -88,7 +91,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("prepare web assets: %v", err)
 	}
-	registerStaticRoutes(h, webFS)
+	registerStaticRoutes(h, webFS, basePath)
 
 	if basePath != "" {
 		log.Printf("server listening at %s with base path %s", cfg.Server.Address, basePath)
@@ -98,51 +101,46 @@ func main() {
 	h.Spin()
 }
 
-func registerStaticRoutes(h *server.Hertz, fsys fs.FS) {
-	serve := func(route, file, contentType string) {
-		h.GET(route, func(ctx context.Context, c *app.RequestContext) {
-			data, err := fs.ReadFile(fsys, file)
+func registerStaticRoutes(h *server.Hertz, fsys fs.FS, basePath string) {
+	// SPA 静态文件处理器 - 使用通配符路由
+	staticHandler := func(ctx context.Context, c *app.RequestContext) {
+		path := string(c.Param("filepath"))
+		if path == "" || path == "/" {
+			path = "index.html"
+		}
+		path = strings.TrimPrefix(path, "/")
+
+		// 尝试读取文件
+		data, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			// 文件不存在，返回 index.html (SPA fallback)
+			data, err = fs.ReadFile(fsys, "index.html")
 			if err != nil {
 				c.Response.SetStatusCode(404)
 				c.Write([]byte("Not Found"))
 				return
 			}
-			if contentType != "" {
-				c.Response.Header.Set("Content-Type", contentType)
-			}
+			c.Response.Header.Set("Content-Type", "text/html; charset=utf-8")
 			c.Write(data)
-		})
+			return
+		}
+
+		// 设置 Content-Type
+		contentType := mime.TypeByExtension(filepath.Ext(path))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		c.Response.Header.Set("Content-Type", contentType)
+
+		// 为 _next/static 资源设置长期缓存
+		if strings.HasPrefix(path, "_next/static/") {
+			c.Response.Header.Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+
+		c.Write(data)
 	}
 
-	serve("/", "home.html", "text/html; charset=utf-8")
-	serve("/home", "home.html", "text/html; charset=utf-8")
-	serve("/home.html", "home.html", "text/html; charset=utf-8")
-	serve("/index", "index.html", "text/html; charset=utf-8")
-	serve("/index.html", "index.html", "text/html; charset=utf-8")
-	serve("/system", "system.html", "text/html; charset=utf-8")
-	serve("/system.html", "system.html", "text/html; charset=utf-8")
-	serve("/assets", "assets.html", "text/html; charset=utf-8")
-	serve("/assets.html", "assets.html", "text/html; charset=utf-8")
-	serve("/transfer", "transfer.html", "text/html; charset=utf-8")
-	serve("/transfer.html", "transfer.html", "text/html; charset=utf-8")
-	serve("/environment", "environment.html", "text/html; charset=utf-8")
-	serve("/environment.html", "environment.html", "text/html; charset=utf-8")
-	serve("/pipeline", "pipeline.html", "text/html; charset=utf-8")
-	serve("/pipeline.html", "pipeline.html", "text/html; charset=utf-8")
-	serve("/styles.css", "styles.css", "text/css; charset=utf-8")
-	serve("/config.js", "config.js", "application/javascript")
-	serve("/assets.js", "assets.js", "application/javascript")
-	serve("/transfer.js", "transfer.js", "application/javascript")
-	serve("/home.js", "home.js", "application/javascript")
-	serve("/components.js", "components.js", "application/javascript")
-	serve("/ui.js", "ui.js", "application/javascript")
-	serve("/system.js", "system.js", "application/javascript")
-	serve("/environment.js", "environment.js", "application/javascript")
-	serve("/pipeline.js", "pipeline.js", "application/javascript")
-	serve("/runtime.js", "runtime.js", "application/javascript")
-	serve("/lib/utils.js", "lib/utils.js", "application/javascript")
-	serve("/lib/types.js", "lib/types.js", "application/javascript")
-	serve("/lib/api.js", "lib/api.js", "application/javascript")
-	serve("/lib/toast.js", "lib/toast.js", "application/javascript")
-	serve("/lib/init.js", "lib/init.js", "application/javascript")
+	// 注册根路由和通配符路由
+	h.GET("/", staticHandler)
+	h.GET("/*filepath", staticHandler)
 }

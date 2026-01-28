@@ -99,9 +99,9 @@ func RespondOKWithSummary(c *app.RequestContext, summary *transfer.ImportSummary
 		return
 	}
 	c.JSON(consts.StatusOK, &transfer.ImportResponse{
-		Code:    consts.StatusOK,
-		Msg:     http.StatusText(consts.StatusOK),
-		Summary: summary,
+		Code: consts.StatusOK,
+		Msg:  http.StatusText(consts.StatusOK),
+		Data: summary,
 	})
 }
 
@@ -148,18 +148,36 @@ func SanitizeBusinessKeys(keys []string) []string {
 	return result
 }
 
-func BuildConfigSummary(configs []*common.ResourceConfig) *transfer.ImportSummary {
+// SummaryItem is a helper struct for building config summaries
+type SummaryItem struct {
+	ResourceKey    string
+	EnvironmentKey string
+	PipelineKey    string
+	Name           string
+	Alias          string
+	Type           string
+}
+
+// ConfigSummary is a helper struct for building config summaries
+type ConfigSummary struct {
+	Total           int
+	EnvironmentKeys []string
+	PipelineKeys    []string
+	Items           []SummaryItem
+}
+
+func BuildConfigSummary(configs []*common.ResourceConfig) *ConfigSummary {
 	if len(configs) == 0 {
-		return &transfer.ImportSummary{
+		return &ConfigSummary{
 			EnvironmentKeys: []string{},
 			PipelineKeys:    []string{},
-			Items:           []*transfer.ImportSummaryItem{},
+			Items:           []SummaryItem{},
 		}
 	}
 
 	envSet := make(map[string]struct{})
 	pipeSet := make(map[string]struct{})
-	items := make([]*transfer.ImportSummaryItem, 0, len(configs))
+	items := make([]SummaryItem, 0, len(configs))
 
 	for _, cfg := range configs {
 		if cfg == nil {
@@ -173,7 +191,7 @@ func BuildConfigSummary(configs []*common.ResourceConfig) *transfer.ImportSummar
 		if pipeKey != "" {
 			pipeSet[pipeKey] = struct{}{}
 		}
-		items = append(items, &transfer.ImportSummaryItem{
+		items = append(items, SummaryItem{
 			ResourceKey:    cfg.ResourceKey,
 			EnvironmentKey: envKey,
 			PipelineKey:    pipeKey,
@@ -208,8 +226,8 @@ func BuildConfigSummary(configs []*common.ResourceConfig) *transfer.ImportSummar
 	}
 	sort.Strings(pipeKeys)
 
-	return &transfer.ImportSummary{
-		Total:           int32(len(items)),
+	return &ConfigSummary{
+		Total:           len(items),
 		EnvironmentKeys: envKeys,
 		PipelineKeys:    pipeKeys,
 		Items:           items,

@@ -44,20 +44,50 @@ message PipelineDetailRequest {
   string pipeline_key = 2;
 }
 
-// PipelineResponse is a response containing a pipeline.
+// PipelineData is the data wrapper for a single pipeline.
+message PipelineData {
+  Pipeline pipeline = 1;
+}
+
+// PipelineListData is the data wrapper for pipeline list.
+message PipelineListData {
+  int32 total = 1;
+  repeated Pipeline list = 2;
+}
+
+// PipelineResponse is a unified response for single pipeline operations.
+// Format: { code, msg, data: { pipeline } }
 message PipelineResponse {
-  common.OperateResponse operate_response = 1;
-  Pipeline pipeline = 2;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  PipelineData data = 4;
 }
 
-// PipelineListResponse contains a list of pipelines.
+// PipelineListResponse is a unified response for pipeline list.
+// Format: { code, msg, data: { total, list } }
 message PipelineListResponse {
-  repeated Pipeline list = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  PipelineListData data = 4;
 }
 
-// PipelineDetailResponse contains a single pipeline.
+// PipelineDetailResponse is a unified response for pipeline detail.
+// Format: { code, msg, data: { pipeline } }
 message PipelineDetailResponse {
-  Pipeline detail = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  PipelineData data = 4;
+}
+
+// DeletePipelineResponse is a unified response for delete operation.
+// Format: { code, msg, data: null }
+message DeletePipelineResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
 }
 
 // PipelineService handles pipeline CRUD operations.
@@ -73,7 +103,7 @@ service PipelineService {
   }
 
   // Delete removes a pipeline.
-  rpc Delete(DeletePipelineRequest) returns (common.OperateResponse) {
+  rpc Delete(DeletePipelineRequest) returns (DeletePipelineResponse) {
     option (api.post) = "/api/v1/pipeline/delete";
   }
 

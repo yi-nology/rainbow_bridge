@@ -18,10 +18,19 @@ message RuntimeConfigRequest {
   string x_pipeline = 2 [(api.header) = "x-pipeline"];
 }
 
-// RuntimeConfigResponse contains configs and environment info.
-message RuntimeConfigResponse {
+// RuntimeConfigData is the data wrapper for runtime config.
+message RuntimeConfigData {
   repeated common.ResourceConfig configs = 1;
   EnvironmentInfo environment = 2;
+}
+
+// RuntimeConfigResponse is a unified response for runtime config.
+// Format: { code, msg, data: { configs, environment } }
+message RuntimeConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  RuntimeConfigData data = 4;
 }
 
 // StaticPackageRequest is used to export static package.
@@ -43,9 +52,19 @@ message EnvironmentOverview {
   repeated PipelineOverview pipelines = 3;
 }
 
-// RuntimeOverviewResponse contains all environments and their pipelines.
+// RuntimeOverviewData is the data wrapper for runtime overview.
+message RuntimeOverviewData {
+  int32 total = 1;
+  repeated EnvironmentOverview list = 2;
+}
+
+// RuntimeOverviewResponse is a unified response for runtime overview.
+// Format: { code, msg, data: { total, list } }
 message RuntimeOverviewResponse {
-  repeated EnvironmentOverview environments = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  RuntimeOverviewData data = 4;
 }
 
 // RuntimeService handles runtime configuration operations.

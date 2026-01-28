@@ -39,20 +39,50 @@ message ConfigDetailRequest {
   string resource_key = 3;
 }
 
-// ConfigResponse is a response containing a config.
+// ConfigData is the data wrapper for a single config.
+message ConfigData {
+  common.ResourceConfig config = 1;
+}
+
+// ConfigListData is the data wrapper for config list.
+message ConfigListData {
+  int32 total = 1;
+  repeated common.ResourceConfig list = 2;
+}
+
+// ConfigResponse is a unified response for single config operations.
+// Format: { code, msg, data: { config } }
 message ConfigResponse {
-  common.OperateResponse operate_response = 3;
-  common.ResourceConfig config = 4;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  ConfigData data = 4;
 }
 
-// ConfigListResponse contains a list of configs.
+// ConfigListResponse is a unified response for config list.
+// Format: { code, msg, data: { total, list } }
 message ConfigListResponse {
-  repeated common.ResourceConfig list = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  ConfigListData data = 4;
 }
 
-// ConfigDetailResponse contains a single config.
+// ConfigDetailResponse is a unified response for config detail.
+// Format: { code, msg, data: { config } }
 message ConfigDetailResponse {
-  common.ResourceConfig detail = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  ConfigData data = 4;
+}
+
+// DeleteConfigResponse is a unified response for delete operation.
+// Format: { code, msg, data: null }
+message DeleteConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
 }
 
 // ConfigService handles configuration CRUD operations.
@@ -62,20 +92,13 @@ service ConfigService {
     option (api.post) = "/api/v1/config/create";
   }
 
-  //service HelloService {
- //  rpc Method1(HelloReq) returns(HelloResp) {
- //     option (api.get) = "/hello";
- //  }
-//}
-
-
   // Update updates an existing configuration.
   rpc Update(UpdateConfigRequest) returns (ConfigResponse) {
     option (api.post) = "/api/v1/config/update";
   }
 
   // Delete removes a configuration.
-  rpc Delete(DeleteConfigRequest) returns (common.OperateResponse) {
+  rpc Delete(DeleteConfigRequest) returns (DeleteConfigResponse) {
     option (api.post) = "/api/v1/config/delete";
   }
 

@@ -136,9 +136,9 @@ export default function ConfigPage() {
     
     // 基础字段校验
     if (!formData.name.trim()) {
-      newErrors.push({ field: "name", message: "配置名称不能为空" })
+      newErrors.push({ field: "name", message: "名称不能为空" })
     } else if (!/^[A-Z_][A-Z0-9_]*$/i.test(formData.name)) {
-      newErrors.push({ field: "name", message: "配置名称只能包含字母、数字和下划线，且不能以数字开头" })
+      newErrors.push({ field: "name", message: "名称只能包含字母、数字和下划线，且不能以数字开头" })
     }
 
     if (!formData.alias.trim()) {
@@ -839,7 +839,7 @@ export default function ConfigPage() {
       
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="name">配置名称 *</Label>
+          <Label htmlFor="name">名称 *</Label>
           <Input
             id="name"
             placeholder="例如: API_BASE_URL"

@@ -1,4 +1,4 @@
-import { get, post, upload } from './client'
+import { get, post, upload, getBasePath } from './client'
 import type {
   ApiResourceConfig,
   ImportResponse,
@@ -6,7 +6,7 @@ import type {
   ImportSummary,
 } from './types'
 
-const BASE_PATH = '/rainbow-bridge/api/v1/transfer'
+const BASE_PATH = `${getBasePath()}/api/v1/transfer`
 
 export interface ExportParams {
   environment_key: string
@@ -171,7 +171,12 @@ export const transferApi = {
       format: params.format || 'zip',
     })
 
-    const response = await fetch(`${BASE_PATH}/export?${searchParams}`)
+    // 使用环境变量中的 API 基础 URL（开发环境指向后端服务器）
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+    const baseUrl = apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+    const url = `${baseUrl}${BASE_PATH}/export?${searchParams}`
+    
+    const response = await fetch(url)
 
     if (!response.ok) {
       throw new Error(`HTTP error: ${response.status}`)
@@ -211,7 +216,12 @@ export const transferApi = {
 
   // 按选择导出
   exportSelective: async (params: ExportSelectiveParams): Promise<Blob> => {
-    const response = await fetch(`${BASE_PATH}/export`, {
+    // 使用环境变量中的 API 基础 URL（开发环境指向后端服务器）
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+    const baseUrl = apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+    const url = `${baseUrl}${BASE_PATH}/export`
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

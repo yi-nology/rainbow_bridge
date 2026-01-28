@@ -238,6 +238,11 @@ service TransferService {
     option (api.post) = "/api/v1/transfer/import-preview";
   }
 
+  // ImportSelective imports selected configurations from archive.
+  rpc ImportSelective(ImportSelectiveRequest) returns (ImportResponse) {
+    option (api.post) = "/api/v1/transfer/import-selective";
+  }
+
   // Migrate migrates configurations between environments/pipelines.
   rpc Migrate(MigrateRequest) returns (MigrateResponse) {
     option (api.post) = "/api/v1/transfer/migrate";

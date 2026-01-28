@@ -12,6 +12,9 @@ permissions:
 env:
   GO_VERSION: "1.25.x"
   RUN_NAME: hertz_service
+  # BASE_PATH: 前后端统一的路径前缀，编译时注入
+  # 留空表示部署在根路径，设置如 "rainbow-bridge" 则部署在子路径
+  BASE_PATH: "rainbow-bridge"
 
 jobs:
   build-binaries:
@@ -53,9 +56,17 @@ jobs:
           cache-dependency-path: react/package-lock.json
 
       - name: Build frontend
+        env:
+          BASE_PATH: ${{ env.BASE_PATH }}
         run: |
           cd react
           npm ci
+          # 动态修改 next.config.mjs 中的 basePath
+          if [ -n "$BASE_PATH" ]; then
+            sed -i "s|basePath: '/rainbow-bridge'|basePath: '/${BASE_PATH}'|g" next.config.mjs
+          else
+            sed -i "s|basePath: '/rainbow-bridge'|basePath: ''|g" next.config.mjs
+          fi
           npm run build
           cd ..
           rm -rf web/*
@@ -83,9 +94,9 @@ jobs:
           NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
           OUTPUT_DIR="./dist/${NAME}"
           mkdir -p "$OUTPUT_DIR"
-          # 注入版本信息
+          # 注入版本信息和 BASE_PATH
           go build \
-            -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}'" \
+            -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.BasePath=${{ env.BASE_PATH }}'" \
             -o "$OUTPUT_DIR/${{ env.RUN_NAME }}${{ matrix.bin_ext }}" .
           cp config.yaml "$OUTPUT_DIR/config.yaml"
 
@@ -164,6 +175,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             GO_VERSION=1.25
+            BASE_PATH=${{ env.BASE_PATH }}
             VERSION=${{ github.ref_name }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}

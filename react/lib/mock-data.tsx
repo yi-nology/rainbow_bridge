@@ -257,3 +257,14 @@ export const mockConfigs: ConfigItem[] = [
     updatedAt: '2024-01-22T09:15:00Z',
   },
 ]
+
+// Mock resources (assets)
+export const mockResources: Array<{
+  id: string
+  name: string
+  environmentId: string
+  pipelineId: string
+  url: string
+  size: number
+  type: string
+}> = []

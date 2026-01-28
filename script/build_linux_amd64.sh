@@ -8,6 +8,12 @@ OUTPUT_ROOT="${OUTPUT_ROOT:-output/linux_amd64}"
 USE_CGO="${USE_CGO:-1}"
 CC_BIN="${CC_BIN:-x86_64-linux-gnu-gcc}"
 
+# Build configuration
+BASE_PATH="${BASE_PATH:-rainbow-bridge}"
+VERSION="${VERSION:-$(git describe --tags --always 2>/dev/null || echo "dev")}"
+GIT_COMMIT="${GIT_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")}"
+BUILD_TIME="${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')}"
+
 cd "${PROJECT_ROOT}"
 
 mkdir -p "${OUTPUT_ROOT}"
@@ -65,11 +71,12 @@ EOF
   fi
 fi
 
-echo "Building ${RUN_NAME} for linux/amd64 (CGO_ENABLED=${USE_CGO})..."
+echo "Building ${RUN_NAME} for linux/amd64 (CGO_ENABLED=${USE_CGO}, BASE_PATH=${BASE_PATH})..."
+LDFLAGS="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'"
 if [[ "${USE_CGO}" == "1" ]]; then
-  env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="${COMPILER}" go build -o "${OUTPUT_ROOT}/${RUN_NAME}" .
+  env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="${COMPILER}" go build -ldflags="${LDFLAGS}" -o "${OUTPUT_ROOT}/${RUN_NAME}" .
 else
-  env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${OUTPUT_ROOT}/${RUN_NAME}" .
+  env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o "${OUTPUT_ROOT}/${RUN_NAME}" .
 fi
 
 echo "Artifact available at ${OUTPUT_ROOT}/${RUN_NAME}"

@@ -8,6 +8,12 @@ import type {
 
 const BASE_PATH = '/rainbow-bridge/api/v1/runtime'
 
+// 获取 API 基础 URL（开发环境指向后端服务器，生产环境使用相对路径）
+function getApiBaseUrl(): string {
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+  return apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+}
+
 export const runtimeApi = {
   // 获取运行时概览
   overview: async () => {
@@ -23,7 +29,8 @@ export const runtimeApi = {
     environmentKey: string,
     pipelineKey: string
   ): Promise<RuntimeConfigData | null> => {
-    const response = await fetch(`${BASE_PATH}/config`, {
+    const baseUrl = getApiBaseUrl()
+    const response = await fetch(`${baseUrl}${BASE_PATH}/config`, {
       method: 'GET',
       headers: {
         'x-environment': environmentKey,
@@ -44,8 +51,9 @@ export const runtimeApi = {
     environmentKey: string,
     pipelineKey: string
   ): Promise<Blob> => {
+    const baseUrl = getApiBaseUrl()
     const response = await fetch(
-      `${BASE_PATH}/static?environment_key=${environmentKey}&pipeline_key=${pipelineKey}`
+      `${baseUrl}${BASE_PATH}/static?environment_key=${environmentKey}&pipeline_key=${pipelineKey}`
     )
 
     if (!response.ok) {

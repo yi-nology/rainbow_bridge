@@ -6,9 +6,18 @@
 ARG GO_VERSION=1.25
 
 ##
+## Build configuration
+##
+# BASE_PATH: 统一的路径前缀，同时影响前后端
+# 留空表示部署在根路径，设置如 "rainbow-bridge" 则部署在子路径
+ARG BASE_PATH=rainbow-bridge
+
+##
 ## Frontend build stage
 ##
 FROM node:20-bookworm AS frontend
+
+ARG BASE_PATH
 
 WORKDIR /frontend
 
@@ -16,6 +25,14 @@ COPY react/package*.json ./
 RUN npm ci
 
 COPY react/ ./
+
+# 根据 BASE_PATH 动态修改 next.config.mjs
+RUN if [ -n "$BASE_PATH" ]; then \
+      sed -i "s|basePath: '/rainbow-bridge'|basePath: '/${BASE_PATH}'|g" next.config.mjs; \
+    else \
+      sed -i "s|basePath: '/rainbow-bridge'|basePath: ''|g" next.config.mjs; \
+    fi
+
 RUN npm run build
 
 
@@ -26,6 +43,7 @@ ARG TARGETARCH
 ARG VERSION=dev
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
+ARG BASE_PATH=rainbow-bridge
 
 ENV CGO_ENABLED=1 \
     GOOS=${TARGETOS:-linux} \
@@ -49,7 +67,7 @@ COPY . .
 COPY --from=frontend /frontend/out ./web/
 
 RUN go build \
-    -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}'" \
+    -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'" \
     -o /out/hertz_service .
 
 ##

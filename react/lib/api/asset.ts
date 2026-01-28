@@ -37,6 +37,8 @@ export const assetApi = {
 
   // 获取文件 URL
   getFileUrl: (fileId: string): string => {
-    return `${BASE_PATH}/file/${fileId}`
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+    const baseUrl = apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+    return `${baseUrl}${BASE_PATH}/file/${fileId}`
   },
 }

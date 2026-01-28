@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Settings, Github, Database, Layers, ArrowRightLeft, Info, ExternalLink } from "lucide-react"
+import { LayoutDashboard, Settings, Github, Database, Layers, ArrowRightLeft, Info, ExternalLink,Import } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useVersion, useLatestRelease } from "@/hooks/use-version"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +32,11 @@ const navItems = [
     title: "配置迁移",
     href: "/migration",
     icon: ArrowRightLeft,
+  },
+  {
+    title: "导入导出",
+    href: "/import-export",
+    icon: Import,
   },
 ]
 

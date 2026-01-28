@@ -34,8 +34,8 @@ type UploadConfig struct {
 
 // ServerConfig defines HTTP server options.
 type ServerConfig struct {
-	Address  string `yaml:"address"`
-	BasePath string `yaml:"base_path"`
+	Address string `yaml:"address"`
+	// BasePath removed - now injected at build time via ldflags
 }
 
 // DatabaseConfig defines the database backend configuration.
@@ -87,8 +87,8 @@ func Load(path string) (*Config, error) {
 func defaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Address:  ":8080",
-			BasePath: "rainbow-bridge",
+			Address: ":8080",
+			// BasePath removed - now injected at build time
 		},
 		Database: DatabaseConfig{
 			Driver: "sqlite",
@@ -119,7 +119,7 @@ func applyDefaults(cfg *Config) {
 	if cfg.Server.Address == "" {
 		cfg.Server.Address = ":8080"
 	}
-	cfg.Server.BasePath = NormalizeBasePath(cfg.Server.BasePath)
+	// BasePath removed - now injected at build time
 	if cfg.Database.Driver == "" {
 		cfg.Database.Driver = "sqlite"
 	}

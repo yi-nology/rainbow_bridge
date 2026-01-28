@@ -23,8 +23,10 @@ func Register(r *server.Hertz) {
 			_v1 := _api.Group("/v1", _v1Mw()...)
 			{
 				_transfer := _v1.Group("/transfer", _transferMw()...)
-				_transfer.GET("/export", append(_exportMw(), transfer.Export)...)
+				_transfer.POST("/export", append(_exportselectiveMw(), transfer.ExportSelective)...)
+				_transfer.GET("/export-tree", append(_exporttreeMw(), transfer.ExportTree)...)
 				_transfer.POST("/import", append(_importMw(), transfer.Import)...)
+				_transfer.POST("/import-preview", append(_importpreviewMw(), transfer.ImportPreview)...)
 				_transfer.POST("/migrate", append(_migrateMw(), transfer.Migrate)...)
 			}
 		}

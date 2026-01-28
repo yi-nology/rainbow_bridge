@@ -53,3 +53,18 @@ data/uploads/
 
 # Generated web directory (built from react)
 /web/
+
+# Test coverage reports
+coverage.out
+*.coverprofile
+
+# E2E test artifacts
+/tests/e2e/node_modules/
+/tests/e2e/reports/
+/tests/e2e/test-results/
+/tests/e2e/playwright-report/
+/tests/e2e/.playwright/
+
+# Performance test reports
+/tests/performance/reports/
+/tests/performance/node_modules/

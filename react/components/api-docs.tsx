@@ -33,7 +33,7 @@ export function ApiDocs() {
         <CardTitle className="text-lg">前端对接</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {apiDocs.map((api) => (
             <div
               key={api.endpoint}

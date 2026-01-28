@@ -1,8 +1,8 @@
 # 虹桥计划（Rainbow Bridge）技术设计文档
 
 > **版本信息**  
-> 版本：v1.1.4  
-> Commit：b56ecf5
+> 版本：v2.1.0+  
+> 最后更新：2026-01-29
 
 ## 目录
 
@@ -174,25 +174,53 @@
 
 **注意**：所有 `*.pb.go` 文件由 `hz` 工具根据 `idl/` 目录下的 proto 文件自动生成，不应手动修改。
 
-### 6. 静态控制台
+### 6. 前端界面
 
-`web/` 目录包含基于原生 ES6 模块的管理界面：
+前端使用 **React + Next.js** 框架构建现代化的管理界面，位于 `react/` 目录：
 
-- **页面文件**：
-  - `home.html/js` - 项目首页，展示简介和前端对接说明
-  - `environment.html/js` - 环境管理页面
-  - `pipeline.html/js` - 渠道管理页面
-  - `config.js` - 配置管理（无独立 HTML，集成在其他页面）
-  - `assets.html/js` - 静态资源库管理
-  - `transfer.html/js` - 配置迁移（使用标签页区分导出和导入）
+#### 页面模块
 
-- **公共模块**：
-  - `components.js` - 导航、页面布局、环境渠道切换器
-  - `styles.css` - 全局样式
-  - `lib/api.js` - API 请求封装
-  - `lib/toast.js` - 消息提示组件
-  - `lib/utils.js` - 工具函数
-  - `lib/types.js` - 类型定义和常量
+- **app/page.tsx** - 项目首页，展示简介和对接说明
+- **app/environments/page.tsx** - 环境管理页面
+- **app/config/page.tsx** - 配置管理页面（支持环境/渠道切换）
+- **app/resources/page.tsx** - 静态资源库管理
+- **app/import-export/page.tsx** - 配置导入导出页面
+- **app/migration/page.tsx** - 配置迁移页面（多环境/渠道同步）
+
+#### 核心组件
+
+- **components/app-sidebar.tsx** - 侧边栏导航
+- **components/runtime-config.tsx** - 运行时配置展示
+- **components/project-intro.tsx** - 项目介绍组件
+- **components/api-docs.tsx** - API 文档展示
+- **components/ui/** - 基于 shadcn/ui 的通用 UI 组件
+
+#### API 客户端
+
+- **lib/api/** - API 请求封装，对应后端各模块
+  - `config.ts` - 配置管理 API
+  - `environment.ts` - 环境管理 API
+  - `asset.ts` - 资源管理 API
+  - `transfer.ts` - 导入导出 API
+  - `runtime.ts` - 运行时配置 API
+  - `version.ts` - 版本信息 API
+
+#### 数据管理
+
+- **hooks/** - React Query 自定义 Hooks
+  - `use-configs.ts` - 配置数据管理
+  - `use-environments.ts` - 环境数据管理
+  - `use-assets.ts` - 资源数据管理
+  - `use-version.ts` - 版本信息管理
+
+#### 技术栈
+
+- **框架**：Next.js 16 + React 19
+- **状态管理**：React Query（TanStack Query）
+- **UI 组件**：shadcn/ui + Radix UI
+- **样式**：Tailwind CSS
+- **表单验证**：React Hook Form + Zod
+- **构建工具**：Turbopack
 
 
 ## 数据模型
@@ -227,8 +255,8 @@
 | `resource_key`    | string   | 资源唯一标识                                  |
 | `environment_key` | string   | 所属环境                                      |
 | `pipeline_key`    | string   | 所属渠道                                  |
-| `name`            | string   | 名称，例如 `api_base_url`              |
-| `alias`           | string   | 别名/描述                                 |
+| `name`            | string   | 名称，例如 `api_base_url`，**可随时修改**              |
+| `alias`           | string   | 别名/描述，**创建后不可修改**                                 |
 | `content`         | text     | 配置内容（JSON 字符串 / 文本 / 引用）      |
 | `type`            | varchar  | 数据类型：`text`、`number`、`boolean`、`object`、`image`、`color` 等 |
 | `remark`          | string   | 备注信息                                      |
@@ -236,6 +264,11 @@
 | `updated_at`      | datetime | 更新时间                                      |
 
 **联合唯一约束**：`(resource_key, environment_key, pipeline_key, name)`
+
+**字段编辑规则**：
+- `name`（名称）：可以随时修改，用于展示和引用
+- `alias`（别名）：只能在创建时设置，创建后**不可修改**，确保配置标识的稳定性
+- 前端编辑界面会自动禁用别名字段，后端通过 `Omit("alias")` 保护该字段
 
 **数据类型说明**：
 - `text`：纯文本，适用于字符串配置
@@ -306,6 +339,23 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
    - `assets/{file_id}/{filename}`：静态资源文件；  
 3. 返回 zip 文件供用户下载，可直接部署到 Nginx 或 CDN。
 
+### 4. 配置迁移（多环境/渠道同步）
+
+1. 前端访问 `/migration` 页面，选择源环境/渠道和目标环境/渠道；  
+2. 调用 `GET /api/v1/config/list` 获取源配置列表和目标配置列表；  
+3. 前端自动比对差异：
+   - 标记新配置（目标不存在）
+   - 标记冲突配置（内容不一致）
+   - 显示配置详情和差异对比
+4. 用户选择要迁移的配置，设置是否覆盖冲突；  
+5. 调用 `POST /api/v1/transfer/migrate` 执行迁移：
+   - Service 验证环境和渠道存在性
+   - 复制配置到目标（生成新 resource_key）
+   - 自动复制关联的资源文件（如图片）
+   - 根据 `overwrite` 参数决定是否覆盖已存在配置
+6. 返回迁移结果（成功/跳过/失败数量及详情）；  
+7. 前端展示迁移结果，支持重新开始。
+
 ## 接口与协议
 
 ### 1. REST 接口
@@ -341,9 +391,12 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 - `GET /api/v1/runtime/static` - 导出静态包（需传 `environment_key` 和 `pipeline_key`）
 
 #### 配置迁移 (`/api/v1/transfer/*`)
-- `GET /api/v1/transfer/export` - 导出配置（支持 json、zip、static 格式）
-- `POST /api/v1/transfer/import` - 导入配置（支持 JSON 和 ZIP）
-- `POST /api/v1/transfer/migrate` - 配置迁移（跨环境/渠道）
+- `POST /api/v1/transfer/export` - 选择性导出配置（POST body 包含选择的环境/渠道/配置）
+- `GET /api/v1/transfer/export-tree` - 获取导出树形结构（展示所有环境、渠道和配置数量）
+- `POST /api/v1/transfer/import` - 导入配置（支持 JSON 和 ZIP 格式）
+- `POST /api/v1/transfer/import-preview` - 导入预览（分析文件内容，检测冲突）
+- `POST /api/v1/transfer/import-selective` - 选择性导入（从归档文件中选择部分配置导入）
+- `POST /api/v1/transfer/migrate` - 配置迁移（在不同环境/渠道间复制配置）
 
 #### 版本信息 (`/api/v1/version`)
 - `GET /api/v1/version` - 获取系统版本信息
@@ -369,6 +422,8 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 ## 配置与环境
 
+### 1. 服务配置
+
 - `config.yaml`：主配置文件，包含 `server.address`、`database` 等；
 - `server.base_path`：可选的统一访问前缀（如 `/rainbow-bridge`），启用后 API、静态控制台与返回的资源 URL 会自动携带该前缀，便于部署在反向代理或多租户网关之下；
 - 若文件缺失，程序会使用默认配置（监听 `:8080`，使用 `sqlite` & `data/resource.db`）；
@@ -380,9 +435,32 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 若切换数据库，可更新 `config.yaml` 中的 DSN 并确保对应驱动依赖（MySQL/PGSQL）。
 
+### 2. 前端配置
+
+前端使用 Next.js 框架，支持通过环境变量配置 `basePath`：
+
+- **开发环境**：`.env.development` 中设置 `NEXT_PUBLIC_BASE_PATH`（默认为空）
+- **生产环境**：`.env.production` 中设置 `NEXT_PUBLIC_BASE_PATH`（如 `/rainbow-bridge`）
+- **构建时注入**：GitHub Actions 或本地构建脚本通过 `BASE_PATH` 变量注入
+- **配置方式**：
+  ```bash
+  # 开发环境
+  cd react && npm run dev
+  
+  # 构建时指定 basePath
+  BASE_PATH=/rainbow-bridge npm run build
+  ```
+
+前端会自动从环境变量读取 `basePath` 并应用到：
+- Next.js 路由配置
+- API 请求路径
+- 静态资源路径（包括图标）
+
 ## 构建与交付
 
 ### 1. 本地构建
+
+#### 后端构建
 
 - 普通构建：
   ```bash
@@ -392,6 +470,25 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 - 交叉编译脚本：
   - `script/build_cross.sh`：一次性编译多个 OS/ARCH；  
   - `script/build_linux_amd64.sh`：专用于 Linux amd64，可在 macOS 上通过 `zig` 或 cross gcc 构建 CGO 版本（用于 SQLite）。
+
+#### 前端构建
+
+- 开发模式：
+  ```bash
+  cd react && npm run dev
+  ```
+
+- 生产构建：
+  ```bash
+  cd react && npm run build
+  ```
+
+- 带 basePath 的生产构建：
+  ```bash
+  cd react && BASE_PATH=/rainbow-bridge npm run build
+  ```
+
+前端构建产物位于 `react/out/` 目录，后端会在启动时自动挂载该目录。
 
 ### 2. GitHub Actions
 
@@ -468,7 +565,7 @@ chmod +x .githooks/post-commit script/auto_tag.sh
 
 1. **对象存储适配**：支持 AWS S3/阿里云 OSS 等，提升高可用；  
 2. **鉴权与审计**：与公司统一的 IAM/权限系统集成；  
-3. **多环境渠道**：支持资源多环境同步、差异比对；  
+3. ~~**多环境渠道**：支持资源多环境同步、差异比对~~（**已完成** ✅ - `/migration` 页面提供配置迁移功能）；  
 4. **更友好的前端体验**：配置 Diff、资产预览、批量操作；  
 5. **自动化测试覆盖**：完善端到端测试、性能测试；  
 6. **消息通知**：导入导出结果通过邮件/IM 通知。

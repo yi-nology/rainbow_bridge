@@ -129,10 +129,3 @@ export interface ImportSummary {
 }
 
 export interface ImportResponse extends ApiResponse<ImportSummary> {}
-
-export interface ExportData {
-  total: number
-  list: ApiResourceConfig[]
-}
-
-export interface ExportResponse extends ApiResponse<ExportData> {}

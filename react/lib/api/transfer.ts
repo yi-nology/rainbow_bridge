@@ -2,17 +2,10 @@ import { get, post, upload, getBasePath } from './client'
 import type {
   ApiResourceConfig,
   ImportResponse,
-  ExportResponse,
   ImportSummary,
 } from './types'
 
 const BASE_PATH = `${getBasePath()}/api/v1/transfer`
-
-export interface ExportParams {
-  environment_key: string
-  pipeline_key: string
-  format?: 'json' | 'zip' | 'static'
-}
 
 export interface ImportJsonData {
   configs: ApiResourceConfig[]
@@ -150,41 +143,6 @@ export interface ImportPreviewResponse {
 }
 
 export const transferApi = {
-  // 导出配置
-  export: async (params: ExportParams) => {
-    const resp = await get<ExportResponse>(`${BASE_PATH}/export`, {
-      environment_key: params.environment_key,
-      pipeline_key: params.pipeline_key,
-      format: params.format || 'json',
-    })
-    return {
-      total: resp.data?.total || 0,
-      list: resp.data?.list || [],
-    }
-  },
-
-  // 导出为文件（ZIP 或 Static）
-  exportAsFile: async (params: ExportParams): Promise<Blob> => {
-    const searchParams = new URLSearchParams({
-      environment_key: params.environment_key,
-      pipeline_key: params.pipeline_key,
-      format: params.format || 'zip',
-    })
-
-    // 使用环境变量中的 API 基础 URL（开发环境指向后端服务器）
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
-    const baseUrl = apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
-    const url = `${baseUrl}${BASE_PATH}/export?${searchParams}`
-    
-    const response = await fetch(url)
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`)
-    }
-
-    return response.blob()
-  },
-
   // 导入配置（JSON 格式）
   importJson: async (data: ImportJsonData): Promise<ImportSummary | null> => {
     const resp = await post<ImportResponse>(`${BASE_PATH}/import`, data)
@@ -206,7 +164,7 @@ export const transferApi = {
     return resp.data || null
   },
 
-  // ==================== New APIs ====================
+  // ==================== Export APIs ====================
 
   // 获取导出树形结构
   getExportTree: async (): Promise<ExportTreeEnvironment[]> => {
@@ -236,6 +194,8 @@ export const transferApi = {
 
     return response.blob()
   },
+
+  // ==================== Import APIs ====================
 
   // 导入预览
   importPreview: async (file: File): Promise<ImportPreviewData | null> => {

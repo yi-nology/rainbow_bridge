@@ -862,10 +862,16 @@ export default function ConfigPage() {
             value={formData.alias}
             onChange={(e) => setFormData({ ...formData, alias: e.target.value })}
             className={getFieldError("alias") ? "border-destructive" : ""}
+            disabled={!!editingConfig}
           />
           {getFieldError("alias") && (
             <p className="text-sm text-destructive flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />{getFieldError("alias")}
+            </p>
+          )}
+          {editingConfig && (
+            <p className="text-xs text-muted-foreground">
+              别名在创建后不可修改
             </p>
           )}
         </div>

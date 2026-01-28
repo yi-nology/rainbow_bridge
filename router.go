@@ -5,7 +5,6 @@ package main
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	asset "github.com/yi-nology/rainbow_bridge/biz/handler/asset"
-	"github.com/yi-nology/rainbow_bridge/biz/handler/transfer"
 )
 
 // customizedRegister registers customize routers.
@@ -14,10 +13,4 @@ func customizedRegister(r *server.Hertz) {
 	// 同时支持带文件名的路径，以便 Nginx 静态服务识别
 	r.GET("/api/v1/asset/file/:file_id", asset.GetFile)
 	r.GET("/api/v1/asset/file/:file_id/*filename", asset.GetFile)
-
-	// Transfer API extensions
-	r.GET("/api/v1/transfer/export-tree", transfer.ExportTree)
-	r.POST("/api/v1/transfer/export", transfer.ExportSelective)
-	r.POST("/api/v1/transfer/import-preview", transfer.ImportPreview)
-	r.POST("/api/v1/transfer/import-selective", transfer.ImportSelective)
 }

@@ -48,64 +48,6 @@ func (s *Service) ImportConfigs(ctx context.Context, configs []*common.ResourceC
 	return s.logic.ImportConfigs(ctx, modelConfigs, overwrite)
 }
 
-func (s *Service) ExportConfigsArchive(ctx context.Context, environmentKey, pipelineKey string) ([]byte, string, error) {
-	if environmentKey == "" || pipelineKey == "" {
-		return nil, "", errors.New("environment_key and pipeline_key required")
-	}
-
-	configs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
-	if err != nil {
-		return nil, "", err
-	}
-
-	data, err := s.writeConfigArchive(ctx, configs)
-	if err != nil {
-		return nil, "", err
-	}
-
-	name := fmt.Sprintf("%s_%s_archive.zip", environmentKey, pipelineKey)
-	return data, name, nil
-}
-
-func (s *Service) ExportConfigsArchiveAll(ctx context.Context) ([]byte, string, error) {
-	// Get all environments
-	environments, err := s.logic.ListEnvironments(ctx)
-	if err != nil {
-		return nil, "", err
-	}
-
-	// Collect all configs from all environment+pipeline combinations
-	allConfigs := make([]model.Config, 0)
-
-	for _, env := range environments {
-		// Get pipelines for this environment
-		pipelines, err := s.ListPipelines(ctx, env.EnvironmentKey, nil)
-		if err != nil {
-			continue // Skip this environment if error
-		}
-		for _, pipe := range pipelines {
-			// Export business configs
-			bizConfigs, err := s.logic.ExportConfigs(ctx, env.EnvironmentKey, pipe.PipelineKey)
-			if err != nil {
-				continue // Skip if error
-			}
-			allConfigs = append(allConfigs, bizConfigs...)
-		}
-	}
-
-	if len(allConfigs) == 0 {
-		return nil, "", errors.New("no configs found")
-	}
-
-	data, err := s.writeConfigArchive(ctx, allConfigs)
-	if err != nil {
-		return nil, "", err
-	}
-
-	name := "all_environments_archive.zip"
-	return data, name, nil
-}
-
 func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	zipWriter := zip.NewWriter(buf)

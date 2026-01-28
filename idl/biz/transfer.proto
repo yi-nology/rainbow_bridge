@@ -222,12 +222,6 @@ service TransferService {
     option (api.post) =  "/api/v1/transfer/import";
   }
 
-  // Export exports configurations in various formats.
-  // Use format query param: json (default), zip, static
-  rpc Export(ExportRequest) returns (ExportResponse) {
-    option (api.get) = "/api/v1/transfer/export";
-  }
-
   // ExportSelective exports selected configurations.
   // Supports POST with selections array for fine-grained control.
   rpc ExportSelective(ExportSelectiveRequest) returns (ExportResponse) {

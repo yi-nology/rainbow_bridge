@@ -156,11 +156,61 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 		}
 	}
 
+	// 收集所有相关资产（包括配置中引用的和环境/渠道下的所有资产）
+	allAssets := make([]model.Asset, 0)
+	assetIDSet := make(map[string]bool)
+
+	// 1. 收集配置中引用的资产
+	assetIDs := extractAssetIDs(configs)
+	for _, assetID := range assetIDs {
+		if assetIDSet[assetID] {
+			continue
+		}
+		asset, err := s.logic.GetAsset(ctx, assetID)
+		if err != nil {
+			continue // 跳过不存在的资产
+		}
+		assetIDSet[assetID] = true
+		allAssets = append(allAssets, *asset)
+	}
+
+	// 2. 收集环境/渠道下的所有资产
+	for envKey, pipes := range pipelineSet {
+		for pipeKey := range pipes {
+			assets, err := s.logic.ListAssetsByEnvironmentAndPipeline(ctx, envKey, pipeKey)
+			if err != nil {
+				continue
+			}
+			for _, asset := range assets {
+				if assetIDSet[asset.FileID] {
+					continue
+				}
+				assetIDSet[asset.FileID] = true
+				allAssets = append(allAssets, asset)
+			}
+		}
+	}
+
+	// 构建资产元数据列表
+	assetMetaList := make([]map[string]any, 0, len(allAssets))
+	for _, asset := range allAssets {
+		assetMetaList = append(assetMetaList, map[string]any{
+			"file_id":         asset.FileID,
+			"environment_key": asset.EnvironmentKey,
+			"pipeline_key":    asset.PipelineKey,
+			"file_name":       asset.FileName,
+			"content_type":    asset.ContentType,
+			"file_size":       asset.FileSize,
+			"remark":          asset.Remark,
+		})
+	}
+
 	// 构建完整的数据结构
 	archiveData := map[string]any{
 		"environments":     envList,
 		"pipelines":        pipelineList,
 		"business_configs": configSliceToPB(configs),
+		"assets":           assetMetaList,
 	}
 
 	configData, err := json.MarshalIndent(archiveData, "", "  ")
@@ -175,31 +225,22 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 		return nil, err
 	}
 
-	assetIDs := extractAssetIDs(configs)
-	visited := make(map[string]struct{}, len(assetIDs))
-	for _, assetID := range assetIDs {
-		if _, ok := visited[assetID]; ok {
-			continue
-		}
-		visited[assetID] = struct{}{}
-		asset, err := s.logic.GetAsset(ctx, assetID)
-		if err != nil {
-			return nil, err
-		}
+	// 写入所有资产文件
+	for _, asset := range allAssets {
 		fullPath := filepath.Join(dataDirectory, asset.Path)
 		file, err := os.Open(fullPath)
 		if err != nil {
-			return nil, err
+			continue // 跳过无法读取的文件
 		}
 		zipPath := filepath.Join("files", asset.FileID, asset.FileName)
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
 		if err != nil {
 			file.Close()
-			return nil, err
+			continue
 		}
 		if _, err := io.Copy(writer, file); err != nil {
 			file.Close()
-			return nil, err
+			continue
 		}
 		file.Close()
 	}
@@ -1021,11 +1062,61 @@ func (s *Service) writeConfigTarGz(ctx context.Context, configs []model.Config) 
 		}
 	}
 
+	// 收集所有相关资产（包括配置中引用的和环境/渠道下的所有资产）
+	allAssets := make([]model.Asset, 0)
+	assetIDSet := make(map[string]bool)
+
+	// 1. 收集配置中引用的资产
+	assetIDs := extractAssetIDs(configs)
+	for _, assetID := range assetIDs {
+		if assetIDSet[assetID] {
+			continue
+		}
+		asset, err := s.logic.GetAsset(ctx, assetID)
+		if err != nil {
+			continue
+		}
+		assetIDSet[assetID] = true
+		allAssets = append(allAssets, *asset)
+	}
+
+	// 2. 收集环境/渠道下的所有资产
+	for envKey, pipes := range pipelineSet {
+		for pipeKey := range pipes {
+			assets, err := s.logic.ListAssetsByEnvironmentAndPipeline(ctx, envKey, pipeKey)
+			if err != nil {
+				continue
+			}
+			for _, asset := range assets {
+				if assetIDSet[asset.FileID] {
+					continue
+				}
+				assetIDSet[asset.FileID] = true
+				allAssets = append(allAssets, asset)
+			}
+		}
+	}
+
+	// 构建资产元数据列表
+	assetMetaList := make([]map[string]any, 0, len(allAssets))
+	for _, asset := range allAssets {
+		assetMetaList = append(assetMetaList, map[string]any{
+			"file_id":         asset.FileID,
+			"environment_key": asset.EnvironmentKey,
+			"pipeline_key":    asset.PipelineKey,
+			"file_name":       asset.FileName,
+			"content_type":    asset.ContentType,
+			"file_size":       asset.FileSize,
+			"remark":          asset.Remark,
+		})
+	}
+
 	// Build complete data structure
 	archiveData := map[string]any{
 		"environments":     envList,
 		"pipelines":        pipelineList,
 		"business_configs": configSliceToPB(configs),
+		"assets":           assetMetaList,
 	}
 
 	configData, err := json.MarshalIndent(archiveData, "", "  ")
@@ -1046,20 +1137,8 @@ func (s *Service) writeConfigTarGz(ctx context.Context, configs []model.Config) 
 		return nil, err
 	}
 
-	// Write asset files
-	assetIDs := extractAssetIDs(configs)
-	visited := make(map[string]struct{}, len(assetIDs))
-	for _, assetID := range assetIDs {
-		if _, ok := visited[assetID]; ok {
-			continue
-		}
-		visited[assetID] = struct{}{}
-
-		asset, err := s.logic.GetAsset(ctx, assetID)
-		if err != nil {
-			continue
-		}
-
+	// Write all asset files
+	for _, asset := range allAssets {
 		fullPath := filepath.Join(dataDirectory, asset.Path)
 		fileData, err := os.ReadFile(fullPath)
 		if err != nil {

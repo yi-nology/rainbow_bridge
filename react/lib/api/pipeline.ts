@@ -1,4 +1,4 @@
-import { get, post } from './client'
+import { get, post, getBasePath } from './client'
 import type {
   ApiPipeline,
   PipelineListResponse,
@@ -7,7 +7,7 @@ import type {
   DeletePipelineResponse,
 } from './types'
 
-const BASE_PATH = '/rainbow-bridge/api/v1/pipeline'
+const BASE_PATH = `${getBasePath()}/api/v1/pipeline`
 
 export const pipelineApi = {
   // 获取渠道列表

@@ -55,6 +55,7 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
     data.forEach((env) => {
       const envKey = env.environment_key
       const envChecked = newChecked.environments.has(envKey)
+      const pipelines = env.pipelines || []
 
       if (envChecked) {
         // Entire environment selected
@@ -65,9 +66,10 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
         })
       } else {
         // Check pipelines
-        env.pipelines.forEach((pipe) => {
+        pipelines.forEach((pipe) => {
           const pipeKey = `${envKey}:${pipe.pipeline_key}`
           const pipeChecked = newChecked.pipelines.has(pipeKey)
+          const configs = pipe.configs || []
 
           if (pipeChecked) {
             // Entire pipeline selected
@@ -78,7 +80,7 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
             })
           } else {
             // Check individual configs
-            const selectedConfigs = pipe.configs
+            const selectedConfigs = configs
               .filter((cfg) => newChecked.configs.has(`${pipeKey}:${cfg.resource_key}`))
               .map((cfg) => cfg.resource_key)
 
@@ -106,23 +108,27 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
         configs: new Set(prev.configs),
       }
 
+      const pipelines = env.pipelines || []
+
       if (isChecked) {
         next.environments.add(env.environment_key)
         // Select all pipelines and configs
-        env.pipelines.forEach((pipe) => {
+        pipelines.forEach((pipe) => {
           const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
           next.pipelines.add(pipeKey)
-          pipe.configs.forEach((cfg) => {
+          const configs = pipe.configs || []
+          configs.forEach((cfg) => {
             next.configs.add(`${pipeKey}:${cfg.resource_key}`)
           })
         })
       } else {
         next.environments.delete(env.environment_key)
         // Deselect all pipelines and configs
-        env.pipelines.forEach((pipe) => {
+        pipelines.forEach((pipe) => {
           const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
           next.pipelines.delete(pipeKey)
-          pipe.configs.forEach((cfg) => {
+          const configs = pipe.configs || []
+          configs.forEach((cfg) => {
             next.configs.delete(`${pipeKey}:${cfg.resource_key}`)
           })
         })
@@ -143,15 +149,17 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
       }
 
       const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
+      const configs = pipe.configs || []
+      const pipelines = env.pipelines || []
 
       if (isChecked) {
         next.pipelines.add(pipeKey)
         // Select all configs
-        pipe.configs.forEach((cfg) => {
+        configs.forEach((cfg) => {
           next.configs.add(`${pipeKey}:${cfg.resource_key}`)
         })
         // Check if all pipelines are selected -> select environment
-        const allPipesSelected = env.pipelines.every((p) =>
+        const allPipesSelected = pipelines.every((p) =>
           next.pipelines.has(`${env.environment_key}:${p.pipeline_key}`)
         )
         if (allPipesSelected) {
@@ -161,7 +169,7 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
         next.pipelines.delete(pipeKey)
         next.environments.delete(env.environment_key)
         // Deselect all configs
-        pipe.configs.forEach((cfg) => {
+        configs.forEach((cfg) => {
           next.configs.delete(`${pipeKey}:${cfg.resource_key}`)
         })
       }
@@ -187,17 +195,19 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
 
       const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
       const cfgKey = `${pipeKey}:${cfg.resource_key}`
+      const configs = pipe.configs || []
+      const pipelines = env.pipelines || []
 
       if (isChecked) {
         next.configs.add(cfgKey)
         // Check if all configs are selected -> select pipeline
-        const allConfigsSelected = pipe.configs.every((c) =>
+        const allConfigsSelected = configs.every((c) =>
           next.configs.has(`${pipeKey}:${c.resource_key}`)
         )
         if (allConfigsSelected) {
           next.pipelines.add(pipeKey)
           // Check if all pipelines are selected -> select environment
-          const allPipesSelected = env.pipelines.every((p) =>
+          const allPipesSelected = pipelines.every((p) =>
             next.pipelines.has(`${env.environment_key}:${p.pipeline_key}`)
           )
           if (allPipesSelected) {
@@ -222,12 +232,14 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
     }
     let hasChecked = false
     let hasUnchecked = false
-    env.pipelines.forEach((pipe) => {
+    const pipelines = env.pipelines || []
+    pipelines.forEach((pipe) => {
       const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
       if (checked.pipelines.has(pipeKey)) {
         hasChecked = true
       } else {
-        pipe.configs.forEach((cfg) => {
+        const configs = pipe.configs || []
+        configs.forEach((cfg) => {
           if (checked.configs.has(`${pipeKey}:${cfg.resource_key}`)) {
             hasChecked = true
           } else {
@@ -253,7 +265,8 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
     }
     let hasChecked = false
     let hasUnchecked = false
-    pipe.configs.forEach((cfg) => {
+    const configs = pipe.configs || []
+    configs.forEach((cfg) => {
       if (checked.configs.has(`${pipeKey}:${cfg.resource_key}`)) {
         hasChecked = true
       } else {
@@ -278,10 +291,12 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
 
     data.forEach((env) => {
       envs++
-      env.pipelines.forEach((pipe) => {
+      const pipelines = env.pipelines || []
+      pipelines.forEach((pipe) => {
         pipes++
         const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
-        pipe.configs.forEach((cfg) => {
+        const pipeConfigs = pipe.configs || []
+        pipeConfigs.forEach((cfg) => {
           configs++
           if (checked.configs.has(`${pipeKey}:${cfg.resource_key}`)) {
             selected++
@@ -316,7 +331,8 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
       {data.map((env) => {
         const envExpanded = expandedNodes.has(env.environment_key)
         const envState = getEnvCheckState(env)
-        const envConfigCount = env.pipelines.reduce((sum, p) => sum + p.config_count, 0)
+        const pipelines = env.pipelines || []
+        const envConfigCount = pipelines.reduce((sum, p) => sum + (p.config_count || 0), 0)
 
         return (
           <div key={env.environment_key} className="select-none">
@@ -344,17 +360,18 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
               )}
               <span className="flex-1 text-sm font-medium">{env.environment_name}</span>
               <Badge variant="secondary" className="text-xs">
-                {env.pipelines.length} 渠道 / {envConfigCount} 配置
+                {pipelines.length} 渠道 / {envConfigCount} 配置
               </Badge>
             </div>
 
             {/* Pipelines */}
             {envExpanded && (
               <div className="ml-6">
-                {env.pipelines.map((pipe) => {
+                {pipelines.map((pipe) => {
                   const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
                   const pipeExpanded = expandedNodes.has(pipeKey)
                   const pipeState = getPipeCheckState(env, pipe)
+                  const configs = pipe.configs || []
 
                   return (
                     <div key={pipeKey}>
@@ -378,14 +395,14 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
                         <Folder className="w-4 h-4 text-emerald-500" />
                         <span className="flex-1 text-sm">{pipe.pipeline_name}</span>
                         <Badge variant="outline" className="text-xs">
-                          {pipe.config_count} 配置
+                          {pipe.config_count || 0} 配置
                         </Badge>
                       </div>
 
                       {/* Configs */}
-                      {pipeExpanded && (
+                      {pipeExpanded && configs.length > 0 && (
                         <div className="ml-6">
-                          {pipe.configs.map((cfg) => {
+                          {configs.map((cfg) => {
                             const cfgKey = `${pipeKey}:${cfg.resource_key}`
                             const cfgChecked = checked.configs.has(cfgKey)
 
@@ -451,10 +468,12 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
     }
     data.forEach((env) => {
       initial.environments.add(env.environment_key)
-      env.pipelines.forEach((pipe) => {
+      const pipelines = env.pipelines || []
+      pipelines.forEach((pipe) => {
         const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
         initial.pipelines.add(pipeKey)
-        pipe.configs.forEach((cfg) => {
+        const configs = pipe.configs || []
+        configs.forEach((cfg) => {
           initial.configs.add(`${pipeKey}:${cfg.resource_key}`)
         })
       })
@@ -481,6 +500,7 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
     data.forEach((env) => {
       const envKey = env.environment_key
       const envChecked = newChecked.environments.has(envKey)
+      const pipelines = env.pipelines || []
 
       if (envChecked) {
         selections.push({
@@ -489,9 +509,10 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
           resource_keys: [],
         })
       } else {
-        env.pipelines.forEach((pipe) => {
+        pipelines.forEach((pipe) => {
           const pipeKey = `${envKey}:${pipe.pipeline_key}`
           const pipeChecked = newChecked.pipelines.has(pipeKey)
+          const configs = pipe.configs || []
 
           if (pipeChecked) {
             selections.push({
@@ -500,7 +521,7 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
               resource_keys: [],
             })
           } else {
-            const selectedConfigs = pipe.configs
+            const selectedConfigs = configs
               .filter((cfg) => newChecked.configs.has(`${pipeKey}:${cfg.resource_key}`))
               .map((cfg) => cfg.resource_key)
 
@@ -528,21 +549,25 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
         configs: new Set(prev.configs),
       }
 
+      const pipelines = env.pipelines || []
+
       if (isChecked) {
         next.environments.add(env.environment_key)
-        env.pipelines.forEach((pipe) => {
+        pipelines.forEach((pipe) => {
           const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
           next.pipelines.add(pipeKey)
-          pipe.configs.forEach((cfg) => {
+          const configs = pipe.configs || []
+          configs.forEach((cfg) => {
             next.configs.add(`${pipeKey}:${cfg.resource_key}`)
           })
         })
       } else {
         next.environments.delete(env.environment_key)
-        env.pipelines.forEach((pipe) => {
+        pipelines.forEach((pipe) => {
           const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
           next.pipelines.delete(pipeKey)
-          pipe.configs.forEach((cfg) => {
+          const configs = pipe.configs || []
+          configs.forEach((cfg) => {
             next.configs.delete(`${pipeKey}:${cfg.resource_key}`)
           })
         })
@@ -562,13 +587,15 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
       }
 
       const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
+      const configs = pipe.configs || []
+      const pipelines = env.pipelines || []
 
       if (isChecked) {
         next.pipelines.add(pipeKey)
-        pipe.configs.forEach((cfg) => {
+        configs.forEach((cfg) => {
           next.configs.add(`${pipeKey}:${cfg.resource_key}`)
         })
-        const allPipesSelected = env.pipelines.every((p) =>
+        const allPipesSelected = pipelines.every((p) =>
           next.pipelines.has(`${env.environment_key}:${p.pipeline_key}`)
         )
         if (allPipesSelected) {
@@ -577,7 +604,7 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
       } else {
         next.pipelines.delete(pipeKey)
         next.environments.delete(env.environment_key)
-        pipe.configs.forEach((cfg) => {
+        configs.forEach((cfg) => {
           next.configs.delete(`${pipeKey}:${cfg.resource_key}`)
         })
       }
@@ -602,15 +629,17 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
 
       const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
       const cfgKey = `${pipeKey}:${cfg.resource_key}`
+      const configs = pipe.configs || []
+      const pipelines = env.pipelines || []
 
       if (isChecked) {
         next.configs.add(cfgKey)
-        const allConfigsSelected = pipe.configs.every((c) =>
+        const allConfigsSelected = configs.every((c) =>
           next.configs.has(`${pipeKey}:${c.resource_key}`)
         )
         if (allConfigsSelected) {
           next.pipelines.add(pipeKey)
-          const allPipesSelected = env.pipelines.every((p) =>
+          const allPipesSelected = pipelines.every((p) =>
             next.pipelines.has(`${env.environment_key}:${p.pipeline_key}`)
           )
           if (allPipesSelected) {
@@ -634,12 +663,14 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
     }
     let hasChecked = false
     let hasUnchecked = false
-    env.pipelines.forEach((pipe) => {
+    const pipelines = env.pipelines || []
+    pipelines.forEach((pipe) => {
       const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
       if (checked.pipelines.has(pipeKey)) {
         hasChecked = true
       } else {
-        pipe.configs.forEach((cfg) => {
+        const configs = pipe.configs || []
+        configs.forEach((cfg) => {
           if (checked.configs.has(`${pipeKey}:${cfg.resource_key}`)) {
             hasChecked = true
           } else {
@@ -660,7 +691,8 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
     }
     let hasChecked = false
     let hasUnchecked = false
-    pipe.configs.forEach((cfg) => {
+    const configs = pipe.configs || []
+    configs.forEach((cfg) => {
       if (checked.configs.has(`${pipeKey}:${cfg.resource_key}`)) {
         hasChecked = true
       } else {
@@ -699,7 +731,8 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
       {data.map((env) => {
         const envExpanded = expandedNodes.has(env.environment_key)
         const envState = getEnvCheckState(env)
-        const envConfigCount = env.pipelines.reduce((sum, p) => sum + p.configs.length, 0)
+        const pipelines = env.pipelines || []
+        const envConfigCount = pipelines.reduce((sum, p) => sum + (p.configs?.length || 0), 0)
 
         return (
           <div key={env.environment_key} className="select-none">
@@ -727,16 +760,17 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
               <span className="flex-1 text-sm font-medium">{env.environment_name}</span>
               {getStatusBadge(env.status)}
               <Badge variant="outline" className="text-xs ml-1">
-                {env.pipelines.length} 渠道 / {envConfigCount} 配置
+                {pipelines.length} 渠道 / {envConfigCount} 配置
               </Badge>
             </div>
 
             {envExpanded && (
               <div className="ml-6">
-                {env.pipelines.map((pipe) => {
+                {pipelines.map((pipe) => {
                   const pipeKey = `${env.environment_key}:${pipe.pipeline_key}`
                   const pipeExpanded = expandedNodes.has(pipeKey)
                   const pipeState = getPipeCheckState(env, pipe)
+                  const configs = pipe.configs || []
 
                   return (
                     <div key={pipeKey}>
@@ -760,13 +794,13 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
                         <span className="flex-1 text-sm">{pipe.pipeline_name}</span>
                         {getStatusBadge(pipe.status)}
                         <Badge variant="outline" className="text-xs ml-1">
-                          {pipe.configs.length} 配置
+                          {configs.length} 配置
                         </Badge>
                       </div>
 
-                      {pipeExpanded && (
+                      {pipeExpanded && configs.length > 0 && (
                         <div className="ml-6">
-                          {pipe.configs.map((cfg) => {
+                          {configs.map((cfg) => {
                             const cfgKey = `${pipeKey}:${cfg.resource_key}`
                             const cfgChecked = checked.configs.has(cfgKey)
 

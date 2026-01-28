@@ -1,4 +1,4 @@
-import { get } from './client'
+import { get, getBasePath } from './client'
 import type {
   RuntimeOverviewResponse,
   RuntimeConfigResponse,
@@ -6,7 +6,7 @@ import type {
   RuntimeConfigData,
 } from './types'
 
-const BASE_PATH = '/rainbow-bridge/api/v1/runtime'
+const BASE_PATH = `${getBasePath()}/api/v1/runtime`
 
 // 获取 API 基础 URL（开发环境指向后端服务器，生产环境使用相对路径）
 function getApiBaseUrl(): string {

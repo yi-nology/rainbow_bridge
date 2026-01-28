@@ -1,5 +1,10 @@
 import { toast } from 'sonner'
 
+// 获取 basePath，与 next.config.mjs 保持一致
+export function getBasePath(): string {
+  return process.env.NEXT_PUBLIC_BASE_PATH || ''
+}
+
 export class ApiError extends Error {
   constructor(
     public code: number,

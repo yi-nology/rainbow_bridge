@@ -1,6 +1,6 @@
-import { get } from './client'
+import { get, getBasePath } from './client'
 
-const BASE_PATH = '/rainbow-bridge/api/v1/version'
+const BASE_PATH = `${getBasePath()}/api/v1/version`
 
 export interface VersionInfo {
   version: string

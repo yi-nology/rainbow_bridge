@@ -1,4 +1,4 @@
-import { get, post } from './client'
+import { get, post, getBasePath } from './client'
 import type {
   ApiEnvironment,
   EnvironmentListResponse,
@@ -7,7 +7,7 @@ import type {
   DeleteEnvironmentResponse,
 } from './types'
 
-const BASE_PATH = '/rainbow-bridge/api/v1/environment'
+const BASE_PATH = `${getBasePath()}/api/v1/environment`
 
 export const environmentApi = {
   // 获取环境列表

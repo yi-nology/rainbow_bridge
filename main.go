@@ -33,7 +33,7 @@ var (
 	BuildTime = "unknown"
 	// BasePath is the URL path prefix, injected at build time
 	// Empty string means deploy at root path, e.g. "rainbow-bridge" means /rainbow-bridge
-	BasePath = "rainbow-bridge"
+	BasePath = ""
 )
 
 func main() {

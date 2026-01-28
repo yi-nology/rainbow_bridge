@@ -1,7 +1,7 @@
-import { get, upload } from './client'
+import { get, upload, getBasePath } from './client'
 import type { AssetListResponse, UploadAssetResponse } from './types'
 
-const BASE_PATH = '/rainbow-bridge/api/v1/asset'
+const BASE_PATH = `${getBasePath()}/api/v1/asset`
 
 export const assetApi = {
   // 获取资源列表

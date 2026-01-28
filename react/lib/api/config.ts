@@ -1,4 +1,4 @@
-import { get, post } from './client'
+import { get, post, getBasePath } from './client'
 import type {
   ApiResourceConfig,
   ConfigListResponse,
@@ -7,7 +7,7 @@ import type {
   DeleteConfigResponse,
 } from './types'
 
-const BASE_PATH = '/rainbow-bridge/api/v1/config'
+const BASE_PATH = `${getBasePath()}/api/v1/config`
 
 export interface ListConfigParams {
   environment_key: string

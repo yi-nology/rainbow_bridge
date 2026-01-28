@@ -1,0 +1,28 @@
+server:
+  address: ":8080"
+  base_path: "rainbow-bridge"
+
+database:
+  driver: "postgres"
+  postgres:
+    dsn: "host=postgres user=rainbow_bridge password=rainbow_bridge_pass dbname=rainbow_bridge port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+
+# MinIO 对象存储配置
+storage:
+  type: "minio"  # 存储类型：local 或 minio
+  minio:
+    endpoint: "minio:9000"
+    access_key: "minioadmin"
+    secret_key: "minioadmin123"
+    use_ssl: false
+    bucket: "rainbow-bridge"
+    region: "us-east-1"  # MinIO 默认 region
+
+# 备用本地存储配置（当 storage.type = "local" 时使用）
+upload:
+  path: "/var/lib/rainbow_bridge/uploads"
+  max_size: 10485760  # 10MB
+
+log:
+  level: "info"
+  output: "stdout"

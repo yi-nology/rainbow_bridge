@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  # MinIO 对象存储服务
+  minio:
+    image: minio/minio:latest
+    container_name: rainbow-bridge-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"    # MinIO API 端口
+      - "9001:9001"    # MinIO Console 控制台端口
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # PostgreSQL 数据库（推荐用于 MinIO 方案）
+  postgres:
+    image: postgres:16-alpine
+    container_name: rainbow-bridge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rainbow_bridge
+      POSTGRES_USER: rainbow_bridge
+      POSTGRES_PASSWORD: rainbow_bridge_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rainbow_bridge -d rainbow_bridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Rainbow Bridge 应用
+  rainbow-bridge:
+    image: ghcr.io/yi-nology/rainbow_bridge:latest
+    container_name: rainbow-bridge
+    restart: unless-stopped
+    command:
+      - "--config"
+      - "/etc/rainbow_bridge/config.yaml"
+    environment:
+      TZ: Asia/Shanghai
+      # MinIO 配置
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin123"
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: "rainbow-bridge"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.minio.yaml:/etc/rainbow_bridge/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/rainbow-bridge/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  minio_data:
+    driver: local
+  postgres_data:
+    driver: local

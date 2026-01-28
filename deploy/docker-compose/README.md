@@ -1,14 +1,23 @@
 # Rainbow Bridge Docker Compose 部署方案
 
-本目录提供了三种数据库方案的 Docker Compose 部署配置：
+本目录提供了多种数据库和存储方案的 Docker Compose 部署配置：
 
 ## 📦 方案概览
 
+### 数据库方案
+
 | 方案 | 文件 | 数据库 | 特点 | 推荐场景 |
-|------|------|--------|------|---------|
+|------|------|--------|------|---------||
 | **SQLite** | `docker-compose.sqlite.yaml` | 内置 SQLite | 零依赖、单容器、轻量级 | 个人使用、测试环境、小规模部署 |
 | **MySQL** | `docker-compose.mysql.yaml` | MySQL 8.0 | 成熟稳定、生态丰富 | 中小型生产环境 |
 | **PostgreSQL** | `docker-compose.postgres.yaml` | PostgreSQL 16 | 功能强大、高性能 | 大型生产环境、复杂查询场景 |
+
+### 对象存储方案
+
+| 方案 | 文件 | 存储 | 特点 | 推荐场景 |
+|------|------|------|------|---------||
+| **MinIO 单节点** | `docker-compose.minio.yaml` | MinIO + PostgreSQL | S3 兼容、易部署 | 中型生产环境、云原生应用 |
+| **MinIO 集群** | `docker-compose.minio-cluster.yaml` | MinIO 4节点集群 + Nginx | 高可用、数据冗余、负载均衡 | 大型生产环境、企业级应用 |
 
 ---
 
@@ -165,21 +174,162 @@ docker exec -i rainbow-bridge-postgres psql -U rainbow_bridge rainbow_bridge < b
 
 ---
 
+### 方案四：MinIO 单节点（推荐云原生）
+
+**特点：**
+- ✅ S3 兼容对象存储
+- ✅ 适合云原生应用
+- ✅ 支持分布式存储
+- ✅ Web 控制台管理
+
+**启动命令：**
+```bash
+cd deploy/docker-compose
+docker compose -f docker-compose.minio.yaml up -d
+```
+
+**停止命令：**
+```bash
+docker compose -f docker-compose.minio.yaml down
+```
+
+**访问 MinIO 控制台：**
+```
+URL: http://localhost:9001
+用户名: minioadmin
+密码: minioadmin123
+```
+
+**MinIO API 端点：**
+```
+http://localhost:9000
+```
+
+**修改密码：**
+
+编辑 `docker-compose.minio.yaml` 和 `config.minio.yaml` 中的密码：
+
+1. `docker-compose.minio.yaml`:
+   ```yaml
+   # MinIO 服务
+   MINIO_ROOT_USER: 你的用户名
+   MINIO_ROOT_PASSWORD: 你的新密码
+   
+   # Rainbow Bridge 环境变量
+   MINIO_ACCESS_KEY: 你的用户名
+   MINIO_SECRET_KEY: 你的新密码
+   ```
+
+2. `config.minio.yaml`:
+   ```yaml
+   storage:
+     minio:
+       access_key: "你的用户名"
+       secret_key: "你的新密码"
+   ```
+
+**数据备份：**
+```bash
+# 备份 MinIO 数据
+docker run --rm -v rainbow-bridge_minio_data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/minio-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C /data .
+
+# 恢复 MinIO 数据
+docker run --rm -v rainbow-bridge_minio_data:/data -v $(pwd):/backup alpine \
+  tar xzf /backup/minio-backup-XXXXXX.tar.gz -C /data
+```
+
+---
+
+### 方案五：MinIO 分布式集群（推荐企业级）
+
+**特点：**
+- ✅ 4 节点分布式集群
+- ✅ 高可用性（容忍 1 节点故障）
+- ✅ 数据冗余（Erasure Code）
+- ✅ Nginx 负载均衡
+- ✅ 适合生产环境
+
+**启动命令：**
+```bash
+cd deploy/docker-compose
+docker compose -f docker-compose.minio-cluster.yaml up -d
+```
+
+**停止命令：**
+```bash
+docker compose -f docker-compose.minio-cluster.yaml down
+```
+
+**查看集群状态：**
+```bash
+# 查看所有容器状态
+docker compose -f docker-compose.minio-cluster.yaml ps
+
+# 查看单个节点日志
+docker compose -f docker-compose.minio-cluster.yaml logs minio1
+
+# 查看 Nginx 负载均衡器日志
+docker compose -f docker-compose.minio-cluster.yaml logs nginx
+```
+
+**访问 MinIO 控制台：**
+```
+URL: http://localhost:9001
+用户名: minioadmin
+密码: minioadmin123
+```
+
+**集群信息：**
+- 总存储节点：4 个
+- 每节点磁盘：2 个
+- 总磁盘数：8 个
+- Erasure Set 大小：4 (最多允许 1 个节点故障)
+- 负载均衡：Least Connections
+
+**扩容说明：**
+
+MinIO 集群启动后不能直接扩容。如需扩容：
+1. 创建新的服务器集 (Server Pool)
+2. 更新 docker-compose 添加更多节点
+3. 使用 MinIO 的 Server Pool 功能
+
+**数据备份：**
+```bash
+# 备份所有节点数据
+for i in 1 2 3 4; do
+  docker run --rm \
+    -v rainbow-bridge_minio${i}_data1:/data1 \
+    -v rainbow-bridge_minio${i}_data2:/data2 \
+    -v $(pwd):/backup alpine \
+    tar czf /backup/minio${i}-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C / data1 data2
+done
+```
+
+---
+
 ## 🔧 配置说明
 
 ### 文件结构
 
 ```
 deploy/docker-compose/
-├── docker-compose.sqlite.yaml    # SQLite 方案
-├── docker-compose.mysql.yaml     # MySQL 方案
-├── docker-compose.postgres.yaml  # PostgreSQL 方案
-├── config.sqlite.yaml            # SQLite 配置
-├── config.mysql.yaml             # MySQL 配置
-├── config.postgres.yaml          # PostgreSQL 配置
-├── init-mysql.sql                # MySQL 初始化脚本
-├── init-postgres.sql             # PostgreSQL 初始化脚本
-└── README.md                     # 本文档
+├── docker-compose.yaml                # 默认配置（SQLite）
+├── docker-compose.sqlite.yaml         # SQLite 方案
+├── docker-compose.mysql.yaml          # MySQL 方案
+├── docker-compose.postgres.yaml       # PostgreSQL 方案
+├── docker-compose.minio.yaml          # MinIO 单节点方案
+├── docker-compose.minio-cluster.yaml  # MinIO 分布式集群方案
+├── config.yaml                        # 默认配置
+├── config.sqlite.yaml                 # SQLite 配置
+├── config.mysql.yaml                  # MySQL 配置
+├── config.postgres.yaml               # PostgreSQL 配置
+├── config.minio.yaml                  # MinIO 单节点配置
+├── config.minio-cluster.yaml          # MinIO 集群配置
+├── init-mysql.sql                     # MySQL 初始化脚本
+├── init-postgres.sql                  # PostgreSQL 初始化脚本
+├── nginx-minio.conf                   # MinIO 负载均衡配置
+└── README.md                          # 本文档
 ```
 
 ### 端口说明
@@ -188,7 +338,9 @@ deploy/docker-compose/
 |------|------|------|
 | Rainbow Bridge | 8080 | Web 服务端口 |
 | MySQL | 3306 | MySQL 数据库端口（仅 MySQL 方案） |
-| PostgreSQL | 5432 | PostgreSQL 数据库端口（仅 PostgreSQL 方案） |
+| PostgreSQL | 5432 | PostgreSQL 数据库端口（仅 PostgreSQL/MinIO 方案） |
+| MinIO API | 9000 | MinIO 对象存储 API（仅 MinIO 方案） |
+| MinIO Console | 9001 | MinIO Web 控制台（仅 MinIO 方案） |
 
 ### 数据持久化
 
@@ -197,6 +349,8 @@ deploy/docker-compose/
 - **SQLite**: `rainbow_bridge_data` - 存储数据库文件和上传文件
 - **MySQL**: `mysql_data` + `rainbow_bridge_uploads` - 分别存储数据库和上传文件
 - **PostgreSQL**: `postgres_data` + `rainbow_bridge_uploads` - 分别存储数据库和上传文件
+- **MinIO 单节点**: `minio_data` + `postgres_data` - MinIO 存储和 PostgreSQL 数据库
+- **MinIO 集群**: `minio{1..4}_data{1,2}` + `postgres_data` - 8个 MinIO 数据卷 + PostgreSQL 数据库
 
 ---
 

@@ -1,0 +1,16 @@
+server:
+  address: ":8080"
+  base_path: "rainbow-bridge"
+
+database:
+  driver: "sqlite"
+  sqlite:
+    path: "/var/lib/rainbow_bridge/resource.db"
+
+upload:
+  path: "/var/lib/rainbow_bridge/uploads"
+  max_size: 10485760  # 10MB
+
+log:
+  level: "info"
+  output: "stdout"

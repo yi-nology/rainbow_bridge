@@ -18,9 +18,10 @@
 10. [部署与运行](#部署与运行)  
 11. [安全与权限](#安全与权限)  
 12. [日志、监控与告警](#日志监控与告警)  
-13. [AI 辅助开发](#ai-辅助开发)  
-14. [未来规划](#未来规划)  
-15. [License](#license)
+13. [测试](#测试)  
+14. [AI 辅助开发](#ai-辅助开发)  
+15. [未来规划](#未来规划)  
+16. [License](#license)
 
 ---
 
@@ -560,6 +561,87 @@ chmod +x .githooks/post-commit script/auto_tag.sh
 - 数据库错误、文件系统异常均会返回 500，建议对接 Prometheus/Grafana 监控；  
 - 可引入 Sentry/ELK stack 捕获 panic 或错误日志。
 
+## 测试
+
+项目包含完整的测试套件，覆盖单元测试、集成测试、E2E 测试和性能测试。
+
+### 测试类型
+
+#### 1. 后端单元测试
+
+```bash
+# 运行所有测试
+go test ./...
+
+# 带覆盖率报告
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out
+```
+
+**已实现**：
+- ✅ DAO 层测试（Environment DAO 完整覆盖）
+- ✅ 测试工具库（`biz/dal/db/testutil.go`）
+- ⏳ Service 层、Handler 层测试（待扩展）
+
+#### 2. E2E 测试（Playwright）
+
+```bash
+cd tests/e2e
+
+# 安装依赖（首次运行）
+npm install
+npx playwright install
+
+# 运行测试
+npm test
+
+# 查看测试报告
+npm run test:report
+```
+
+**已实现**：
+- ✅ 环境管理流程测试
+- ⏳ 配置 CRUD、资源上传、配置迁移（待扩展）
+
+#### 3. 性能测试（k6）
+
+```bash
+# 安装 k6
+# macOS: brew install k6
+# Linux: 参考 https://k6.io/docs/getting-started/installation/
+
+# 运行性能测试
+k6 run tests/performance/api-load-test.js
+
+# 查看性能报告
+open tests/performance/reports/summary.html
+```
+
+**性能目标**：
+- 响应时间（p95）< 500ms
+- 错误率 < 10%
+- 支持 50+ 并发用户
+
+### CI/CD 测试集成
+
+GitHub Actions 自动运行：
+- ✅ 后端单元测试（每次 PR/Push）
+- ✅ E2E 测试（每次 PR/Push）
+- ✅ 性能测试（main 分支或 `[perf]` 标记）
+- ✅ 代码质量检查（golangci-lint）
+
+### 详细文档
+
+完整的测试指南请参考 [TESTING.md](TESTING.md)，包括：
+- 测试环境搭建
+- 编写测试用例
+- 最佳实践
+- 故障排查
+- 贡献指南
+
+## AI 辅助开发
+
+项目包含 AI 开发指南（`AGENT.md`）和编码规范（`CODING_STANDARDS.md`），帮助 AI 更好地理解和贡献代码。
 
 ## 未来规划
 
@@ -567,7 +649,7 @@ chmod +x .githooks/post-commit script/auto_tag.sh
 2. **鉴权与审计**：与公司统一的 IAM/权限系统集成；  
 3. ~~**多环境渠道**：支持资源多环境同步、差异比对~~（**已完成** ✅ - `/migration` 页面提供配置迁移功能）；  
 4. **更友好的前端体验**：配置 Diff、资产预览、批量操作；  
-5. **自动化测试覆盖**：完善端到端测试、性能测试；  
+5. ~~**自动化测试覆盖**：完善端到端测试、性能测试~~（**已完成** ✅ - 完整测试套件已实现）；  
 6. **消息通知**：导入导出结果通过邮件/IM 通知。
 
 ## License

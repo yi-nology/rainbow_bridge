@@ -61,11 +61,11 @@ jobs:
         run: |
           cd react
           npm ci
-          # 动态修改 next.config.mjs 中的 basePath
+          # 设置 NEXT_PUBLIC_BASE_PATH 环境变量供 Next.js 使用
           if [ -n "$BASE_PATH" ]; then
-            sed -i "s|basePath: '/rainbow-bridge'|basePath: '/${BASE_PATH}'|g" next.config.mjs
+            export NEXT_PUBLIC_BASE_PATH="/${BASE_PATH}"
           else
-            sed -i "s|basePath: '/rainbow-bridge'|basePath: ''|g" next.config.mjs
+            export NEXT_PUBLIC_BASE_PATH=""
           fi
           npm run build
           cd ..

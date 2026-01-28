@@ -53,6 +53,102 @@ export interface MigrateResponse {
   data?: MigrateSummary
 }
 
+// ==================== Export Tree Types ====================
+
+export interface ExportTreeConfig {
+  resource_key: string
+  name: string
+  alias: string
+  type: string
+}
+
+export interface ExportTreePipeline {
+  pipeline_key: string
+  pipeline_name: string
+  description: string
+  is_active: boolean
+  config_count: number
+  configs: ExportTreeConfig[]
+}
+
+export interface ExportTreeEnvironment {
+  environment_key: string
+  environment_name: string
+  description: string
+  is_active: boolean
+  pipelines: ExportTreePipeline[]
+}
+
+export interface ExportTreeData {
+  environments: ExportTreeEnvironment[]
+}
+
+export interface ExportTreeResponse {
+  code: number
+  msg: string
+  error?: string
+  data?: ExportTreeData
+}
+
+// ==================== Selective Export Types ====================
+
+export interface ExportSelection {
+  environment_key: string
+  pipeline_key?: string      // empty means all pipelines in this environment
+  resource_keys?: string[]   // empty means all configs in this pipeline
+}
+
+export interface ExportSelectiveParams {
+  format: 'zip' | 'tar.gz'
+  selections: ExportSelection[]
+}
+
+// ==================== Import Preview Types ====================
+
+export interface ImportPreviewConfig {
+  resource_key: string
+  name: string
+  alias: string
+  type: string
+  status: 'new' | 'exists' | 'conflict'
+}
+
+export interface ImportPreviewPipeline {
+  pipeline_key: string
+  pipeline_name: string
+  status: 'new' | 'exists'
+  configs: ImportPreviewConfig[]
+}
+
+export interface ImportPreviewEnvironment {
+  environment_key: string
+  environment_name: string
+  status: 'new' | 'exists'
+  pipelines: ImportPreviewPipeline[]
+}
+
+export interface ImportPreviewSummary {
+  total_environments: number
+  total_pipelines: number
+  total_configs: number
+  new_count: number
+  existing_count: number
+  conflict_count: number
+}
+
+export interface ImportPreviewData {
+  format: string
+  environments: ImportPreviewEnvironment[]
+  summary: ImportPreviewSummary
+}
+
+export interface ImportPreviewResponse {
+  code: number
+  msg: string
+  error?: string
+  data?: ImportPreviewData
+}
+
 export const transferApi = {
   // 导出配置
   export: async (params: ExportParams) => {
@@ -102,6 +198,56 @@ export const transferApi = {
   // 迁移配置
   migrate: async (params: MigrateParams): Promise<MigrateSummary | null> => {
     const resp = await post<MigrateResponse>(`${BASE_PATH}/migrate`, params)
+    return resp.data || null
+  },
+
+  // ==================== New APIs ====================
+
+  // 获取导出树形结构
+  getExportTree: async (): Promise<ExportTreeEnvironment[]> => {
+    const resp = await get<ExportTreeResponse>(`${BASE_PATH}/export-tree`)
+    return resp.data?.environments || []
+  },
+
+  // 按选择导出
+  exportSelective: async (params: ExportSelectiveParams): Promise<Blob> => {
+    const response = await fetch(`${BASE_PATH}/export`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP error: ${response.status} - ${errorText}`)
+    }
+
+    return response.blob()
+  },
+
+  // 导入预览
+  importPreview: async (file: File): Promise<ImportPreviewData | null> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const resp = await upload<ImportPreviewResponse>(`${BASE_PATH}/import-preview`, formData)
+    return resp.data || null
+  },
+
+  // 选择性导入
+  importSelective: async (
+    file: File,
+    selections: ExportSelection[],
+    overwrite: boolean
+  ): Promise<ImportSummary | null> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('selections', JSON.stringify(selections))
+    formData.append('overwrite', String(overwrite))
+
+    const resp = await upload<ImportResponse>(`${BASE_PATH}/import-selective`, formData)
     return resp.data || null
   },
 }

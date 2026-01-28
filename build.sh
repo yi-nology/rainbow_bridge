@@ -17,19 +17,14 @@ if command -v npm &> /dev/null; then
     cd react
     npm ci --silent 2>/dev/null || npm install --silent
     
-    # 动态修改 next.config.mjs 中的 basePath
+    # 设置 NEXT_PUBLIC_BASE_PATH 环境变量供 Next.js 使用
     if [ -n "$BASE_PATH" ]; then
-        sed -i.bak "s|basePath: '/rainbow-bridge'|basePath: '/${BASE_PATH}'|g" next.config.mjs
+        export NEXT_PUBLIC_BASE_PATH="/${BASE_PATH}"
     else
-        sed -i.bak "s|basePath: '/rainbow-bridge'|basePath: ''|g" next.config.mjs
+        export NEXT_PUBLIC_BASE_PATH=""
     fi
     
     npm run build
-    
-    # 恢复原始配置
-    if [ -f next.config.mjs.bak ]; then
-        mv next.config.mjs.bak next.config.mjs
-    fi
     
     cd ..
     

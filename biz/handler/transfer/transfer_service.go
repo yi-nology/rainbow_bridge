@@ -4,6 +4,7 @@ package transfer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -271,5 +272,199 @@ func Migrate(ctx context.Context, c *app.RequestContext) {
 		Code: consts.StatusOK,
 		Msg:  "OK",
 		Data: data,
+	})
+}
+
+// ExportTree returns the tree structure of environments, pipelines, and configs.
+// @router /api/v1/transfer/export-tree [GET]
+func ExportTree(ctx context.Context, c *app.RequestContext) {
+	tree, err := svc.GetExportTree(handler.EnrichContext(ctx, c))
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ExportTreeResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(consts.StatusOK, &transfer.ExportTreeResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: tree,
+	})
+}
+
+// ExportSelective exports selected configurations.
+// @router /api/v1/transfer/export [POST]
+func ExportSelective(ctx context.Context, c *app.RequestContext) {
+	req := &transfer.ExportSelectiveRequest{}
+	if err := c.BindJSON(req); err != nil {
+		c.JSON(consts.StatusOK, &transfer.ExportResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	if len(req.Selections) == 0 {
+		c.JSON(consts.StatusOK, &transfer.ExportResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "selections cannot be empty",
+		})
+		return
+	}
+
+	format := strings.ToLower(strings.TrimSpace(req.Format))
+	if format == "" {
+		format = "zip"
+	}
+
+	data, filename, err := svc.ExportConfigsSelective(handler.EnrichContext(ctx, c), req.Selections, format)
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ExportResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	var contentType string
+	switch format {
+	case "tar.gz":
+		contentType = "application/gzip"
+	default:
+		contentType = "application/zip"
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	c.Data(consts.StatusOK, contentType, data)
+}
+
+// ImportPreview previews the import file contents and detects conflicts.
+// @router /api/v1/transfer/import-preview [POST]
+func ImportPreview(ctx context.Context, c *app.RequestContext) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportPreviewResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "file is required: " + err.Error(),
+		})
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportPreviewResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportPreviewResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	preview, err := svc.ImportConfigsPreview(handler.EnrichContext(ctx, c), data, fileHeader.Filename)
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportPreviewResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(consts.StatusOK, &transfer.ImportPreviewResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: preview,
+	})
+}
+
+// ImportSelective imports selected configurations from an archive.
+// @router /api/v1/transfer/import-selective [POST]
+func ImportSelective(ctx context.Context, c *app.RequestContext) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "file is required: " + err.Error(),
+		})
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Parse selections from form value
+	selectionsStr := strings.TrimSpace(string(c.FormValue("selections")))
+	overwrite := strings.ToLower(string(c.FormValue("overwrite"))) == "true"
+
+	var selections []*transfer.ExportSelection
+	if selectionsStr != "" {
+		if err := json.Unmarshal([]byte(selectionsStr), &selections); err != nil {
+			c.JSON(consts.StatusOK, &transfer.ImportResponse{
+				Code:  consts.StatusBadRequest,
+				Msg:   "error",
+				Error: "invalid selections format: " + err.Error(),
+			})
+			return
+		}
+	}
+
+	configs, err := svc.ImportConfigsSelective(handler.EnrichContext(ctx, c), data, fileHeader.Filename, selections, overwrite)
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	summary := handler.BuildConfigSummary(configs)
+	c.JSON(consts.StatusOK, &transfer.ImportResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &transfer.ImportSummary{
+			Total:           int32(summary.Total),
+			EnvironmentKeys: summary.EnvironmentKeys,
+			PipelineKeys:    summary.PipelineKeys,
+			Items:           convertToImportSummaryItems(summary.Items),
+		},
 	})
 }

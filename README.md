@@ -95,11 +95,11 @@
 - **模块化路由**：
   - `environment/` - 环境管理路由
   - `pipeline/` - 渠道管理路由
-  - `config/` - 业务配置路由
-  - `system_config/` - 系统配置路由
+  - `config/` - 配置管理路由
   - `asset/` - 静态资源路由
   - `runtime/` - 运行时配置路由
   - `transfer/` - 配置迁移路由
+  - `version/` - 版本信息路由
 
 - **统一注册**：`register.go` 负责初始化所有 handler 并注册路由到 Hertz 实例
 - **入口文件**：`main.go` 加载配置、初始化数据库、注册路由和静态资源
@@ -111,11 +111,11 @@
 - **模块化 Handler**：
   - `environment/environment_service.go` - 环境管理接口实现
   - `pipeline/pipeline_service.go` - 渠道管理接口实现
-  - `config/config_service.go` - 业务配置接口实现
-  - `system_config/system_config_service.go` - 系统配置接口实现
+  - `config/config_service.go` - 配置管理接口实现
   - `asset/asset_service.go` - 静态资源上传、下载接口
   - `runtime/runtime_service.go` - 运行时配置获取、静态包导出
   - `transfer/transfer_service.go` - 配置导入导出接口
+  - `version/version_service.go` - 版本信息接口
 
 - **公共模块**：
   - `common.go` - 通用响应封装、错误处理、摘要生成
@@ -127,8 +127,7 @@
 
 - **核心服务文件**：
   - `service.go` - Service 结构体定义，封装数据库连接和通用方法
-  - `config_service.go` - 业务配置增删改查逻辑
-  - `system_config_service.go` - 系统配置管理逻辑
+  - `config_service.go` - 配置增删改查逻辑
   - `asset_service.go` - 静态资源上传、列表查询逻辑
   - `runtime_service.go` - 运行时配置获取、静态包生成逻辑
   - `transfer_service.go` - 配置导入导出、ZIP 打包解析逻辑
@@ -137,13 +136,12 @@
 
 - **业务逻辑层**：
   - `logic.go` - 通用业务逻辑（环境和渠道管理）
-  - `logic_config.go` - 业务配置验证、装饰、过滤逻辑
-  - `logic_system_config.go` - 系统配置验证、保留项检查
+  - `logic_config.go` - 配置验证、装饰、过滤逻辑
   - `logic_asset.go` - 资源引用解析、路径处理
   - `logic_environment.go` - 环境相关业务规则
 
 - **初始化与测试**：
-  - `seed.go` - 系统初始化（默认环境、渠道、系统配置）
+  - `seed.go` - 系统初始化（默认环境和渠道）
   - `service_test.go` - 单元测试覆盖
 
 ### 4. 数据访问层（DAO）
@@ -152,8 +150,7 @@
 
 - `environment_dao.go` - 环境表数据访问
 - `pipeline_dao.go` - 渠道表数据访问
-- `config_dao.go` - 业务配置表增删改查、按 Alias 查询
-- `system_config_dao.go` - 系统配置表数据访问
+- `config_dao.go` - 配置表增删改查、按资源键查询
 - `asset_dao.go` - 静态资源表增删改查、按环境渠道查询
 
 ### 5. 模型层
@@ -161,19 +158,18 @@
 **数据库实体模型**（`biz/dal/model/`）：
 - `environment.go` - 环境表实体
 - `pipeline.go` - 渠道表实体
-- `config.go` - 业务配置表实体
-- `system_config.go` - 系统配置表实体
+- `config.go` - 配置表实体
 - `asset.go` - 静态资源表实体
 
 **Protobuf 生成模型**（`biz/model/`）：
 - `common/common.pb.go` - 通用消息类型（ResourceConfig、FileAsset 等）
 - `environment/environment.pb.go` - 环境管理消息
 - `pipeline/pipeline.pb.go` - 渠道管理消息
-- `config/config.pb.go` - 业务配置消息
-- `system_config/system_config.pb.go` - 系统配置消息
+- `config/config.pb.go` - 配置消息
 - `asset/asset.pb.go` - 静态资源消息
 - `runtime/runtime.pb.go` - 运行时配置消息
 - `transfer/transfer.pb.go` - 配置导入导出消息
+- `version/version.pb.go` - 版本信息消息
 - `api/api.pb.go` - API 路由注解定义
 
 **注意**：所有 `*.pb.go` 文件由 `hz` 工具根据 `idl/` 目录下的 proto 文件自动生成，不应手动修改。
@@ -186,8 +182,7 @@
   - `home.html/js` - 项目首页，展示简介和前端对接说明
   - `environment.html/js` - 环境管理页面
   - `pipeline.html/js` - 渠道管理页面
-  - `config.js` - 业务配置管理（无独立 HTML，集成在其他页面）
-  - `system.html/js` - 系统配置管理
+  - `config.js` - 配置管理（无独立 HTML，集成在其他页面）
   - `assets.html/js` - 静态资源库管理
   - `transfer.html/js` - 配置迁移（使用标签页区分导出和导入）
 
@@ -225,25 +220,29 @@
 
 **联合唯一约束**：`(environment_key, pipeline_key)`
 
-### 3. 系统配置表 `SystemConfig`
+### 3. 配置表 `Config`
 
 | 字段              | 类型     | 说明                                      |
 |-------------------|----------|-------------------------------------------------|
+| `resource_key`    | string   | 资源唯一标识                                  |
 | `environment_key` | string   | 所属环境                                      |
 | `pipeline_key`    | string   | 所属渠道                                  |
-| `config_key`      | string   | 配置键，例如 `system_options`              |
-| `config_value`    | text     | 配置内容（JSON 字符串 / 文本 / 引用）      |
-| `config_type`     | varchar  | 数据类型：`kv`、`json`、`text`、`image`、`color` |
+| `name`            | string   | 配置名称，例如 `api_base_url`              |
+| `alias`           | string   | 配置别名/描述                                 |
+| `content`         | text     | 配置内容（JSON 字符串 / 文本 / 引用）      |
+| `type`            | varchar  | 数据类型：`text`、`number`、`boolean`、`object`、`image`、`color` 等 |
 | `remark`          | string   | 备注信息                                      |
 | `created_at`      | datetime | 创建时间                                      |
 | `updated_at`      | datetime | 更新时间                                      |
 
-**联合唯一约束**：`(environment_key, pipeline_key, config_key)`
+**联合唯一约束**：`(resource_key, environment_key, pipeline_key, name)`
 
 **数据类型说明**：
-- `kv`：键值对，存储为 JSON 对象，适用于 `system_options`
-- `json`：JSON 对象，复杂配置数据
-- `text`：纯文本，文案内容
+- `text`：纯文本，适用于字符串配置
+- `number`：数值类型，整数或小数
+- `boolean`：布尔值（true/false）
+- `json`/`object`：JSON 对象，复杂配置数据
+- `keyvalue`：键值对，存储为 JSON 对象
 - `image`：图片资源引用
 - `color`：颜色值（如 `#1677FF`）
 
@@ -325,19 +324,12 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 - `POST /api/v1/pipeline/update` - 更新渠道
 - `POST /api/v1/pipeline/delete` - 删除渠道
 
-#### 系统配置 (`/api/v1/system_config/*`)
-- `GET /api/v1/system_config/list` - 获取系统配置列表
-- `POST /api/v1/system_config/create` - 创建系统配置
-- `POST /api/v1/system_config/update` - 更新系统配置
-- `POST /api/v1/system_config/delete` - 删除系统配置
-- `GET /api/v1/system_config/detail` - 获取系统配置详情
-
-#### 业务配置 (`/api/v1/config/*`)
-- `GET /api/v1/config/list` - 获取业务配置列表
-- `POST /api/v1/config/create` - 创建业务配置
-- `POST /api/v1/config/update` - 更新业务配置
-- `POST /api/v1/config/delete` - 删除业务配置
-- `GET /api/v1/config/detail` - 获取业务配置详情
+#### 配置 (`/api/v1/config/*`)
+- `GET /api/v1/config/list` - 获取配置列表
+- `POST /api/v1/config/create` - 创建配置
+- `POST /api/v1/config/update` - 更新配置
+- `POST /api/v1/config/delete` - 删除配置
+- `GET /api/v1/config/detail` - 获取配置详情
 
 #### 静态资源 (`/api/v1/asset/*`)
 - `GET /api/v1/asset/list` - 获取资源列表（需传 `environment_key` 和 `pipeline_key`）
@@ -351,17 +343,21 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 #### 配置迁移 (`/api/v1/transfer/*`)
 - `GET /api/v1/transfer/export` - 导出配置（支持 json、zip、static 格式）
 - `POST /api/v1/transfer/import` - 导入配置（支持 JSON 和 ZIP）
+- `POST /api/v1/transfer/migrate` - 配置迁移（跨环境/渠道）
+
+#### 版本信息 (`/api/v1/version`)
+- `GET /api/v1/version` - 获取系统版本信息
 
 ### 2. Protobuf 定义
 
 接口实现基于 CloudWeGo Hertz + Protobuf，定义位于 `idl/biz/` 目录：
 - `environment.proto` - 环境管理
 - `pipeline.proto` - 渠道管理
-- `system_config.proto` - 系统配置
-- `config.proto` - 业务配置
+- `config.proto` - 配置管理
 - `asset.proto` - 静态资源
 - `runtime.proto` - 运行时配置
 - `transfer.proto` - 配置导入导出
+- `version.proto` - 版本信息
 
 生成代码：`hz update -idl idl/biz/*.proto`
 

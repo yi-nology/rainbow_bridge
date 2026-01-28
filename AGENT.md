@@ -84,23 +84,25 @@ AI Agent（Qoder）作为开发伙伴，与人类开发者采用 **Pair Programm
 - 所有配置（系统配置、业务配置）都必须同时指定环境和渠道
 - 渠道 API 必须传递 `environment_key` 参数实现按环境过滤
 
-### 2. 系统配置模块
+### 2. 配置类型系统
 
 **需求背景**：
-- 需要系统级配置（如 system_options），与业务配置分离
-- 支持多种数据类型（键值对、JSON、文本、图片、颜色）
+- 支持多种数据类型（文本、数值、布尔、JSON、键值对、图片、颜色等）
+- 前端根据类型提供不同的编辑和展示方式
 
 **实现过程**：
 
 1. **数据模型**
    ```go
-   type SystemConfig struct {
+   type Config struct {
        ID             uint   `gorm:"primaryKey"`
-       EnvironmentKey string `gorm:"uniqueIndex:idx_env_pipeline_key"`
-       PipelineKey    string `gorm:"uniqueIndex:idx_env_pipeline_key"`
-       ConfigKey      string `gorm:"uniqueIndex:idx_env_pipeline_key"`
-       ConfigValue    string `gorm:"type:text"`
-       ConfigType     string `gorm:"type:varchar(20);default:'text'"`
+       ResourceKey    string `gorm:"uniqueIndex:idx_resource"`
+       EnvironmentKey string `gorm:"uniqueIndex:idx_resource"`
+       PipelineKey    string `gorm:"uniqueIndex:idx_resource"`
+       Name           string `gorm:"uniqueIndex:idx_resource"`
+       Alias          string
+       Type           string `gorm:"type:varchar(20);default:'text'"`
+       Content        string `gorm:"type:text"`
        Remark         string
        CreatedAt      time.Time
        UpdatedAt      time.Time
@@ -108,85 +110,88 @@ AI Agent（Qoder）作为开发伙伴，与人类开发者采用 **Pair Programm
    ```
 
 2. **类型枚举系统**
-   ```javascript
-   // web/lib/types.js
-   export const CONFIG_TYPES = {
-     KV: "kv",          // 键值对
-     JSON: "json",      // JSON 对象
-     TEXT: "text",      // 纯文本
-     IMAGE: "image",    // 图片
-     COLOR: "color",    // 颜色
-   };
+   ```typescript
+   // react/lib/types.ts
+   export type ConfigType = 
+     | 'text'        // 单行文本
+     | 'textarea'    // 多行文本
+     | 'richtext'    // 富文本
+     | 'number'      // 整数
+     | 'decimal'     // 小数
+     | 'boolean'     // 布尔值
+     | 'keyvalue'    // 键值对
+     | 'object'      // JSON对象
+     | 'color'       // 色彩标签
+     | 'file'        // 文件
+     | 'image'       // 图片
    
-   export const CONFIG_TYPE_NAMES = {
-     [CONFIG_TYPES.KV]: "键值对",
-     [CONFIG_TYPES.JSON]: "对象",
-     [CONFIG_TYPES.TEXT]: "文本",
-     [CONFIG_TYPES.IMAGE]: "图片",
-     [CONFIG_TYPES.COLOR]: "色彩标签",
+   export const CONFIG_TYPE_META: Record<ConfigType, { 
+     label: string; 
+     color: string; 
+     description: string 
+   }> = {
+     text: { label: "文本", color: "...", description: "单行文本输入" },
+     // ...
    };
    ```
 
-3. **键值对编辑器**
-   - 动态添加/删除键值对行
-   - 实时同步到隐藏的 JSON 字段
-   - 数据验证（key 唯一性、必填校验）
+3. **前端编辑器**
+   - 根据配置类型动态渲染对应的输入组件
+   - 键值对类型：提供动态添加/删除行功能
+   - 图片类型：支持上传并预览
+   - 颜色类型：提供颜色选择器
+   - JSON 类型：提供格式化和语法校验
 
 **关键决策**：
-- 创建独立的 `types.js` 统一管理类型枚举，避免硬编码
-- `system_options` 固定使用 `kv` 类型，存储为 JSON 对象
-- 提供 `normalizeConfigType` 函数处理向后兼容（如 "config" → "json"）
+- 创建独立的 `types.ts` 统一管理类型定义，前后端类型严格映射
+- 提供 `normalizeConfigType` 函数处理类型兼容性
+- 配置类型与展示方式解耦，便于扩展新类型
 
-### 3. 业务配置引用系统配置
+### 3. 配置资源化管理
 
 **需求背景**：
-- 业务配置创建时，希望能引用系统配置作为基础模板
-- 选择系统配置后，自动填充名称、别名、类型、内容
+- 配置需要通过 `resource_key` 进行唯一标识和分组
+- 支持跨环境、跨渠道的配置复用和迁移
+- 配置名称（name）在同一资源下唯一
 
 **实现过程**：
 
-1. **系统配置选项来源**
+1. **资源键（Resource Key）设计**
+   ```go
+   type Config struct {
+       ResourceKey    string `gorm:"uniqueIndex:idx_resource"`
+       EnvironmentKey string `gorm:"uniqueIndex:idx_resource"`
+       PipelineKey    string `gorm:"uniqueIndex:idx_resource"`
+       Name           string `gorm:"uniqueIndex:idx_resource"` // 配置名称
+       Alias          string // 配置别名/描述
+       Type           string // 配置类型
+       Content        string // 配置内容
+       // ...
+   }
+   ```
+
+2. **配置列表查询**
    ```javascript
-   // config.js
-   async function fetchSystemOptionsFromConfig(environmentKey) {
-     const pipelineKey = getCurrentPipeline();
+   // 获取指定资源的配置列表
+   async function fetchConfigs(environmentKey, pipelineKey, resourceKey) {
      const res = await fetch(
-       `${apiBase}/api/v1/system-config/list?environment_key=${environmentKey}&pipeline_key=${pipelineKey}`
+       `${apiBase}/api/v1/config/list?environment_key=${environmentKey}&pipeline_key=${pipelineKey}&resource_key=${resourceKey}`
      );
-     const json = await res.json();
-     return json.list.map(cfg => ({
-       key: cfg.config_key,
-       value: getSystemConfigDisplayName(cfg.config_key),
-       type: cfg.config_type,      // 数据类型
-       content: cfg.config_value,  // 配置内容
-       remark: cfg.remark,
-     }));
+     return await res.json();
    }
    ```
 
-2. **自动填充逻辑**
-   ```javascript
-   async function applySystemKeySelection() {
-     const selected = getSelectedSystemKey();
-     if (!selected) return;
-     
-     // 填充名称和别名
-     elements.modalAliasInput.value = selected.key;
-     elements.modalNameInput.value = selected.value;
-     
-     // 根据类型设置编辑器并填充内容
-     const configType = normalizeConfigType(selected.type);
-     const configContent = selected.content;
-     
-     elements.modalTypeSelect.value = configType;
-     await initializeDataTypeFields(configType, configContent);
-   }
-   ```
+3. **配置创建与更新**
+   - 创建时指定 `resource_key`、`name`、`type`、`content`
+   - 更新时通过 `(resource_key, environment_key, pipeline_key, name)` 定位
+   - 支持配置迁移到不同环境/渠道
 
-3. **类型化编辑器初始化**
-   ```javascript
-   function initializeDataTypeFields(type, content) {
-     const normalizedType = normalizeConfigType(type);
+**关键决策**：
+- `resource_key` 用于配置分组和逻辑隔离
+- `name` 作为配置的业务标识，在同一资源下唯一
+- 联合唯一索引保证配置不重复
+
+### 4. 配置编辑器实现
      
      if (normalizedType === CONFIG_TYPES.KV) {
        populateKvEditor(content);  // 解析 JSON 并填充键值对编辑器
@@ -276,42 +281,45 @@ Config {
 ### 阶段 2：双维度隔离（environment + pipeline）
 
 ```
-SystemConfig {
+Config {
+  resource_key: string          // 资源标识
   environment_key: "dev" | "prod" | ...
   pipeline_key: "main" | "feature-x" | ...
-  config_key: string
-  config_type: "kv" | "json" | "text" | "image" | "color"
-  config_value: string
+  name: string                  // 配置名称
+  alias: string                 // 配置别名
+  type: "text" | "number" | "boolean" | "object" | "image" | "color" | ...
+  content: string               // 配置内容
 }
 
-Config {
+Asset {
   environment_key: string
   pipeline_key: string
-  alias: string
-  type: string
-  content: string
+  file_name: string
+  content_type: string
+  url: string
 }
 ```
 
 **优势**：
 - 配置按环境 + 渠道隔离，互不影响
 - 支持多团队并行开发
-- 系统配置与业务配置分离，职责清晰
+- 通过 `resource_key` 实现配置分组和逻辑隔离
 
 ### 阶段 3：类型系统完善
 
 引入类型枚举和专用编辑器：
 
-1. **类型枚举** (`types.js`)
-   - 统一类型常量定义
-   - 中文显示名称映射
+1. **类型枚举** (`types.ts`)
+   - 统一类型常量定义（ConfigType 联合类型）
+   - 类型元数据映射（CONFIG_TYPE_META）
    - 向后兼容函数
 
 2. **专用编辑器**
-   - KV Editor：动态键值对编辑
-   - JSON Editor：格式化 JSON 编辑
+   - KeyValue Editor：动态键值对编辑
+   - JSON/Object Editor：格式化 JSON 编辑
    - Image Editor：图片上传 + 预览
    - Color Picker：颜色选择器
+   - RichText Editor：富文本编辑器
 
 ---
 
@@ -329,31 +337,32 @@ Config {
 **实践**：
 ```bash
 # 创建 proto 文件
-idl/biz/system_config.proto
+idl/biz/config.proto
 
 # 生成代码
-hz update -idl idl/biz/system_config.proto -I idl
+hz update -idl idl/biz/config.proto -I idl
 
 # 生成位置
-biz/model/system/system.pb.go
-biz/handler/system_config/
+biz/model/config/config.pb.go
+biz/handler/config/
 ```
 
 ### 2. 数据库联合唯一索引
 
-**决策**：使用 `(environment_key, pipeline_key, config_key)` 联合唯一索引
+**决策**：使用 `(resource_key, environment_key, pipeline_key, name)` 联合唯一索引
 
 **原因**：
-- 保证同一环境+渠道下配置键唯一
-- 支持不同环境/渠道使用相同配置键
+- 保证同一资源下，同一环境+渠道的配置名称唯一
+- 支持不同资源、不同环境/渠道使用相同配置名称
 - 避免数据冲突和覆盖
 
 **实现**：
 ```go
-type SystemConfig struct {
-    EnvironmentKey string `gorm:"uniqueIndex:idx_env_pipeline_key"`
-    PipelineKey    string `gorm:"uniqueIndex:idx_env_pipeline_key"`
-    ConfigKey      string `gorm:"uniqueIndex:idx_env_pipeline_key"`
+type Config struct {
+    ResourceKey    string `gorm:"uniqueIndex:idx_resource"`
+    EnvironmentKey string `gorm:"uniqueIndex:idx_resource"`
+    PipelineKey    string `gorm:"uniqueIndex:idx_resource"`
+    Name           string `gorm:"uniqueIndex:idx_resource"`
 }
 ```
 
@@ -418,7 +427,7 @@ AI Agent 使用以下工具定位代码：
 
 2. **符号搜索** (`search_symbol`)
    - 用于查找类、函数、接口定义
-   - 示例：`initEnvSelector`、`SystemConfig`
+   - 示例：`initEnvSelector`、`Config`、`ResourceConfig`
 
 3. **文件检索** (`search_file`)
    - 用于定位特定文件

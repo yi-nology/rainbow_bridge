@@ -332,6 +332,7 @@ export default function ConfigPage() {
     if (!editingConfig || !selectedEnvKey || !selectedPipelineKey) return
     
     await updateConfig.mutateAsync({
+      id: editingConfig.id,
       name: formData.name,
       alias: formData.alias,
       type: formData.type,

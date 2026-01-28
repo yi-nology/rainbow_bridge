@@ -90,6 +90,7 @@ export function useUpdateConfig() {
 
   return useMutation({
     mutationFn: async (config: {
+      id: string
       name: string
       alias?: string
       type: ConfigType
@@ -98,6 +99,7 @@ export function useUpdateConfig() {
       pipelineId: string
     }) => {
       const apiConfig = toApiConfig({
+        id: config.id,
         name: config.name,
         alias: config.alias,
         type: config.type,

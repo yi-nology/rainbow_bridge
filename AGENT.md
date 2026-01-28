@@ -152,7 +152,7 @@ AI Agent（Qoder）作为开发伙伴，与人类开发者采用 **Pair Programm
 **需求背景**：
 - 配置需要通过 `resource_key` 进行唯一标识和分组
 - 支持跨环境、跨渠道的配置复用和迁移
-- 配置名称（name）在同一资源下唯一
+- 名称（name）在同一资源下唯一
 
 **实现过程**：
 
@@ -162,8 +162,8 @@ AI Agent（Qoder）作为开发伙伴，与人类开发者采用 **Pair Programm
        ResourceKey    string `gorm:"uniqueIndex:idx_resource"`
        EnvironmentKey string `gorm:"uniqueIndex:idx_resource"`
        PipelineKey    string `gorm:"uniqueIndex:idx_resource"`
-       Name           string `gorm:"uniqueIndex:idx_resource"` // 配置名称
-       Alias          string // 配置别名/描述
+       Name           string `gorm:"uniqueIndex:idx_resource"` // 名称
+       Alias          string // 别名/描述
        Type           string // 配置类型
        Content        string // 配置内容
        // ...
@@ -285,8 +285,8 @@ Config {
   resource_key: string          // 资源标识
   environment_key: "dev" | "prod" | ...
   pipeline_key: "main" | "feature-x" | ...
-  name: string                  // 配置名称
-  alias: string                 // 配置别名
+  name: string                  // 名称
+  alias: string                 // 别名
   type: "text" | "number" | "boolean" | "object" | "image" | "color" | ...
   content: string               // 配置内容
 }
@@ -352,8 +352,8 @@ biz/handler/config/
 **决策**：使用 `(resource_key, environment_key, pipeline_key, name)` 联合唯一索引
 
 **原因**：
-- 保证同一资源下，同一环境+渠道的配置名称唯一
-- 支持不同资源、不同环境/渠道使用相同配置名称
+- 保证同一资源下，同一环境+渠道的名称唯一
+- 支持不同资源、不同环境/渠道使用相同名称
 - 避免数据冲突和覆盖
 
 **实现**：

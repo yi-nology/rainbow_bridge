@@ -27,6 +27,7 @@ func (dao *ConfigDAO) Create(ctx context.Context, db *gorm.DB, entity *model.Con
 }
 
 // UpdateByEnvironmentAndPipeline updates an existing configuration identified by environment_key + pipeline_key + resource_key.
+// Note: alias field is immutable and will not be updated.
 func (dao *ConfigDAO) UpdateByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, entity *model.Config) error {
 	if entity == nil {
 		return errors.New("config must not be nil")
@@ -34,6 +35,7 @@ func (dao *ConfigDAO) UpdateByEnvironmentAndPipeline(ctx context.Context, db *go
 	return db.WithContext(ctx).
 		Model(&model.Config{}).
 		Where("environment_key = ? AND pipeline_key = ? AND resource_key = ?", environmentKey, pipelineKey, entity.ResourceKey).
+		Omit("alias"). // Alias is immutable after creation
 		Updates(entity).
 		Error
 }

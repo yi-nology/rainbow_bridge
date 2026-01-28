@@ -227,8 +227,8 @@
 | `resource_key`    | string   | 资源唯一标识                                  |
 | `environment_key` | string   | 所属环境                                      |
 | `pipeline_key`    | string   | 所属渠道                                  |
-| `name`            | string   | 配置名称，例如 `api_base_url`              |
-| `alias`           | string   | 配置别名/描述                                 |
+| `name`            | string   | 名称，例如 `api_base_url`              |
+| `alias`           | string   | 别名/描述                                 |
 | `content`         | text     | 配置内容（JSON 字符串 / 文本 / 引用）      |
 | `type`            | varchar  | 数据类型：`text`、`number`、`boolean`、`object`、`image`、`color` 等 |
 | `remark`          | string   | 备注信息                                      |
@@ -254,7 +254,7 @@
 | `environment_key` | string | 所属环境                          |
 | `pipeline_key`    | string | 所属渠道                        |
 | `alias`       | string    | 别名，同一环境+渠道下唯一        |
-| `name`        | string    | 配置名称                            |
+| `name`        | string    | 名称                            |
 | `type`        | enum      | 数据类型：`kv`、`config`、`text`、`image`、`color`|
 | `content`     | text      | 配置内容（JSON 字符串 / 文本 / 引用）|
 | `remark`      | string    | 备注信息                            |

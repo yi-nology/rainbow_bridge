@@ -1,7 +1,20 @@
 # syntax=docker/dockerfile:1.6
 
 ##
-## Build stage
+## Frontend build stage
+##
+FROM node:20-bookworm AS frontend
+
+WORKDIR /frontend
+
+COPY react/package*.json ./
+RUN npm ci
+
+COPY react/ ./
+RUN npm run build
+
+##
+## Go build stage
 ##
 ARG GO_VERSION=1.25
 FROM golang:${GO_VERSION}-bookworm AS builder
@@ -30,6 +43,9 @@ RUN go mod download
 
 COPY . .
 
+# Copy frontend build output
+COPY --from=frontend /frontend/out ./web/
+
 RUN go build \
     -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}'" \
     -o /out/hertz_service .
@@ -50,7 +66,6 @@ WORKDIR /app
 
 COPY --from=builder /out/hertz_service /app/hertz_service
 COPY config.yaml /app/config.yaml
-COPY web /app/web
 
 RUN mkdir -p /app/data/uploads && chown -R rainbow:rainbow /app
 

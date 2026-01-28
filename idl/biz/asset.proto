@@ -10,18 +10,34 @@ message ListAssetRequest {
   string pipeline_key = 2;
 }
 
-// AssetListResponse contains a list of assets.
-message AssetListResponse {
-  repeated common.FileAsset assets = 1;
+// AssetData is the data wrapper for a single asset.
+message AssetData {
+  common.FileAsset asset = 1;
+  string reference = 2;
 }
 
-// UploadAssetResponse is a response for asset upload.
+// AssetListData is the data wrapper for asset list.
+message AssetListData {
+  int32 total = 1;
+  repeated common.FileAsset list = 2;
+}
+
+// AssetListResponse is a unified response for asset list.
+// Format: { code, msg, data: { total, list } }
+message AssetListResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  AssetListData data = 4;
+}
+
+// UploadAssetResponse is a unified response for asset upload.
+// Format: { code, msg, data: { asset, reference } }
 message UploadAssetResponse {
   int32 code = 1;
   string msg = 2;
   string error = 3;
-  common.FileAsset asset = 4;
-  string reference = 5;
+  AssetData data = 4;
 }
 
 // GetFileRequest is used to get a file by ID.

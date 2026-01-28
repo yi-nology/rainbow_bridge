@@ -28,7 +28,15 @@ message FileAsset {
   string remark = 8;
 }
 
-// OperateResponse is a common response for operations.
+// BaseResponse is the base response structure for all API responses.
+// All responses follow: { code, msg, data: {...} }
+message BaseResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+}
+
+// OperateResponse is a common response for operations (deprecated, use BaseResponse).
 message OperateResponse {
   int32 code = 1;
   string msg = 2;

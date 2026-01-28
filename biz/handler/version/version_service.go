@@ -10,7 +10,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 	version "github.com/yi-nology/rainbow_bridge/biz/model/version"
 )
 
@@ -42,23 +41,25 @@ func GetVersion(ctx context.Context, c *app.RequestContext) {
 	var req version.VersionRequest
 	err = c.BindAndValidate(&req)
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		c.JSON(consts.StatusOK, &version.VersionResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &version.VersionResponse{
-		OperateResponse: &common.OperateResponse{
-			Code: consts.StatusOK,
-			Msg:  "success",
+	c.JSON(consts.StatusOK, &version.VersionResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &version.VersionData{
+			VersionInfo: &version.VersionInfo{
+				Version:   AppVersion,
+				GitCommit: AppGitCommit,
+				BuildTime: AppBuildTime,
+			},
 		},
-		VersionInfo: &version.VersionInfo{
-			Version:   AppVersion,
-			GitCommit: AppGitCommit,
-			BuildTime: AppBuildTime,
-		},
-	}
-
-	c.JSON(consts.StatusOK, resp)
+	})
 }
 
 // GetLatestRelease .
@@ -68,33 +69,32 @@ func GetLatestRelease(ctx context.Context, c *app.RequestContext) {
 	var req version.GitHubReleaseRequest
 	err = c.BindAndValidate(&req)
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		c.JSON(consts.StatusOK, &version.GitHubReleaseResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	// Fetch latest release from GitHub API
 	releaseInfo, err := fetchLatestGitHubRelease(ctx)
 	if err != nil {
-		resp := &version.GitHubReleaseResponse{
-			OperateResponse: &common.OperateResponse{
-				Code:  consts.StatusInternalServerError,
-				Msg:   "failed to fetch GitHub release",
-				Error: err.Error(),
-			},
-		}
-		c.JSON(consts.StatusOK, resp)
+		c.JSON(consts.StatusOK, &version.GitHubReleaseResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &version.GitHubReleaseResponse{
-		OperateResponse: &common.OperateResponse{
-			Code: consts.StatusOK,
-			Msg:  "success",
+	c.JSON(consts.StatusOK, &version.GitHubReleaseResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &version.GitHubReleaseData{
+			ReleaseInfo: releaseInfo,
 		},
-		ReleaseInfo: releaseInfo,
-	}
-
-	c.JSON(consts.StatusOK, resp)
+	})
 }
 
 func fetchLatestGitHubRelease(ctx context.Context) (*version.GitHubReleaseInfo, error) {

@@ -4,7 +4,6 @@ package transfer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -29,19 +28,31 @@ func Import(ctx context.Context, c *app.RequestContext) {
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		fileHeader, err := c.FormFile("archive")
 		if err != nil {
-			handler.RespondError(c, consts.StatusBadRequest, err)
+			c.JSON(consts.StatusOK, &transfer.ImportResponse{
+				Code:  consts.StatusBadRequest,
+				Msg:   "error",
+				Error: err.Error(),
+			})
 			return
 		}
 		file, err := fileHeader.Open()
 		if err != nil {
-			handler.RespondError(c, consts.StatusBadRequest, err)
+			c.JSON(consts.StatusOK, &transfer.ImportResponse{
+				Code:  consts.StatusBadRequest,
+				Msg:   "error",
+				Error: err.Error(),
+			})
 			return
 		}
 		defer file.Close()
 
 		data, err := io.ReadAll(file)
 		if err != nil {
-			handler.RespondError(c, consts.StatusInternalServerError, err)
+			c.JSON(consts.StatusOK, &transfer.ImportResponse{
+				Code:  consts.StatusInternalServerError,
+				Msg:   "error",
+				Error: err.Error(),
+			})
 			return
 		}
 
@@ -52,27 +63,78 @@ func Import(ctx context.Context, c *app.RequestContext) {
 
 		configs, err := svc.ImportConfigsArchive(handler.EnrichContext(ctx, c), data, targetEnv, targetPipeline, overwrite)
 		if err != nil {
-			handler.RespondError(c, consts.StatusInternalServerError, err)
+			c.JSON(consts.StatusOK, &transfer.ImportResponse{
+				Code:  consts.StatusInternalServerError,
+				Msg:   "error",
+				Error: err.Error(),
+			})
 			return
 		}
-		handler.RespondOKWithSummary(c, handler.BuildConfigSummary(configs))
+		summary := handler.BuildConfigSummary(configs)
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code: consts.StatusOK,
+			Msg:  "OK",
+			Data: &transfer.ImportSummary{
+				Total:           int32(summary.Total),
+				EnvironmentKeys: summary.EnvironmentKeys,
+				PipelineKeys:    summary.PipelineKeys,
+				Items:           convertToImportSummaryItems(summary.Items),
+			},
+		})
 		return
 	}
 
 	req := &transfer.ImportRequest{}
 	if err := c.BindJSON(req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 	if len(req.Configs) == 0 {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("configs cannot be empty"))
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "configs cannot be empty",
+		})
 		return
 	}
 	if err := svc.ImportConfigs(handler.EnrichContext(ctx, c), req.GetConfigs(), req.GetOverwrite()); err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
+		c.JSON(consts.StatusOK, &transfer.ImportResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
-	handler.RespondOKWithSummary(c, handler.BuildConfigSummary(req.Configs))
+	summary := handler.BuildConfigSummary(req.Configs)
+	c.JSON(consts.StatusOK, &transfer.ImportResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &transfer.ImportSummary{
+			Total:           int32(summary.Total),
+			EnvironmentKeys: summary.EnvironmentKeys,
+			PipelineKeys:    summary.PipelineKeys,
+			Items:           convertToImportSummaryItems(summary.Items),
+		},
+	})
+}
+
+func convertToImportSummaryItems(items []handler.SummaryItem) []*transfer.ImportSummaryItem {
+	result := make([]*transfer.ImportSummaryItem, len(items))
+	for i, item := range items {
+		result[i] = &transfer.ImportSummaryItem{
+			ResourceKey:    item.ResourceKey,
+			EnvironmentKey: item.EnvironmentKey,
+			PipelineKey:    item.PipelineKey,
+			Name:           item.Name,
+			Alias:          item.Alias,
+			Type:           item.Type,
+		}
+	}
+	return result
 }
 
 // Export .
@@ -81,16 +143,18 @@ func Export(ctx context.Context, c *app.RequestContext) {
 	environmentKey := strings.TrimSpace(c.Query("environment_key"))
 	pipelineKey := strings.TrimSpace(c.Query("pipeline_key"))
 	format := strings.ToLower(strings.TrimSpace(c.Query("format")))
-	includeSystemConfig := strings.ToLower(strings.TrimSpace(c.Query("include_system_config"))) == "true"
-	systemConfigOnly := strings.ToLower(strings.TrimSpace(c.Query("system_config_only"))) == "true"
 
 	// 如果 environment_key 和 pipeline_key 都为空或为 "all"，导出所有环境和渠道
 	if (environmentKey == "" || environmentKey == "all") && (pipelineKey == "" || pipelineKey == "all") {
 		switch format {
 		case "zip":
-			data, filename, err := svc.ExportConfigsArchiveAll(handler.EnrichContext(ctx, c), includeSystemConfig)
+			data, filename, err := svc.ExportConfigsArchiveAll(handler.EnrichContext(ctx, c))
 			if err != nil {
-				handler.RespondError(c, consts.StatusInternalServerError, err)
+				c.JSON(consts.StatusOK, &transfer.ExportResponse{
+					Code:  consts.StatusInternalServerError,
+					Msg:   "error",
+					Error: err.Error(),
+				})
 				return
 			}
 			c.Header("Content-Type", "application/zip")
@@ -98,21 +162,33 @@ func Export(ctx context.Context, c *app.RequestContext) {
 			c.Data(consts.StatusOK, "application/zip", data)
 			return
 		default:
-			handler.RespondError(c, consts.StatusBadRequest, errors.New("export all only supports zip format"))
+			c.JSON(consts.StatusOK, &transfer.ExportResponse{
+				Code:  consts.StatusBadRequest,
+				Msg:   "error",
+				Error: "export all only supports zip format",
+			})
 			return
 		}
 	}
 
 	if environmentKey == "" || pipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key and pipeline_key are required"))
+		c.JSON(consts.StatusOK, &transfer.ExportResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key and pipeline_key are required",
+		})
 		return
 	}
 
 	switch format {
 	case "zip":
-		data, filename, err := svc.ExportConfigsArchive(handler.EnrichContext(ctx, c), environmentKey, pipelineKey, includeSystemConfig, systemConfigOnly)
+		data, filename, err := svc.ExportConfigsArchive(handler.EnrichContext(ctx, c), environmentKey, pipelineKey)
 		if err != nil {
-			handler.RespondError(c, consts.StatusInternalServerError, err)
+			c.JSON(consts.StatusOK, &transfer.ExportResponse{
+				Code:  consts.StatusInternalServerError,
+				Msg:   "error",
+				Error: err.Error(),
+			})
 			return
 		}
 		c.Header("Content-Type", "application/zip")
@@ -120,13 +196,80 @@ func Export(ctx context.Context, c *app.RequestContext) {
 		c.Data(consts.StatusOK, "application/zip", data)
 
 	default: // json
-		configs, err := svc.ExportConfigs(handler.EnrichContext(ctx, c), environmentKey, pipelineKey, includeSystemConfig, systemConfigOnly)
+		configs, err := svc.ExportConfigs(handler.EnrichContext(ctx, c), environmentKey, pipelineKey)
 		if err != nil {
-			handler.RespondError(c, consts.StatusInternalServerError, err)
+			c.JSON(consts.StatusOK, &transfer.ExportResponse{
+				Code:  consts.StatusInternalServerError,
+				Msg:   "error",
+				Error: err.Error(),
+			})
 			return
 		}
-		c.JSON(consts.StatusOK, map[string]any{
-			"list": configs,
+		c.JSON(consts.StatusOK, &transfer.ExportResponse{
+			Code: consts.StatusOK,
+			Msg:  "OK",
+			Data: &transfer.ExportData{
+				Total: int32(len(configs)),
+				List:  configs,
+			},
 		})
 	}
+}
+
+// Migrate migrates configurations between environments/pipelines.
+// @router /api/v1/transfer/migrate [POST]
+func Migrate(ctx context.Context, c *app.RequestContext) {
+	req := &transfer.MigrateRequest{}
+	if err := c.BindJSON(req); err != nil {
+		c.JSON(consts.StatusOK, &transfer.MigrateResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// 参数校验
+	if req.SourceEnvironmentKey == "" || req.SourcePipelineKey == "" {
+		c.JSON(consts.StatusOK, &transfer.MigrateResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "source_environment_key and source_pipeline_key are required",
+		})
+		return
+	}
+	if req.TargetEnvironmentKey == "" || req.TargetPipelineKey == "" {
+		c.JSON(consts.StatusOK, &transfer.MigrateResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "target_environment_key and target_pipeline_key are required",
+		})
+		return
+	}
+	if req.SourceEnvironmentKey == req.TargetEnvironmentKey &&
+		req.SourcePipelineKey == req.TargetPipelineKey {
+		c.JSON(consts.StatusOK, &transfer.MigrateResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "source and target cannot be the same",
+		})
+		return
+	}
+
+	// 调用 Service 层
+	data, err := svc.MigrateConfigs(handler.EnrichContext(ctx, c), req)
+	if err != nil {
+		c.JSON(consts.StatusOK, &transfer.MigrateResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(consts.StatusOK, &transfer.MigrateResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: data,
+	})
 }

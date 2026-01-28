@@ -15,7 +15,7 @@ var (
 	ErrEnvironmentKeyExists   = errors.New("environment_key already exists")
 )
 
-// AddEnvironment creates a new environment with default system configs.
+// AddEnvironment creates a new environment with default pipeline.
 func (s *Service) AddEnvironment(ctx context.Context, env *envpb.Environment) error {
 	if env == nil || env.GetEnvironmentKey() == "" {
 		return ErrEnvironmentKeyRequired
@@ -55,10 +55,6 @@ func (s *Service) AddEnvironment(ctx context.Context, env *envpb.Environment) er
 		if err := s.logic.pipelineDAO.Create(ctx, tx, defaultPipeline); err != nil {
 			return err
 		}
-		// 3. Initialize system configs for the new environment
-		if err := s.logic.InitSystemConfigsForEnvironment(ctx, tx, env.GetEnvironmentKey()); err != nil {
-			return err
-		}
 		return nil
 	})
 }
@@ -87,7 +83,7 @@ func (s *Service) UpdateEnvironment(ctx context.Context, env *envpb.Environment)
 	return s.logic.environmentDAO.Update(ctx, s.logic.db, entity)
 }
 
-// DeleteEnvironment deletes an environment by key with cascade delete of system configs.
+// DeleteEnvironment deletes an environment by key.
 func (s *Service) DeleteEnvironment(ctx context.Context, environmentKey string) error {
 	if environmentKey == "" {
 		return ErrEnvironmentKeyRequired
@@ -101,15 +97,7 @@ func (s *Service) DeleteEnvironment(ctx context.Context, environmentKey string) 
 		return err
 	}
 
-	// Use transaction to ensure atomicity
-	return s.logic.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Delete system configs first (cascade)
-		if err := s.logic.DeleteSystemConfigsByEnvironment(ctx, tx, environmentKey); err != nil {
-			return err
-		}
-		// 2. Delete environment
-		return s.logic.environmentDAO.Delete(ctx, tx, environmentKey)
-	})
+	return s.logic.environmentDAO.Delete(ctx, s.logic.db, environmentKey)
 }
 
 // GetEnvironment returns an environment by key.

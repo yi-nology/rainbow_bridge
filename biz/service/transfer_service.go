@@ -14,68 +14,21 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/biz/model/common"
+	"github.com/yi-nology/rainbow_bridge/biz/model/transfer"
 	"gorm.io/gorm"
 )
 
 // --------------------- Export/Import operations ---------------------
 
-func (s *Service) ExportConfigs(ctx context.Context, environmentKey, pipelineKey string, includeSystemConfig, systemConfigOnly bool) ([]*common.ResourceConfig, error) {
+func (s *Service) ExportConfigs(ctx context.Context, environmentKey, pipelineKey string) ([]*common.ResourceConfig, error) {
 	if environmentKey == "" || pipelineKey == "" {
 		return nil, errors.New("environment_key and pipeline_key required")
 	}
 
-	var configs []model.Config
-	var err error
-
-	if systemConfigOnly {
-		// 只导出系统配置（系统配置现在只与环境相关）
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
-		if err != nil {
-			return nil, err
-		}
-		// 将系统配置转换为 Config 类型
-		for _, sc := range sysConfigs {
-			configs = append(configs, model.Config{
-				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
-				Alias:          sc.ConfigKey,
-				Name:           sc.ConfigKey,
-				Content:        sc.ConfigValue,
-				Type:           sc.ConfigType,
-				Remark:         sc.Remark,
-			})
-		}
-	} else if includeSystemConfig {
-		// 导出业务配置 + 系统配置
-		bizConfigs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
-		if err != nil {
-			return nil, err
-		}
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
-		if err != nil {
-			return nil, err
-		}
-		// 先添加业务配置
-		configs = bizConfigs
-		// 再添加系统配置
-		for _, sc := range sysConfigs {
-			configs = append(configs, model.Config{
-				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
-				Alias:          sc.ConfigKey,
-				Name:           sc.ConfigKey,
-				Content:        sc.ConfigValue,
-				Type:           sc.ConfigType,
-				Remark:         sc.Remark,
-			})
-		}
-	} else {
-		// 仅导出业务配置
-		configs, err = s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
-	}
-
+	configs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
 	if err != nil {
 		return nil, err
 	}
@@ -93,76 +46,26 @@ func (s *Service) ImportConfigs(ctx context.Context, configs []*common.ResourceC
 	return s.logic.ImportConfigs(ctx, modelConfigs, overwrite)
 }
 
-func (s *Service) ExportConfigsArchive(ctx context.Context, environmentKey, pipelineKey string, includeSystemConfig, systemConfigOnly bool) ([]byte, string, error) {
+func (s *Service) ExportConfigsArchive(ctx context.Context, environmentKey, pipelineKey string) ([]byte, string, error) {
 	if environmentKey == "" || pipelineKey == "" {
 		return nil, "", errors.New("environment_key and pipeline_key required")
 	}
 
-	var configs []model.Config
-	var err error
-
-	if systemConfigOnly {
-		// 只导出系统配置（系统配置现在只与环境相关）
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
-		if err != nil {
-			return nil, "", err
-		}
-		for _, sc := range sysConfigs {
-			configs = append(configs, model.Config{
-				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
-				Alias:          sc.ConfigKey,
-				Name:           sc.ConfigKey,
-				Content:        sc.ConfigValue,
-				Type:           sc.ConfigType,
-				Remark:         sc.Remark,
-			})
-		}
-	} else if includeSystemConfig {
-		// 导出业务配置 + 系统配置
-		bizConfigs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
-		if err != nil {
-			return nil, "", err
-		}
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, environmentKey)
-		if err != nil {
-			return nil, "", err
-		}
-		configs = bizConfigs
-		for _, sc := range sysConfigs {
-			configs = append(configs, model.Config{
-				EnvironmentKey: sc.EnvironmentKey,
-				PipelineKey:    pipelineKey, // 使用当前选择的 pipeline
-				Alias:          sc.ConfigKey,
-				Name:           sc.ConfigKey,
-				Content:        sc.ConfigValue,
-				Type:           sc.ConfigType,
-				Remark:         sc.Remark,
-			})
-		}
-	} else {
-		// 仅导出业务配置
-		configs, err = s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
-	}
-
+	configs, err := s.logic.ExportConfigs(ctx, environmentKey, pipelineKey)
 	if err != nil {
 		return nil, "", err
 	}
+
 	data, err := s.writeConfigArchive(ctx, configs)
 	if err != nil {
 		return nil, "", err
 	}
 
-	var name string
-	if systemConfigOnly {
-		name = fmt.Sprintf("%s_%s_system_config.zip", environmentKey, pipelineKey)
-	} else {
-		name = fmt.Sprintf("%s_%s_archive.zip", environmentKey, pipelineKey)
-	}
+	name := fmt.Sprintf("%s_%s_archive.zip", environmentKey, pipelineKey)
 	return data, name, nil
 }
 
-func (s *Service) ExportConfigsArchiveAll(ctx context.Context, includeSystemConfig bool) ([]byte, string, error) {
+func (s *Service) ExportConfigsArchiveAll(ctx context.Context) ([]byte, string, error) {
 	// Get all environments
 	environments, err := s.logic.ListEnvironments(ctx)
 	if err != nil {
@@ -185,25 +88,6 @@ func (s *Service) ExportConfigsArchiveAll(ctx context.Context, includeSystemConf
 				continue // Skip if error
 			}
 			allConfigs = append(allConfigs, bizConfigs...)
-
-			// Export system configs if requested (system configs are now environment-scoped only)
-			if includeSystemConfig {
-				sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, env.EnvironmentKey)
-				if err != nil {
-					continue // Skip if error
-				}
-				for _, sc := range sysConfigs {
-					allConfigs = append(allConfigs, model.Config{
-						EnvironmentKey: sc.EnvironmentKey,
-						PipelineKey:    pipe.PipelineKey, // Use current pipeline
-						Alias:          sc.ConfigKey,
-						Name:           sc.ConfigKey,
-						Content:        sc.ConfigValue,
-						Type:           sc.ConfigType,
-						Remark:         sc.Remark,
-					})
-				}
-			}
 		}
 	}
 
@@ -227,7 +111,6 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 	// 收集环境和渠道信息
 	envSet := make(map[string]bool)
 	pipelineSet := make(map[string]map[string]bool) // environment_key -> pipeline_key -> true
-	systemConfigMap := make(map[string][]model.SystemConfig)
 
 	for _, cfg := range configs {
 		if cfg.EnvironmentKey != "" {
@@ -271,19 +154,10 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 		}
 	}
 
-	// 收集系统配置信息（系统配置现在只与环境相关）
-	for envKey := range envSet {
-		sysConfigs, err := s.logic.ListSystemConfigsByEnvironment(ctx, envKey)
-		if err == nil && len(sysConfigs) > 0 {
-			systemConfigMap[envKey] = sysConfigs
-		}
-	}
-
 	// 构建完整的数据结构
 	archiveData := map[string]any{
 		"environments":     envList,
 		"pipelines":        pipelineList,
-		"system_configs":   systemConfigMap,
 		"business_configs": configSliceToPB(configs),
 	}
 
@@ -357,7 +231,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 				return nil, err
 			}
 
-			// 解析新格式（包含 environments, pipelines, system_configs, business_configs）
+			// 解析新格式（包含 environments, pipelines, business_configs）
 			var archiveData map[string]any
 			if err := json.Unmarshal(payload, &archiveData); err != nil {
 				return nil, errors.New("invalid configs.json format")
@@ -416,16 +290,6 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 				// 确保目标渠道存在
 				if err := s.ensurePipelineExists(ctx, targetEnv, targetPipeline); err != nil {
 					fmt.Printf("Warning: target pipeline may not exist: %v\n", err)
-				}
-			}
-
-			// 导入 system_configs（仅当未指定目标环境时）
-			if targetEnv == "" {
-				if sysConfigs, ok := archiveData["system_configs"]; ok {
-					if err := s.importSystemConfigs(ctx, sysConfigs); err != nil {
-						// 记录错误但继续导入
-						fmt.Printf("Warning: failed to import system configs: %v\n", err)
-					}
 				}
 			}
 			continue
@@ -604,59 +468,6 @@ func (s *Service) importPipelines(ctx context.Context, data any) error {
 	return nil
 }
 
-// importSystemConfigs 导入系统配置
-// SystemConfig is now environment-scoped only (no pipeline_key dependency)
-func (s *Service) importSystemConfigs(ctx context.Context, data any) error {
-	// system_configs 是一个 map，key 是 environment_key，value 是系统配置数组
-	sysConfigMap, ok := data.(map[string]any)
-	if !ok {
-		return errors.New("invalid system_configs format")
-	}
-
-	for envKey, value := range sysConfigMap {
-		envKey = strings.TrimSpace(envKey)
-		if envKey == "" {
-			continue
-		}
-
-		// 解析系统配置数组
-		configBytes, err := json.Marshal(value)
-		if err != nil {
-			continue
-		}
-
-		var sysConfigs []model.SystemConfig
-		if err := json.Unmarshal(configBytes, &sysConfigs); err != nil {
-			continue
-		}
-
-		// 导入每个系统配置
-		for _, sc := range sysConfigs {
-			sc.EnvironmentKey = envKey
-
-			// 检查是否已存在
-			existing, err := s.logic.systemConfigDAO.GetByKey(ctx, s.logic.db, envKey, sc.ConfigKey)
-			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-
-			if existing != nil {
-				// 更新已存在的系统配置
-				if err := s.logic.systemConfigDAO.UpdateFull(ctx, s.logic.db, envKey, sc.ConfigKey, sc.ConfigValue, sc.ConfigType, sc.Remark); err != nil {
-					continue
-				}
-			} else {
-				// 创建新系统配置
-				if err := s.logic.systemConfigDAO.Create(ctx, s.logic.db, &sc); err != nil {
-					continue
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // --------------------- Transfer helpers ---------------------
 
 func sanitizeBusinessKeys(keys []string) []string {
@@ -807,4 +618,192 @@ func normalizeImageReference(ref string) string {
 
 	// 其他格式保持不变
 	return ref
+}
+
+// MigrateConfigs migrates configurations between environments/pipelines.
+func (s *Service) MigrateConfigs(ctx context.Context, req *transfer.MigrateRequest) (*transfer.MigrateSummary, error) {
+	// 1. 验证源和目标环境/渠道存在
+	if err := s.ensureEnvironmentExists(ctx, req.SourceEnvironmentKey); err != nil {
+		return nil, fmt.Errorf("source environment not found: %w", err)
+	}
+	if err := s.ensurePipelineExists(ctx, req.SourceEnvironmentKey, req.SourcePipelineKey); err != nil {
+		return nil, fmt.Errorf("source pipeline not found: %w", err)
+	}
+	if err := s.ensureEnvironmentExists(ctx, req.TargetEnvironmentKey); err != nil {
+		return nil, fmt.Errorf("target environment not found: %w", err)
+	}
+	if err := s.ensurePipelineExists(ctx, req.TargetEnvironmentKey, req.TargetPipelineKey); err != nil {
+		return nil, fmt.Errorf("target pipeline not found: %w", err)
+	}
+
+	// 2. 获取源配置（使用 ListConfigs 而不是 ExportConfigs，因为需要保留 ResourceKey）
+	sourceConfigs, err := s.logic.ListConfigs(ctx, req.SourceEnvironmentKey, req.SourcePipelineKey, "", "", "", false)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 过滤指定的配置（如果提供了 resource_keys）
+	if len(req.ResourceKeys) > 0 {
+		resourceKeySet := make(map[string]bool)
+		for _, key := range req.ResourceKeys {
+			resourceKeySet[key] = true
+		}
+		filtered := make([]model.Config, 0)
+		for _, cfg := range sourceConfigs {
+			if resourceKeySet[cfg.ResourceKey] {
+				filtered = append(filtered, cfg)
+			}
+		}
+		sourceConfigs = filtered
+	}
+
+	// 4. 执行迁移
+	summary := &transfer.MigrateSummary{
+		Total: int32(len(sourceConfigs)),
+		Items: make([]*transfer.MigrateResultItem, 0),
+	}
+
+	for _, srcCfg := range sourceConfigs {
+		item := &transfer.MigrateResultItem{
+			ResourceKey: srcCfg.ResourceKey,
+			Name:        srcCfg.Name,
+			Alias:       srcCfg.Alias,
+		}
+
+		// 检查目标是否存在同别名配置
+		existing, _ := s.logic.configDAO.GetByAlias(ctx, s.logic.db,
+			req.TargetEnvironmentKey, req.TargetPipelineKey, srcCfg.Alias)
+
+		if existing != nil && !req.Overwrite {
+			item.Status = "skipped"
+			item.Message = "配置已存在且 overwrite=false"
+			summary.Skipped++
+			summary.Items = append(summary.Items, item)
+			continue
+		}
+
+		// 复制配置
+		newCfg := srcCfg
+		newCfg.ID = 0
+		newCfg.EnvironmentKey = req.TargetEnvironmentKey
+		newCfg.PipelineKey = req.TargetPipelineKey
+		newCfg.ResourceKey = uuid.NewString() // 生成新的 resource_key
+
+		// 复制关联的资源文件
+		if err := s.copyConfigAssets(ctx, &newCfg, req.TargetEnvironmentKey, req.TargetPipelineKey); err != nil {
+			item.Status = "failed"
+			item.Message = err.Error()
+			summary.Failed++
+			summary.Items = append(summary.Items, item)
+			continue
+		}
+
+		// 保存配置
+		if existing != nil {
+			// 更新现有配置
+			newCfg.ResourceKey = existing.ResourceKey
+			if err := s.logic.UpdateConfig(ctx, &newCfg); err != nil {
+				item.Status = "failed"
+				item.Message = err.Error()
+				summary.Failed++
+			} else {
+				item.Status = "succeeded"
+				summary.Succeeded++
+			}
+		} else {
+			// 创建新配置
+			if err := s.logic.AddConfig(ctx, &newCfg); err != nil {
+				item.Status = "failed"
+				item.Message = err.Error()
+				summary.Failed++
+			} else {
+				item.Status = "succeeded"
+				summary.Succeeded++
+			}
+		}
+
+		summary.Items = append(summary.Items, item)
+	}
+
+	return summary, nil
+}
+
+// copyConfigAssets copies assets referenced in the config content.
+func (s *Service) copyConfigAssets(ctx context.Context, cfg *model.Config, targetEnv, targetPipeline string) error {
+	// 提取资源引用
+	assetIDs := extractAssetIDsFromContent(cfg.Content)
+	if len(assetIDs) == 0 {
+		return nil
+	}
+
+	// 记录旧 ID 到新 ID 的映射
+	idMapping := make(map[string]string)
+
+	for _, oldID := range assetIDs {
+		// 获取原资源
+		oldAsset, err := s.logic.GetAsset(ctx, oldID)
+		if err != nil {
+			continue // 跳过不存在的资源
+		}
+
+		// 读取原文件
+		oldPath := filepath.Join(dataDirectory, oldAsset.Path)
+		data, err := os.ReadFile(oldPath)
+		if err != nil {
+			continue
+		}
+
+		// 生成新 ID 并写入文件
+		newID := uuid.NewString()
+		if err := ensureUploadDir(newID); err != nil {
+			return err
+		}
+
+		newRelPath := filepath.Join(uploadDirectory, newID, oldAsset.FileName)
+		newFullPath := filepath.Join(dataDirectory, newRelPath)
+		if err := os.WriteFile(newFullPath, data, 0o644); err != nil {
+			return err
+		}
+
+		// 创建新资源记录
+		newAsset := &model.Asset{
+			FileID:         newID,
+			EnvironmentKey: targetEnv,
+			PipelineKey:    targetPipeline,
+			FileName:       oldAsset.FileName,
+			FileSize:       oldAsset.FileSize,
+			ContentType:    oldAsset.ContentType,
+			Path:           newRelPath,
+		}
+		newAsset.URL = s.generateFileURL(newAsset)
+		if err := s.logic.CreateAsset(ctx, newAsset); err != nil {
+			return err
+		}
+
+		idMapping[oldID] = newID
+	}
+
+	// 更新配置中的资源引用
+	for oldID, newID := range idMapping {
+		cfg.Content = strings.ReplaceAll(cfg.Content, "asset://"+oldID, "asset://"+newID)
+	}
+
+	return nil
+}
+
+// extractAssetIDsFromContent extracts asset IDs from config content.
+func extractAssetIDsFromContent(content string) []string {
+	ids := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, rx := range []*regexp.Regexp{assetRefRegexp, fileURLRefRegexp} {
+		matches := rx.FindAllStringSubmatch(content, -1)
+		for _, match := range matches {
+			if len(match) >= 2 && !seen[match[1]] {
+				seen[match[1]] = true
+				ids = append(ids, match[1])
+			}
+		}
+	}
+	return ids
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
-	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
 	pipeline "github.com/yi-nology/rainbow_bridge/biz/model/pipeline"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
@@ -25,16 +24,28 @@ func SetService(s *service.Service) {
 func Create(ctx context.Context, c *app.RequestContext) {
 	var req pipeline.CreatePipelineRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.Pipeline == nil || req.Pipeline.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "pipeline_key is required",
+		})
 		return
 	}
 	if req.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -43,18 +54,19 @@ func Create(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrPipelineKeyExists) {
 			status = consts.StatusBadRequest
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &pipeline.PipelineResponse{
-		OperateResponse: &common.OperateResponse{
-			Code: consts.StatusOK,
-			Msg:  "success",
-		},
-		Pipeline: req.Pipeline,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &pipeline.PipelineData{Pipeline: req.Pipeline},
+	})
 }
 
 // Update .
@@ -62,16 +74,28 @@ func Create(ctx context.Context, c *app.RequestContext) {
 func Update(ctx context.Context, c *app.RequestContext) {
 	var req pipeline.UpdatePipelineRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.Pipeline == nil || req.Pipeline.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "pipeline_key is required",
+		})
 		return
 	}
 	if req.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -80,18 +104,19 @@ func Update(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrPipelineNotFound) {
 			status = consts.StatusNotFound
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &pipeline.PipelineResponse{
-		OperateResponse: &common.OperateResponse{
-			Code: consts.StatusOK,
-			Msg:  "success",
-		},
-		Pipeline: req.Pipeline,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &pipeline.PipelineResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &pipeline.PipelineData{Pipeline: req.Pipeline},
+	})
 }
 
 // Delete .
@@ -99,16 +124,28 @@ func Update(ctx context.Context, c *app.RequestContext) {
 func Delete(ctx context.Context, c *app.RequestContext) {
 	var req pipeline.DeletePipelineRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &pipeline.DeletePipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.DeletePipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "pipeline_key is required",
+		})
 		return
 	}
 	if req.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.DeletePipelineResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -117,15 +154,18 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrPipelineNotFound) {
 			status = consts.StatusNotFound
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &pipeline.DeletePipelineResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &common.OperateResponse{
+	c.JSON(consts.StatusOK, &pipeline.DeletePipelineResponse{
 		Code: consts.StatusOK,
-		Msg:  "success",
-	}
-	c.JSON(consts.StatusOK, resp)
+		Msg:  "OK",
+	})
 }
 
 // List .
@@ -133,13 +173,21 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 func List(ctx context.Context, c *app.RequestContext) {
 	var req pipeline.ListPipelineRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineListResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	// Pipeline data is now environment-scoped
 	if req.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.PipelineListResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -150,14 +198,22 @@ func List(ctx context.Context, c *app.RequestContext) {
 
 	list, err := svc.ListPipelines(handler.EnrichContext(ctx, c), req.EnvironmentKey, isActivePtr)
 	if err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineListResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &pipeline.PipelineListResponse{
-		List: list,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &pipeline.PipelineListResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &pipeline.PipelineListData{
+			Total: int32(len(list)),
+			List:  list,
+		},
+	})
 }
 
 // Detail .
@@ -165,16 +221,28 @@ func List(ctx context.Context, c *app.RequestContext) {
 func Detail(ctx context.Context, c *app.RequestContext) {
 	var req pipeline.PipelineDetailRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineDetailResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.PipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("pipeline_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.PipelineDetailResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "pipeline_key is required",
+		})
 		return
 	}
 	if req.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &pipeline.PipelineDetailResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -184,12 +252,17 @@ func Detail(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrPipelineNotFound) {
 			status = consts.StatusNotFound
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &pipeline.PipelineDetailResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &pipeline.PipelineDetailResponse{
-		Detail: pl,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &pipeline.PipelineDetailResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &pipeline.PipelineData{Pipeline: pl},
+	})
 }

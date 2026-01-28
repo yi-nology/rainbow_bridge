@@ -17,10 +17,18 @@ message VersionInfo {
 // VersionRequest is empty since version endpoint doesn't need parameters
 message VersionRequest {}
 
-// VersionResponse contains version information
+// VersionData is the data wrapper for version info.
+message VersionData {
+  VersionInfo version_info = 1;
+}
+
+// VersionResponse is a unified response for version info.
+// Format: { code, msg, data: { version_info } }
 message VersionResponse {
-  common.OperateResponse operate_response = 1;
-  VersionInfo version_info = 2;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  VersionData data = 4;
 }
 
 // GitHubReleaseInfo represents GitHub latest release information
@@ -36,10 +44,18 @@ message GitHubReleaseInfo {
 // GitHubReleaseRequest is empty
 message GitHubReleaseRequest {}
 
-// GitHubReleaseResponse contains GitHub release information
+// GitHubReleaseData is the data wrapper for release info.
+message GitHubReleaseData {
+  GitHubReleaseInfo release_info = 1;
+}
+
+// GitHubReleaseResponse is a unified response for GitHub release info.
+// Format: { code, msg, data: { release_info } }
 message GitHubReleaseResponse {
-  common.OperateResponse operate_response = 1;
-  GitHubReleaseInfo release_info = 2;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  GitHubReleaseData data = 4;
 }
 
 service VersionService {

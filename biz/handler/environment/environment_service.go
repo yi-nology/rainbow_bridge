@@ -9,7 +9,6 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
-	common "github.com/yi-nology/rainbow_bridge/biz/model/common"
 	environment "github.com/yi-nology/rainbow_bridge/biz/model/environment"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
@@ -25,12 +24,20 @@ func SetService(s *service.Service) {
 func Create(ctx context.Context, c *app.RequestContext) {
 	var req environment.CreateEnvironmentRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.Environment == nil || req.Environment.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -39,18 +46,19 @@ func Create(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrEnvironmentKeyExists) {
 			status = consts.StatusBadRequest
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &environment.EnvironmentResponse{
-		OperateResponse: &common.OperateResponse{
-			Code: consts.StatusOK,
-			Msg:  "success",
-		},
-		Environment: req.Environment,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &environment.EnvironmentData{Environment: req.Environment},
+	})
 }
 
 // Update .
@@ -58,12 +66,20 @@ func Create(ctx context.Context, c *app.RequestContext) {
 func Update(ctx context.Context, c *app.RequestContext) {
 	var req environment.UpdateEnvironmentRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.Environment == nil || req.Environment.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -72,18 +88,19 @@ func Update(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrEnvironmentNotFound) {
 			status = consts.StatusNotFound
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &environment.EnvironmentResponse{
-		OperateResponse: &common.OperateResponse{
-			Code: consts.StatusOK,
-			Msg:  "success",
-		},
-		Environment: req.Environment,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &environment.EnvironmentResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &environment.EnvironmentData{Environment: req.Environment},
+	})
 }
 
 // Delete .
@@ -91,12 +108,20 @@ func Update(ctx context.Context, c *app.RequestContext) {
 func Delete(ctx context.Context, c *app.RequestContext) {
 	var req environment.DeleteEnvironmentRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &environment.DeleteEnvironmentResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &environment.DeleteEnvironmentResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -105,15 +130,18 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrEnvironmentNotFound) {
 			status = consts.StatusNotFound
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &environment.DeleteEnvironmentResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &common.OperateResponse{
+	c.JSON(consts.StatusOK, &environment.DeleteEnvironmentResponse{
 		Code: consts.StatusOK,
-		Msg:  "success",
-	}
-	c.JSON(consts.StatusOK, resp)
+		Msg:  "OK",
+	})
 }
 
 // List .
@@ -121,7 +149,11 @@ func Delete(ctx context.Context, c *app.RequestContext) {
 func List(ctx context.Context, c *app.RequestContext) {
 	var req environment.ListEnvironmentRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentListResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
@@ -132,14 +164,22 @@ func List(ctx context.Context, c *app.RequestContext) {
 
 	list, err := svc.ListEnvironments(handler.EnrichContext(ctx, c), isActivePtr)
 	if err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentListResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &environment.EnvironmentListResponse{
-		List: list,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &environment.EnvironmentListResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &environment.EnvironmentListData{
+			Total: int32(len(list)),
+			List:  list,
+		},
+	})
 }
 
 // Detail .
@@ -147,12 +187,20 @@ func List(ctx context.Context, c *app.RequestContext) {
 func Detail(ctx context.Context, c *app.RequestContext) {
 	var req environment.EnvironmentDetailRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		handler.RespondError(c, consts.StatusBadRequest, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentDetailResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if req.EnvironmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, errors.New("environment_key is required"))
+		c.JSON(consts.StatusOK, &environment.EnvironmentDetailResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 
@@ -162,12 +210,17 @@ func Detail(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, service.ErrEnvironmentNotFound) {
 			status = consts.StatusNotFound
 		}
-		handler.RespondError(c, status, err)
+		c.JSON(consts.StatusOK, &environment.EnvironmentDetailResponse{
+			Code:  int32(status),
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
-	resp := &environment.EnvironmentDetailResponse{
-		Detail: env,
-	}
-	c.JSON(consts.StatusOK, resp)
+	c.JSON(consts.StatusOK, &environment.EnvironmentDetailResponse{
+		Code: consts.StatusOK,
+		Msg:  "OK",
+		Data: &environment.EnvironmentData{Environment: env},
+	})
 }

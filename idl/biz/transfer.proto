@@ -29,12 +29,13 @@ message ImportSummary {
   repeated ImportSummaryItem items = 4;
 }
 
-// ImportResponse is a response for import operations.
+// ImportResponse is a unified response for import operations.
+// Format: { code, msg, data: { total, environment_keys, pipeline_keys, items } }
 message ImportResponse {
   int32 code = 1;
   string msg = 2;
   string error = 3;
-  ImportSummary summary = 4;
+  ImportSummary data = 4;
 }
 
 // ExportRequest is used to export configurations.
@@ -44,9 +45,56 @@ message ExportRequest {
   string format = 3; // json, zip, static
 }
 
-// ExportResponse contains exported configurations.
+// ExportData is the data wrapper for export.
+message ExportData {
+  int32 total = 1;
+  repeated common.ResourceConfig list = 2;
+}
+
+// ExportResponse is a unified response for export operations.
+// Format: { code, msg, data: { total, list } }
 message ExportResponse {
-  repeated common.ResourceConfig list = 1;
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  ExportData data = 4;
+}
+
+// MigrateRequest is used to migrate configurations between environments/pipelines.
+message MigrateRequest {
+  string source_environment_key = 1;
+  string source_pipeline_key = 2;
+  string target_environment_key = 3;
+  string target_pipeline_key = 4;
+  repeated string resource_keys = 5;  // Optional, migrate all if empty
+  bool overwrite = 6;
+}
+
+// MigrateResultItem represents the migration result for a single config.
+message MigrateResultItem {
+  string resource_key = 1;
+  string name = 2;
+  string alias = 3;
+  string status = 4;      // succeeded, skipped, failed
+  string message = 5;     // Reason for skip or failure
+}
+
+// MigrateSummary contains summary information for migrate operations.
+message MigrateSummary {
+  int32 total = 1;
+  int32 succeeded = 2;
+  int32 skipped = 3;
+  int32 failed = 4;
+  repeated MigrateResultItem items = 5;
+}
+
+// MigrateResponse is a unified response for migrate operations.
+// Format: { code, msg, data: { total, succeeded, skipped, failed, items } }
+message MigrateResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  MigrateSummary data = 4;
 }
 
 // TransferService handles import and export operations.
@@ -61,5 +109,10 @@ service TransferService {
   // Use format query param: json (default), zip, static
   rpc Export(ExportRequest) returns (ExportResponse) {
     option (api.get) = "/api/v1/transfer/export";
+  }
+
+  // Migrate migrates configurations between environments/pipelines.
+  rpc Migrate(MigrateRequest) returns (MigrateResponse) {
+    option (api.post) = "/api/v1/transfer/migrate";
   }
 }

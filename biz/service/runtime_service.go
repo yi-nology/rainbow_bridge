@@ -52,7 +52,12 @@ func (s *Service) GetRuntimeOverview(ctx context.Context) (*runtime.RuntimeOverv
 	}
 
 	return &runtime.RuntimeOverviewResponse{
-		Environments: envOverviews,
+		Code: 200,
+		Msg:  "OK",
+		Data: &runtime.RuntimeOverviewData{
+			Total: int32(len(envOverviews)),
+			List:  envOverviews,
+		},
 	}, nil
 }
 
@@ -94,12 +99,16 @@ func (s *Service) GetRuntimeConfig(ctx context.Context, environmentKey, pipeline
 
 	// 组装响应
 	return &runtime.RuntimeConfigResponse{
-		Configs: decoratedConfigs,
-		Environment: &runtime.EnvironmentInfo{
-			EnvironmentKey:  env.EnvironmentKey,
-			EnvironmentName: env.EnvironmentName,
-			PipelineKey:     pipeline.PipelineKey,
-			PipelineName:    pipeline.PipelineName,
+		Code: 200,
+		Msg:  "OK",
+		Data: &runtime.RuntimeConfigData{
+			Configs: decoratedConfigs,
+			Environment: &runtime.EnvironmentInfo{
+				EnvironmentKey:  env.EnvironmentKey,
+				EnvironmentName: env.EnvironmentName,
+				PipelineKey:     pipeline.PipelineKey,
+				PipelineName:    pipeline.PipelineName,
+			},
 		},
 	}, nil
 }
@@ -142,7 +151,7 @@ func (s *Service) ExportStaticPackage(ctx context.Context, environmentKey, pipel
 	decoratedConfigs := s.decorateConfigList(configSliceToPB(configs))
 
 	// 构建与 RuntimeConfigResponse 一致的数据结构
-	runtimeResponse := &runtime.RuntimeConfigResponse{
+	runtimeData := &runtime.RuntimeConfigData{
 		Configs: decoratedConfigs,
 		Environment: &runtime.EnvironmentInfo{
 			EnvironmentKey:  env.EnvironmentKey,
@@ -153,7 +162,7 @@ func (s *Service) ExportStaticPackage(ctx context.Context, environmentKey, pipel
 	}
 
 	// 生成 zip 包
-	data, err := s.writeRuntimeConfigArchive(ctx, runtimeResponse)
+	data, err := s.writeRuntimeConfigArchive(ctx, runtimeData)
 	if err != nil {
 		return nil, "", err
 	}
@@ -164,13 +173,18 @@ func (s *Service) ExportStaticPackage(ctx context.Context, environmentKey, pipel
 }
 
 // writeRuntimeConfigArchive creates a zip archive with config.json and asset files.
-// The config.json structure matches RuntimeConfigResponse format.
-func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeResponse *runtime.RuntimeConfigResponse) ([]byte, error) {
+// The config.json structure matches RuntimeConfigData format.
+func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *runtime.RuntimeConfigData) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	zipWriter := zip.NewWriter(buf)
 
-	// 将 RuntimeConfigResponse 写入 config.json
-	configData, err := json.MarshalIndent(runtimeResponse, "", "  ")
+	// 将 RuntimeConfigData 写入 config.json (包装为统一响应格式)
+	responseData := &runtime.RuntimeConfigResponse{
+		Code: 200,
+		Msg:  "OK",
+		Data: runtimeData,
+	}
+	configData, err := json.MarshalIndent(responseData, "", "  ")
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +197,7 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeResponse
 	}
 
 	// 提取配置中引用的资源文件 ID
-	assetIDs := extractAssetIDsFromCommonConfigs(runtimeResponse.Configs)
+	assetIDs := extractAssetIDsFromCommonConfigs(runtimeData.Configs)
 	visited := make(map[string]struct{}, len(assetIDs))
 
 	// 构建 files 目录前缀：<base_path>/api/v1/asset/file/

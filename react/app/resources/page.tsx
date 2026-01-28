@@ -1,0 +1,317 @@
+"use client"
+
+import { useState, useRef } from "react"
+import { AppSidebar } from "@/components/app-sidebar"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import {
+  Upload,
+  Trash2,
+  Copy,
+  Check,
+  FileImage,
+  FileJson,
+  FileText,
+  File,
+  Search,
+  Layers,
+  GitBranch,
+  Loader2,
+} from "lucide-react"
+import { useRuntimeOverview } from "@/hooks/use-environments"
+import { useAssets, useUploadAsset } from "@/hooks/use-assets"
+import type { Asset } from "@/lib/api/transformers"
+
+const getFileIcon = (type: string) => {
+  if (type.startsWith("image/")) return FileImage
+  if (type.includes("json")) return FileJson
+  if (type.includes("text")) return FileText
+  return File
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return "0 B"
+  const k = 1024
+  const sizes = ["B", "KB", "MB", "GB"]
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i]
+}
+
+export default function ResourcesPage() {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedEnvKey, setSelectedEnvKey] = useState<string>("")
+  const [selectedPipelineKey, setSelectedPipelineKey] = useState<string>("")
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 获取环境和渠道
+  const { data: environments = [], isLoading: isEnvLoading } = useRuntimeOverview()
+
+  // 获取资源列表
+  const { data: assets = [], isLoading: isAssetsLoading } = useAssets(
+    selectedEnvKey,
+    selectedPipelineKey
+  )
+
+  // 上传资源
+  const uploadAsset = useUploadAsset()
+
+  // 当前选中的环境
+  const selectedEnvironment = environments.find((e) => e.key === selectedEnvKey)
+  const pipelines = selectedEnvironment?.pipelines || []
+
+  // 过滤资源
+  const filteredAssets = assets.filter((r) =>
+    r.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const handleEnvChange = (envKey: string) => {
+    setSelectedEnvKey(envKey)
+    setSelectedPipelineKey("")
+  }
+
+  const handleCopy = async (url: string, id: string) => {
+    // 构建完整 URL
+    const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`
+    await navigator.clipboard.writeText(fullUrl)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedEnvKey || !selectedPipelineKey) return
+
+    await uploadAsset.mutateAsync({
+      file,
+      environmentKey: selectedEnvKey,
+      pipelineKey: selectedPipelineKey,
+    })
+
+    // 清空 input 以便可以再次选择同一文件
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      <AppSidebar />
+      <main className="flex-1 p-8 overflow-auto">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight">资源管理</h1>
+            <p className="text-muted-foreground mt-1">
+              集中管理静态资源，自动生成 URL
+            </p>
+          </div>
+
+          {/* 环境和渠道选择器 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">选择环境与渠道</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Layers className="w-4 h-4" />
+                    <span className="text-sm font-medium">环境</span>
+                  </div>
+                  <Select value={selectedEnvKey} onValueChange={handleEnvChange} disabled={isEnvLoading}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder={isEnvLoading ? "加载中..." : "请选择环境"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {environments.map((env) => (
+                        <SelectItem key={env.key} value={env.key}>
+                          {env.name} ({env.key})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <GitBranch className="w-4 h-4" />
+                    <span className="text-sm font-medium">渠道</span>
+                  </div>
+                  <Select
+                    value={selectedPipelineKey}
+                    onValueChange={setSelectedPipelineKey}
+                    disabled={!selectedEnvKey}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder={selectedEnvKey ? "请选择渠道" : "先选择环境"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pipelines.map((pipeline) => (
+                        <SelectItem key={pipeline.key} value={pipeline.key}>
+                          {pipeline.name} ({pipeline.key})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedEnvKey && selectedPipelineKey && (
+                  <Badge variant="secondary" className="ml-auto">
+                    已选择: {selectedEnvironment?.name} / {pipelines.find(p => p.key === selectedPipelineKey)?.name}
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">资源列表</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="搜索资源..."
+                      className="pl-9 w-64"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      disabled={!selectedEnvKey || !selectedPipelineKey}
+                    />
+                  </div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept="image/*,application/json,text/*"
+                  />
+                  <Button
+                    onClick={handleUploadClick}
+                    disabled={!selectedEnvKey || !selectedPipelineKey || uploadAsset.isPending}
+                  >
+                    {uploadAsset.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 mr-2" />
+                    )}
+                    上传资源
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!selectedEnvKey || !selectedPipelineKey ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Layers className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">请先选择环境和渠道</h3>
+                  <p className="text-muted-foreground text-sm max-w-sm">
+                    资源与环境和渠道关联，请在上方选择要管理的环境和渠道后查看对应的资源列表
+                  </p>
+                </div>
+              ) : isAssetsLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-64">文件名</TableHead>
+                        <TableHead className="w-32">类型</TableHead>
+                        <TableHead className="w-24">大小</TableHead>
+                        <TableHead>URL</TableHead>
+                        <TableHead className="w-24 text-right">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAssets.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="text-center py-8 text-muted-foreground"
+                          >
+                            {searchTerm ? "未找到匹配的资源" : "当前环境和渠道下暂无资源"}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAssets.map((resource) => {
+                          const FileIcon = getFileIcon(resource.type)
+                          return (
+                            <TableRow key={resource.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <FileIcon className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium text-sm">
+                                    {resource.name}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="text-xs">
+                                  {resource.type.split("/")[1] || resource.type}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm">
+                                {formatFileSize(resource.size)}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm text-muted-foreground truncate max-w-xs">
+                                {resource.url}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      handleCopy(resource.url, resource.id)
+                                    }
+                                  >
+                                    {copiedId === resource.id ? (
+                                      <Check className="w-4 h-4 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  )
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/yi-nology/rainbow_bridge/biz/handler"
+	runtime "github.com/yi-nology/rainbow_bridge/biz/model/runtime"
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 )
 
@@ -28,18 +29,30 @@ func GetConfig(ctx context.Context, c *app.RequestContext) {
 
 	// 参数验证
 	if environmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, fmt.Errorf("x-environment header is required"))
+		c.JSON(consts.StatusOK, &runtime.RuntimeConfigResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "x-environment header is required",
+		})
 		return
 	}
 	if pipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, fmt.Errorf("x-pipeline header is required"))
+		c.JSON(consts.StatusOK, &runtime.RuntimeConfigResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "x-pipeline header is required",
+		})
 		return
 	}
 
 	// 调用 service 层
 	resp, err := svc.GetRuntimeConfig(handler.EnrichContext(ctx, c), environmentKey, pipelineKey)
 	if err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
+		c.JSON(consts.StatusOK, &runtime.RuntimeConfigResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
@@ -55,18 +68,30 @@ func ExportStatic(ctx context.Context, c *app.RequestContext) {
 
 	// 参数验证
 	if environmentKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, fmt.Errorf("environment_key is required"))
+		c.JSON(consts.StatusOK, &runtime.RuntimeConfigResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "environment_key is required",
+		})
 		return
 	}
 	if pipelineKey == "" {
-		handler.RespondError(c, consts.StatusBadRequest, fmt.Errorf("pipeline_key is required"))
+		c.JSON(consts.StatusOK, &runtime.RuntimeConfigResponse{
+			Code:  consts.StatusBadRequest,
+			Msg:   "error",
+			Error: "pipeline_key is required",
+		})
 		return
 	}
 
 	// 调用 service 层
 	data, filename, err := svc.ExportStaticPackage(handler.EnrichContext(ctx, c), environmentKey, pipelineKey)
 	if err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
+		c.JSON(consts.StatusOK, &runtime.RuntimeConfigResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 
@@ -81,7 +106,11 @@ func ExportStatic(ctx context.Context, c *app.RequestContext) {
 func GetOverview(ctx context.Context, c *app.RequestContext) {
 	resp, err := svc.GetRuntimeOverview(handler.EnrichContext(ctx, c))
 	if err != nil {
-		handler.RespondError(c, consts.StatusInternalServerError, err)
+		c.JSON(consts.StatusOK, &runtime.RuntimeOverviewResponse{
+			Code:  consts.StatusInternalServerError,
+			Msg:   "error",
+			Error: err.Error(),
+		})
 		return
 	}
 

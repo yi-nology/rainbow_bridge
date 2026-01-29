@@ -233,9 +233,9 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 				return nil, err
 			}
 
-			// 规范化图片类型配置的引用格式
+			// 规范化图片和文件类型配置的引用格式
 			for i := range configs {
-				if configs[i].Type == "image" && configs[i].Content != "" {
+				if (configs[i].Type == "image" || configs[i].Type == "file") && configs[i].Content != "" {
 					configs[i].Content = normalizeImageReference(configs[i].Content)
 				}
 			}
@@ -1521,8 +1521,8 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 	selectedEnvPipes := make(map[string]bool) // "env:pipe" -> true
 	for _, cfg := range allConfigs {
 		if shouldImport(cfg.GetEnvironmentKey(), cfg.GetPipelineKey(), cfg.GetResourceKey()) {
-			// Normalize image references
-			if cfg.Type == "image" && cfg.Content != "" {
+			// Normalize image and file references
+			if (cfg.Type == "image" || cfg.Type == "file") && cfg.Content != "" {
 				cfg.Content = normalizeImageReference(cfg.Content)
 			}
 			filteredConfigs = append(filteredConfigs, cfg)
@@ -1711,7 +1711,7 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 	selectedEnvPipes := make(map[string]bool) // "env:pipe" -> true
 	for _, cfg := range allConfigs {
 		if shouldImport(cfg.GetEnvironmentKey(), cfg.GetPipelineKey(), cfg.GetResourceKey()) {
-			if cfg.Type == "image" && cfg.Content != "" {
+			if (cfg.Type == "image" || cfg.Type == "file") && cfg.Content != "" {
 				cfg.Content = normalizeImageReference(cfg.Content)
 			}
 			filteredConfigs = append(filteredConfigs, cfg)

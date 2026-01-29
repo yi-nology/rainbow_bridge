@@ -26,10 +26,54 @@ var DefaultAllowedMimeTypes = map[string]bool{
 	"image/vnd.microsoft.icon": true, // .ico
 	"image/heic":               true, // .heic (iOS)
 	"image/heif":               true, // .heif
-	// 其他文件类型
-	"application/json": true,
-	"text/plain":       true,
-	"application/pdf":  true,
+
+	// 压缩包格式
+	"application/zip":              true, // .zip
+	"application/x-zip-compressed": true, // .zip
+	"application/x-rar-compressed": true, // .rar
+	"application/x-7z-compressed":  true, // .7z
+	"application/x-tar":            true, // .tar
+	"application/gzip":             true, // .gz
+	"application/x-gzip":           true, // .gz
+	"application/x-bzip2":          true, // .bz2
+
+	// 字体文件格式
+	"font/ttf":               true, // .ttf
+	"font/otf":               true, // .otf
+	"font/woff":              true, // .woff
+	"font/woff2":             true, // .woff2
+	"application/x-font-ttf": true, // .ttf
+	"application/x-font-otf": true, // .otf
+	"application/font-woff":  true, // .woff
+	"application/font-woff2": true, // .woff2
+
+	// 文档格式
+	"application/pdf":    true, // .pdf
+	"application/msword": true, // .doc
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true, // .docx
+	"application/vnd.ms-excel": true, // .xls
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":         true, // .xlsx
+	"application/vnd.ms-powerpoint":                                             true, // .ppt
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation": true, // .pptx
+
+	// 文本格式
+	"text/plain":       true, // .txt
+	"text/csv":         true, // .csv
+	"text/html":        true, // .html
+	"text/css":         true, // .css
+	"text/javascript":  true, // .js
+	"application/json": true, // .json
+	"application/xml":  true, // .xml
+	"text/xml":         true, // .xml
+
+	// 音视频格式
+	"audio/mpeg":      true, // .mp3
+	"audio/wav":       true, // .wav
+	"audio/ogg":       true, // .ogg
+	"video/mp4":       true, // .mp4
+	"video/mpeg":      true, // .mpeg
+	"video/webm":      true, // .webm
+	"video/quicktime": true, // .mov
 }
 
 // UploadConfig defines constraints for file uploads.

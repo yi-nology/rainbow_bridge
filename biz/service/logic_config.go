@@ -217,6 +217,61 @@ func (l *Logic) validateConfigContent(ctx context.Context, cfg *model.Config) er
 	if cfg == nil {
 		return errors.New("config payload required")
 	}
+
+	// 自动修复：如果类型为 image 但内容是文件路径，且路径不是图片格式，自动调整为 file 类型
+	if cfg.Type == "image" && cfg.Content != "" {
+		if strings.HasPrefix(cfg.Content, "/api/v1/asset/file/") ||
+			strings.Contains(cfg.Content, "/api/v1/asset/file/") {
+			// 检查文件名是否为图片格式
+			contentLower := strings.ToLower(cfg.Content)
+			isImage := strings.HasSuffix(contentLower, ".jpg") ||
+				strings.HasSuffix(contentLower, ".jpeg") ||
+				strings.HasSuffix(contentLower, ".png") ||
+				strings.HasSuffix(contentLower, ".gif") ||
+				strings.HasSuffix(contentLower, ".webp") ||
+				strings.HasSuffix(contentLower, ".svg") ||
+				strings.HasSuffix(contentLower, ".bmp") ||
+				strings.HasSuffix(contentLower, ".tiff") ||
+				strings.HasSuffix(contentLower, ".ico") ||
+				strings.HasSuffix(contentLower, ".heic") ||
+				strings.HasSuffix(contentLower, ".heif")
+
+			if !isImage {
+				// 自动修正为 file 类型
+				cfg.Type = "file"
+			}
+		}
+	}
+
+	// 自动修复：如果类型为 text 但内容是资产文件路径，自动调整为 file 或 image 类型
+	if cfg.Type == "text" && cfg.Content != "" {
+		if strings.HasPrefix(cfg.Content, "/api/v1/asset/file/") ||
+			strings.Contains(cfg.Content, "/api/v1/asset/file/") ||
+			strings.HasPrefix(cfg.Content, "asset://") {
+			// 检查文件名是否为图片格式
+			contentLower := strings.ToLower(cfg.Content)
+			isImage := strings.HasSuffix(contentLower, ".jpg") ||
+				strings.HasSuffix(contentLower, ".jpeg") ||
+				strings.HasSuffix(contentLower, ".png") ||
+				strings.HasSuffix(contentLower, ".gif") ||
+				strings.HasSuffix(contentLower, ".webp") ||
+				strings.HasSuffix(contentLower, ".svg") ||
+				strings.HasSuffix(contentLower, ".bmp") ||
+				strings.HasSuffix(contentLower, ".tiff") ||
+				strings.HasSuffix(contentLower, ".ico") ||
+				strings.HasSuffix(contentLower, ".heic") ||
+				strings.HasSuffix(contentLower, ".heif")
+
+			if isImage {
+				// 自动修正为 image 类型
+				cfg.Type = "image"
+			} else {
+				// 自动修正为 file 类型
+				cfg.Type = "file"
+			}
+		}
+	}
+
 	switch cfg.Type {
 	case "image":
 		if cfg.Content == "" {
@@ -242,6 +297,30 @@ func (l *Logic) validateConfigContent(ctx context.Context, cfg *model.Config) er
 			return nil
 		}
 		return errors.New("图片类型内容必须为有效的引用地址")
+	case "file":
+		if cfg.Content == "" {
+			return errors.New("文件类型内容不能为空")
+		}
+		// 支持多种路径格式（与 image 类型相同的处理逻辑）
+		contentLower := strings.ToLower(cfg.Content)
+		if strings.HasPrefix(cfg.Content, "asset://") ||
+			strings.HasPrefix(cfg.Content, "/api/v1/asset/file/") ||
+			strings.Contains(cfg.Content, "/api/v1/asset/file/") || // 支持带路由前缀的路径
+			strings.HasPrefix(contentLower, "http://") ||
+			strings.HasPrefix(contentLower, "https://") {
+			if strings.HasPrefix(cfg.Content, "asset://") {
+				fileID := strings.TrimPrefix(cfg.Content, "asset://")
+				asset, err := l.assetDAO.GetByFileID(ctx, l.db, fileID)
+				if err == nil && asset != nil {
+					cfg.Content = fmt.Sprintf("/api/v1/asset/file/%s/%s", asset.FileID, asset.FileName)
+				} else {
+					// Fallback if asset not found in DB
+					cfg.Content = "/api/v1/asset/file/" + fileID
+				}
+			}
+			return nil
+		}
+		return errors.New("文件类型内容必须为有效的引用地址")
 	case "text":
 		if cfg.Content == "" {
 			return errors.New("文案内容不能为空")

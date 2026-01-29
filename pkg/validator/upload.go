@@ -13,11 +13,20 @@ const (
 
 // DefaultAllowedMimeTypes contains the default whitelist of allowed MIME types for uploads.
 var DefaultAllowedMimeTypes = map[string]bool{
-	"image/jpeg":       true,
-	"image/png":        true,
-	"image/gif":        true,
-	"image/webp":       true,
-	"image/svg+xml":    true,
+	// 常见图片格式
+	"image/jpeg":               true, // .jpg, .jpeg
+	"image/png":                true, // .png
+	"image/gif":                true, // .gif
+	"image/webp":               true, // .webp
+	"image/svg+xml":            true, // .svg
+	"image/bmp":                true, // .bmp
+	"image/x-ms-bmp":           true, // .bmp (Windows)
+	"image/tiff":               true, // .tif, .tiff
+	"image/x-icon":             true, // .ico
+	"image/vnd.microsoft.icon": true, // .ico
+	"image/heic":               true, // .heic (iOS)
+	"image/heif":               true, // .heif
+	// 其他文件类型
 	"application/json": true,
 	"text/plain":       true,
 	"application/pdf":  true,

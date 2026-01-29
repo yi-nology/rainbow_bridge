@@ -1449,7 +1449,7 @@ export default function ConfigPage() {
                                   variant="ghost"
                                   size="icon"
                                   disabled={deleteConfig.isPending}
-                                  onClick={() => handleDelete(config.name)}
+                                  onClick={() => handleDelete(config.id)}
                                 >
                                   {deleteConfig.isPending ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />

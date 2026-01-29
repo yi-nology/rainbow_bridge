@@ -52,104 +52,19 @@ export function toApiPipeline(
 
 // Config 转换
 
-// 前端类型到后端类型的映射
+// 前端类型直接透传到后端，不做转换
 function mapFrontendTypeToBackend(frontendType: string): string {
-  switch (frontendType) {
-    case 'text':
-    case 'textarea':
-    case 'richtext':
-      return 'text'
-    case 'color':
-      return 'color'
-    case 'image':
-      return 'image'
-    case 'file':
-      return 'file'
-    case 'keyvalue':
-      return 'kv'
-    case 'number':
-    case 'decimal':
-    case 'boolean':
-    case 'object':
-    default:
-      return 'config'
-  }
+  return frontendType
 }
 
-// 将前端内容转换为后端格式
+// 前端内容直接透传到后端，不做转换
 function transformContentToBackend(frontendType: string, content: string): string {
-  const backendType = mapFrontendTypeToBackend(frontendType)
-  
-  if (backendType !== 'config') {
-    return content
-  }
-
-  // config 类型需要 JSON 对象格式
-  switch (frontendType) {
-    case 'number':
-      return JSON.stringify({ value: parseInt(content, 10) || 0 })
-    case 'decimal':
-      return JSON.stringify({ value: parseFloat(content) || 0 })
-    case 'boolean':
-      return JSON.stringify({ value: content === 'true' })
-    case 'keyvalue':
-    case 'object':
-      // 已经是 JSON 字符串，验证并返回
-      try {
-        const parsed = JSON.parse(content)
-        if (typeof parsed === 'object' && parsed !== null) {
-          return content
-        }
-        return JSON.stringify({ value: parsed })
-      } catch {
-        return JSON.stringify({ value: content })
-      }
-    default:
-      // 其他类型，包装成 JSON 对象
-      try {
-        JSON.parse(content)
-        return content
-      } catch {
-        return JSON.stringify({ value: content })
-      }
-  }
+  return content
 }
 
-// 将后端内容转换为前端格式
+// 后端类型直接透传到前端，不做转换
 function transformContentFromBackend(backendType: string, content: string): { type: string; content: string } {
-  if (backendType === 'text' || backendType === 'color' || backendType === 'image') {
-    return { type: backendType, content }
-  }
-
-  if (backendType === 'kv') {
-    return { type: 'keyvalue', content }
-  }
-
-  // config 类型，尝试解析并判断原始类型
-  try {
-    const parsed = JSON.parse(content)
-    
-    if (parsed && typeof parsed === 'object' && 'value' in parsed) {
-      const value = parsed.value
-      if (typeof value === 'number') {
-        if (Number.isInteger(value)) {
-          return { type: 'number', content: String(value) }
-        }
-        return { type: 'decimal', content: String(value) }
-      }
-      if (typeof value === 'boolean') {
-        return { type: 'boolean', content: String(value) }
-      }
-      if (typeof value === 'string') {
-        return { type: 'text', content: value }
-      }
-    }
-    
-    // 是一个普通 JSON 对象
-    return { type: 'object', content }
-  } catch {
-    return { type: 'text', content }
-  }
+  return { type: backendType, content }
 }
 
 export function fromApiConfig(api: ApiResourceConfig): ConfigItem {

@@ -105,10 +105,20 @@ func defaultConfig() *Config {
 		Upload: UploadConfig{
 			MaxSize: 10 * 1024 * 1024, // 10MB
 			AllowedTypes: []string{
-				"image/jpeg",
-				"image/png",
-				"image/gif",
-				"image/webp",
+				// 常见图片格式
+				"image/jpeg",               // .jpg, .jpeg
+				"image/png",                // .png
+				"image/gif",                // .gif
+				"image/webp",               // .webp
+				"image/svg+xml",            // .svg
+				"image/bmp",                // .bmp
+				"image/x-ms-bmp",           // .bmp (Windows)
+				"image/tiff",               // .tif, .tiff
+				"image/x-icon",             // .ico
+				"image/vnd.microsoft.icon", // .ico
+				"image/heic",               // .heic (iOS)
+				"image/heif",               // .heif
+				// 其他文件类型
 				"application/json",
 			},
 		},

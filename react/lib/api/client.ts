@@ -95,8 +95,12 @@ export async function request<T>(
     return await handleResponse<T>(response)
   } catch (error) {
     if (error instanceof ApiError) {
+      const toastMessage = error.originalError
+        ? `${error.message}: ${error.originalError}`
+        : error.message
+
       if (showErrorToast) {
-        toast.error(error.message)
+        toast.error(toastMessage)
       }
       throw error
     }

@@ -124,6 +124,7 @@ export interface ImportPreviewSummary {
   total_environments: number
   total_pipelines: number
   total_configs: number
+  total_assets: number
   new_count: number
   existing_count: number
   conflict_count: number

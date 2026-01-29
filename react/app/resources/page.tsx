@@ -35,10 +35,12 @@ import {
   Layers,
   GitBranch,
   Loader2,
+  Eye,
 } from "lucide-react"
 import { useRuntimeOverview } from "@/hooks/use-environments"
 import { useAssets, useUploadAsset } from "@/hooks/use-assets"
 import type { Asset } from "@/lib/api/transformers"
+import { resolveAssetUrl } from "@/lib/utils"
 
 const getFileIcon = (type: string) => {
   if (type.startsWith("image/")) return FileImage
@@ -114,6 +116,40 @@ export default function ResourcesPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
+  }
+
+  // 预览图片
+  const handlePreviewImage = (url: string, name: string) => {
+    const resolvedUrl = resolveAssetUrl(url)
+    
+    // 创建预览弹窗
+    const dialog = document.createElement('div')
+    dialog.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm'
+    dialog.onclick = () => dialog.remove()
+    
+    const imgContainer = document.createElement('div')
+    imgContainer.className = 'relative max-w-4xl max-h-[90vh] p-4'
+    imgContainer.onclick = (e) => e.stopPropagation()
+    
+    const img = document.createElement('img')
+    img.src = resolvedUrl
+    img.className = 'max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl'
+    img.alt = name
+    
+    const closeBtn = document.createElement('button')
+    closeBtn.innerHTML = '✕'
+    closeBtn.className = 'absolute top-6 right-6 w-8 h-8 rounded-full bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center font-bold'
+    closeBtn.onclick = () => dialog.remove()
+    
+    const fileName = document.createElement('div')
+    fileName.className = 'absolute bottom-6 left-6 right-6 bg-white/90 dark:bg-gray-800/90 px-4 py-2 rounded-lg backdrop-blur-sm'
+    fileName.innerHTML = `<p class="text-sm font-medium text-gray-900 dark:text-gray-100">${name}</p>`
+    
+    imgContainer.appendChild(img)
+    imgContainer.appendChild(closeBtn)
+    imgContainer.appendChild(fileName)
+    dialog.appendChild(imgContainer)
+    document.body.appendChild(dialog)
   }
 
   return (
@@ -242,18 +278,19 @@ export default function ResourcesPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-20">预览</TableHead>
                         <TableHead className="w-64">文件名</TableHead>
                         <TableHead className="w-32">类型</TableHead>
                         <TableHead className="w-24">大小</TableHead>
                         <TableHead>URL</TableHead>
-                        <TableHead className="w-24 text-right">操作</TableHead>
+                        <TableHead className="w-32 text-right">操作</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredAssets.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={5}
+                            colSpan={6}
                             className="text-center py-8 text-muted-foreground"
                           >
                             {searchTerm ? "未找到匹配的资源" : "当前环境和渠道下暂无资源"}
@@ -262,8 +299,37 @@ export default function ResourcesPage() {
                       ) : (
                         filteredAssets.map((resource) => {
                           const FileIcon = getFileIcon(resource.type)
+                          const isImage = resource.type.startsWith("image/")
+                          const resolvedUrl = resolveAssetUrl(resource.url)
+                          
                           return (
                             <TableRow key={resource.id}>
+                              <TableCell>
+                                {isImage ? (
+                                  <div className="relative group">
+                                    <img
+                                      src={resolvedUrl}
+                                      alt={resource.name}
+                                      className="w-12 h-12 object-cover rounded-md border-2 cursor-pointer hover:scale-105 transition-transform"
+                                      onClick={() => handlePreviewImage(resource.url, resource.name)}
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none'
+                                        const parent = (e.target as HTMLElement).parentElement
+                                        if (parent) {
+                                          parent.innerHTML = '<div class="w-12 h-12 rounded-md border-2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
+                                        }
+                                      }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-md transition-colors flex items-center justify-center">
+                                      <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 rounded-md border-2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                    <FileIcon className="w-6 h-6 text-gray-500" />
+                                  </div>
+                                )}
+                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
                                   <FileIcon className="w-4 h-4 text-muted-foreground" />
@@ -285,12 +351,23 @@ export default function ResourcesPage() {
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-1">
+                                  {isImage && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handlePreviewImage(resource.url, resource.name)}
+                                      title="预览图片"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() =>
                                       handleCopy(resource.url, resource.id)
                                     }
+                                    title="复制链接"
                                   >
                                     {copiedId === resource.id ? (
                                       <Check className="w-4 h-4 text-green-600" />

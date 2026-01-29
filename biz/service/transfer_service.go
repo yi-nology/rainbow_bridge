@@ -900,7 +900,8 @@ func (s *Service) ExportConfigsSelective(ctx context.Context, selections []*tran
 					continue
 				}
 				for _, cfg := range configs {
-					key := fmt.Sprintf("%s:%s:%s", cfg.EnvironmentKey, cfg.PipelineKey, cfg.ResourceKey)
+					// Use Alias for deduplication since ResourceKey is cleared by ExportConfigs
+					key := fmt.Sprintf("%s:%s:%s", cfg.EnvironmentKey, cfg.PipelineKey, cfg.Alias)
 					if !processedKeys[key] {
 						processedKeys[key] = true
 						allConfigs = append(allConfigs, cfg)
@@ -914,7 +915,8 @@ func (s *Service) ExportConfigsSelective(ctx context.Context, selections []*tran
 				continue
 			}
 			for _, cfg := range configs {
-				key := fmt.Sprintf("%s:%s:%s", cfg.EnvironmentKey, cfg.PipelineKey, cfg.ResourceKey)
+				// Use Alias for deduplication since ResourceKey is cleared by ExportConfigs
+				key := fmt.Sprintf("%s:%s:%s", cfg.EnvironmentKey, cfg.PipelineKey, cfg.Alias)
 				if !processedKeys[key] {
 					processedKeys[key] = true
 					allConfigs = append(allConfigs, cfg)
@@ -932,7 +934,8 @@ func (s *Service) ExportConfigsSelective(ctx context.Context, selections []*tran
 			}
 			for _, cfg := range configs {
 				if resourceKeySet[cfg.ResourceKey] {
-					key := fmt.Sprintf("%s:%s:%s", cfg.EnvironmentKey, cfg.PipelineKey, cfg.ResourceKey)
+					// Use Alias for deduplication
+					key := fmt.Sprintf("%s:%s:%s", cfg.EnvironmentKey, cfg.PipelineKey, cfg.Alias)
 					if !processedKeys[key] {
 						processedKeys[key] = true
 						allConfigs = append(allConfigs, cfg)
@@ -1265,6 +1268,15 @@ func (s *Service) ImportConfigsPreview(ctx context.Context, data []byte, filenam
 					preview.Summary.ConflictCount++
 				}
 			}
+		}
+	}
+
+	// Parse assets (count only, not added to tree)
+	if assetData, ok := archiveData["assets"]; ok {
+		assetBytes, _ := json.Marshal(assetData)
+		var assets []map[string]any
+		if err := json.Unmarshal(assetBytes, &assets); err == nil {
+			preview.Summary.TotalAssets = int32(len(assets))
 		}
 	}
 

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useMemo } from "react"
+import React, { useState, useCallback, useMemo, useEffect } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, Layers } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -99,6 +99,11 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
     return selections
   }, [data])
 
+  // Notify parent component when checked state changes
+  useEffect(() => {
+    onChange(calculateSelections(checked))
+  }, [checked, calculateSelections, onChange])
+
   // Handle environment checkbox change
   const handleEnvChange = (env: ExportTreeEnvironment, isChecked: boolean) => {
     setChecked((prev) => {
@@ -134,7 +139,6 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
         })
       }
 
-      onChange(calculateSelections(next))
       return next
     })
   }
@@ -174,7 +178,6 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
         })
       }
 
-      onChange(calculateSelections(next))
       return next
     })
   }
@@ -220,7 +223,6 @@ export function ExportTreeSelect({ data, onChange, loading }: ExportTreeSelectPr
         next.environments.delete(env.environment_key)
       }
 
-      onChange(calculateSelections(next))
       return next
     })
   }
@@ -540,6 +542,11 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
     return selections
   }, [data])
 
+  // Notify parent component when checked state changes
+  useEffect(() => {
+    onChange(calculateSelections(checked))
+  }, [checked, calculateSelections, onChange])
+
   // Handlers similar to ExportTreeSelect
   const handleEnvChange = (env: ImportPreviewEnvironment, isChecked: boolean) => {
     setChecked((prev) => {
@@ -573,7 +580,6 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
         })
       }
 
-      onChange(calculateSelections(next))
       return next
     })
   }
@@ -609,7 +615,6 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
         })
       }
 
-      onChange(calculateSelections(next))
       return next
     })
   }
@@ -652,7 +657,6 @@ export function ImportPreviewTree({ data, onChange }: ImportPreviewTreeProps) {
         next.environments.delete(env.environment_key)
       }
 
-      onChange(calculateSelections(next))
       return next
     })
   }

@@ -473,7 +473,7 @@ export default function ImportExportPage() {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {/* Summary */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                           <div className="p-4 bg-muted rounded-lg text-center">
                             <div className="text-2xl font-bold text-blue-600">
                               {importPreview.summary.total_environments}
@@ -487,10 +487,16 @@ export default function ImportExportPage() {
                             <div className="text-sm text-muted-foreground">渠道</div>
                           </div>
                           <div className="p-4 bg-muted rounded-lg text-center">
-                            <div className="text-2xl font-bold text-emerald-600">
-                              {importPreview.summary.new_count}
+                            <div className="text-2xl font-bold text-purple-600">
+                              {importPreview.summary.total_configs}
                             </div>
-                            <div className="text-sm text-muted-foreground">新增</div>
+                            <div className="text-sm text-muted-foreground">配置</div>
+                          </div>
+                          <div className="p-4 bg-muted rounded-lg text-center">
+                            <div className="text-2xl font-bold text-cyan-600">
+                              {importPreview.summary.total_assets || 0}
+                            </div>
+                            <div className="text-sm text-muted-foreground">资源</div>
                           </div>
                           <div className="p-4 bg-muted rounded-lg text-center">
                             <div className="text-2xl font-bold text-amber-600">

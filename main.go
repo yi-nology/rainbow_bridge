@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log"
 	"mime"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -106,38 +107,71 @@ func main() {
 }
 
 func registerStaticRoutes(h *server.Hertz, fsys fs.FS, basePath string) {
+	baseDir := strings.TrimPrefix(basePath, "/")
+
 	// SPA 静态文件处理器 - 使用通配符路由
 	staticHandler := func(ctx context.Context, c *app.RequestContext) {
-		path := string(c.Param("filepath"))
-		if path == "" || path == "/" {
-			path = "index.html"
+		// 请求路径（已去掉 BasePath）
+		reqPath := string(c.Param("filepath"))
+		if reqPath == "" || reqPath == "/" {
+			reqPath = "index.html"
 		}
-		path = strings.TrimPrefix(path, "/")
+		// 去掉开头的 /
+		reqPath = strings.TrimPrefix(reqPath, "/")
 
-		// 尝试读取文件
-		data, err := fs.ReadFile(fsys, path)
-		if err != nil {
-			// 文件不存在，返回 index.html (SPA fallback)
-			data, err = fs.ReadFile(fsys, "index.html")
-			if err != nil {
-				c.Response.SetStatusCode(404)
-				c.Write([]byte("Not Found"))
-				return
+		// 构造候选的静态资源路径：优先尝试带 baseDir 前缀，其次尝试不带前缀
+		candidates := []string{reqPath}
+		if baseDir != "" {
+			candidates = append([]string{path.Join(baseDir, reqPath)}, candidates...)
+		}
+
+		var (
+			data    []byte
+			readErr error
+			fsPath  string
+		)
+
+		for _, p := range candidates {
+			if p == "" {
+				continue
 			}
-			c.Response.Header.Set("Content-Type", "text/html; charset=utf-8")
-			c.Write(data)
+			data, readErr = fs.ReadFile(fsys, p)
+			if readErr == nil {
+				fsPath = p
+				break
+			}
+		}
+
+		if readErr != nil {
+			// 文件不存在时回退到 index.html（SPA fallback）
+			indexCandidates := []string{"index.html"}
+			if baseDir != "" {
+				indexCandidates = append([]string{path.Join(baseDir, "index.html")}, indexCandidates...)
+			}
+
+			for _, p := range indexCandidates {
+				data, readErr = fs.ReadFile(fsys, p)
+				if readErr == nil {
+					c.Response.Header.Set("Content-Type", "text/html; charset=utf-8")
+					c.Write(data)
+					return
+				}
+			}
+
+			c.Response.SetStatusCode(404)
+			c.Write([]byte("Not Found"))
 			return
 		}
 
-		// 设置 Content-Type
-		contentType := mime.TypeByExtension(filepath.Ext(path))
+		// 根据实际文件路径设置 Content-Type
+		contentType := mime.TypeByExtension(filepath.Ext(fsPath))
 		if contentType == "" {
 			contentType = "application/octet-stream"
 		}
 		c.Response.Header.Set("Content-Type", contentType)
 
 		// 为 _next/static 资源设置长期缓存
-		if strings.HasPrefix(path, "_next/static/") {
+		if strings.HasPrefix(fsPath, "_next/static/") || (baseDir != "" && strings.HasPrefix(fsPath, path.Join(baseDir, "_next/static")+"/")) {
 			c.Response.Header.Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
 

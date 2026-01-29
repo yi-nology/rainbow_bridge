@@ -51,6 +51,7 @@ import { useRuntimeOverview } from "@/hooks/use-environments"
 import { useConfigs, useCreateConfig, useUpdateConfig, useDeleteConfig } from "@/hooks/use-configs"
 import { useUploadAsset } from "@/hooks/use-assets"
 import { type ConfigItem, type ConfigType, CONFIG_TYPE_META } from "@/lib/types"
+import { resolveAssetUrl } from "@/lib/utils"
 
 
 interface KeyValuePair {
@@ -63,296 +64,68 @@ interface ValidationError {
   message: string
 }
 
-export default function ConfigPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedEnvKey, setSelectedEnvKey] = useState<string>("")
-  const [selectedPipelineKey, setSelectedPipelineKey] = useState<string>("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [editingConfig, setEditingConfig] = useState<ConfigItem | null>(null)
-  const [errors, setErrors] = useState<ValidationError[]>([])
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    alias: "",
-    type: "text" as ConfigType,
-    content: "",
-  })
-
-  // 键值对状态
-  const [keyValuePairs, setKeyValuePairs] = useState<KeyValuePair[]>([{ key: "", value: "" }])
-  // 布尔值状态
-  const [booleanValue, setBooleanValue] = useState(false)
-  // 颜色状态
-  const [colorValue, setColorValue] = useState("#3B82F6")
-  // 图片尺寸状态
-  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
-
-  // 获取环境和渠道数据
-  const { data: environments = [], isLoading: isEnvLoading } = useRuntimeOverview()
-  
-  // 获取配置列表
-  const { 
-    data: configs = [], 
-    isLoading: isConfigsLoading,
-    error: configsError 
-  } = useConfigs(selectedEnvKey, selectedPipelineKey)
-
-  // Mutations
-  const createConfig = useCreateConfig()
-  const updateConfig = useUpdateConfig()
-  const deleteConfig = useDeleteConfig()
-  const uploadAsset = useUploadAsset()
-
-  // 获取当前选中环境
-  const selectedEnvironment = useMemo(
-    () => environments.find((env) => env.key === selectedEnvKey),
-    [environments, selectedEnvKey]
-  )
-
-  // 获取当前选中环境的渠道列表
-  const pipelines = useMemo(
-    () => selectedEnvironment?.pipelines || [],
-    [selectedEnvironment]
-  )
-
-  // 根据搜索词过滤配置
-  const filteredConfigs = useMemo(() => {
-    if (!searchTerm) return configs
-    return configs.filter(
-      (config) =>
-        config.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        config.alias.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [configs, searchTerm])
-
-  const handleEnvChange = (envKey: string) => {
-    setSelectedEnvKey(envKey)
-    setSelectedPipelineKey("")
+interface ConfigFormProps {
+  formData: {
+    name: string
+    alias: string
+    type: ConfigType
+    content: string
   }
+  setFormData: React.Dispatch<React.SetStateAction<{
+    name: string
+    alias: string
+    type: ConfigType
+    content: string
+  }>>
+  editingConfig: ConfigItem | null
+  errors: ValidationError[]
+  getFieldError: (field: string) => string | undefined
+  handleTypeChange: (type: ConfigType) => void
+  keyValuePairs: KeyValuePair[]
+  setKeyValuePairs: React.Dispatch<React.SetStateAction<KeyValuePair[]>>
+  booleanValue: boolean
+  setBooleanValue: React.Dispatch<React.SetStateAction<boolean>>
+  colorValue: string
+  setColorValue: React.Dispatch<React.SetStateAction<string>>
+  imageSize: { width: number; height: number } | null
+  setImageSize: React.Dispatch<React.SetStateAction<{ width: number; height: number } | null>>
+  setErrors: React.Dispatch<React.SetStateAction<ValidationError[]>>
+  selectedEnvKey: string
+  selectedPipelineKey: string
+  uploadAsset: ReturnType<typeof useUploadAsset>
+  isMutating: boolean
+  onSubmit: () => void
+  onCancel: () => void
+  selectedEnvironment?: { name: string; key: string; pipelines: any[] }
+  pipelines: any[]
+}
 
-  // 校验函数
-  const validateForm = useCallback((): ValidationError[] => {
-    const newErrors: ValidationError[] = []
-    
-    // 基础字段校验
-    if (!formData.name.trim()) {
-      newErrors.push({ field: "name", message: "名称不能为空" })
-    } else if (!/^[A-Z_][A-Z0-9_]*$/i.test(formData.name)) {
-      newErrors.push({ field: "name", message: "名称只能包含字母、数字和下划线，且不能以数字开头" })
-    }
-
-    if (!formData.alias.trim()) {
-      newErrors.push({ field: "alias", message: "别名不能为空" })
-    }
-
-    // 根据类型校验内容
-    switch (formData.type) {
-      case "text":
-      case "textarea":
-      case "richtext":
-        if (!formData.content.trim()) {
-          newErrors.push({ field: "content", message: "内容不能为空" })
-        }
-        break
-      
-      case "number":
-        if (!formData.content.trim()) {
-          newErrors.push({ field: "content", message: "请输入整数" })
-        } else if (!/^-?\d+$/.test(formData.content)) {
-          newErrors.push({ field: "content", message: "请输入有效的整数" })
-        }
-        break
-      
-      case "decimal":
-        if (!formData.content.trim()) {
-          newErrors.push({ field: "content", message: "请输入小数" })
-        } else if (!/^-?\d+(\.\d+)?$/.test(formData.content)) {
-          newErrors.push({ field: "content", message: "请输入有效的小数，例如: 3.14" })
-        }
-        break
-      
-      case "object":
-        if (!formData.content.trim()) {
-          newErrors.push({ field: "content", message: "JSON对象不能为空" })
-        } else {
-          try {
-            const parsed = JSON.parse(formData.content)
-            if (typeof parsed !== "object" || Array.isArray(parsed)) {
-              newErrors.push({ field: "content", message: "请输入有效的JSON对象（非数组）" })
-            }
-          } catch {
-            newErrors.push({ field: "content", message: "JSON格式无效，请检查语法" })
-          }
-        }
-        break
-      
-      case "keyvalue":
-        const validPairs = keyValuePairs.filter(p => p.key.trim() || p.value.trim())
-        if (validPairs.length === 0) {
-          newErrors.push({ field: "content", message: "请至少添加一个键值对" })
-        } else {
-          const hasEmptyKey = validPairs.some(p => !p.key.trim())
-          const hasEmptyValue = validPairs.some(p => !p.value.trim())
-          if (hasEmptyKey) {
-            newErrors.push({ field: "content", message: "键名不能为空" })
-          }
-          if (hasEmptyValue) {
-            newErrors.push({ field: "content", message: "键值不能为空" })
-          }
-          // 检查重复键
-          const keys = validPairs.map(p => p.key.trim())
-          const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index)
-          if (duplicates.length > 0) {
-            newErrors.push({ field: "content", message: `存在重复的键名: ${duplicates.join(", ")}` })
-          }
-        }
-        break
-      
-      case "color":
-        if (!/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
-          newErrors.push({ field: "content", message: "请输入有效的颜色值，例如: #3B82F6" })
-        }
-        break
-      
-      case "file":
-      case "image":
-        if (!formData.content.trim()) {
-          newErrors.push({ field: "content", message: formData.type === "image" ? "请上传图片" : "请上传文件" })
-        }
-        break
-    }
-
-    return newErrors
-  }, [formData, keyValuePairs, colorValue])
-
-  // 获取字段错误
-  const getFieldError = (field: string) => {
-    return errors.find(e => e.field === field)?.message
-  }
-
-  const resetForm = () => {
-    setFormData({ name: "", alias: "", type: "text", content: "" })
-    setKeyValuePairs([{ key: "", value: "" }])
-    setBooleanValue(false)
-    setColorValue("#3B82F6")
-    setImageSize(null)
-    setEditingConfig(null)
-    setErrors([])
-  }
-
-  // 处理类型变化时重置内容
-  const handleTypeChange = (type: ConfigType) => {
-    setFormData({ ...formData, type, content: "" })
-    setKeyValuePairs([{ key: "", value: "" }])
-    setBooleanValue(false)
-    setColorValue("#3B82F6")
-    setImageSize(null)
-    setErrors([])
-  }
-
-  // 获取最终内容
-  const getFinalContent = (): string => {
-    switch (formData.type) {
-      case "keyvalue":
-        const pairs = keyValuePairs.filter(p => p.key.trim())
-        return JSON.stringify(Object.fromEntries(pairs.map(p => [p.key, p.value])))
-      case "boolean":
-        return String(booleanValue)
-      case "color":
-        return colorValue
-      default:
-        return formData.content
-    }
-  }
-
-  const handleAdd = async () => {
-    const validationErrors = validateForm()
-    if (validationErrors.length > 0) {
-      setErrors(validationErrors)
-      return
-    }
-    
-    if (!selectedEnvKey || !selectedPipelineKey) return
-    
-    await createConfig.mutateAsync({
-      name: formData.name,
-      alias: formData.alias,
-      type: formData.type,
-      content: getFinalContent(),
-      environmentId: selectedEnvKey,
-      pipelineId: selectedPipelineKey,
-    })
-    
-    setIsAddDialogOpen(false)
-    resetForm()
-  }
-
-  const handleEdit = (config: ConfigItem) => {
-    setEditingConfig(config)
-    setFormData({
-      name: config.name,
-      alias: config.alias,
-      type: config.type,
-      content: config.content,
-    })
-    
-    // 根据类型初始化特殊状态
-    if (config.type === "keyvalue") {
-      try {
-        const obj = JSON.parse(config.content)
-        setKeyValuePairs(Object.entries(obj).map(([key, value]) => ({ key, value: String(value) })))
-      } catch {
-        setKeyValuePairs([{ key: "", value: "" }])
-      }
-    } else if (config.type === "boolean") {
-      setBooleanValue(config.content === "true")
-    } else if (config.type === "color") {
-      setColorValue(config.content || "#3B82F6")
-    } else if (config.type === "image" && config.content) {
-      // 加载图片尺寸
-      const img = new Image()
-      img.onload = () => {
-        setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
-      }
-      img.onerror = () => {
-        setImageSize(null)
-      }
-      img.src = config.content
-    }
-    setErrors([])
-  }
-
-  const handleUpdate = async () => {
-    const validationErrors = validateForm()
-    if (validationErrors.length > 0) {
-      setErrors(validationErrors)
-      return
-    }
-    
-    if (!editingConfig || !selectedEnvKey || !selectedPipelineKey) return
-    
-    await updateConfig.mutateAsync({
-      id: editingConfig.id,
-      name: formData.name,
-      alias: formData.alias,
-      type: formData.type,
-      content: getFinalContent(),
-      environmentId: selectedEnvKey,
-      pipelineId: selectedPipelineKey,
-    })
-    
-    resetForm()
-  }
-
-  const handleDelete = async (resourceKey: string) => {
-    if (!selectedEnvKey || !selectedPipelineKey) return
-    await deleteConfig.mutateAsync({
-      environmentKey: selectedEnvKey,
-      pipelineKey: selectedPipelineKey,
-      resourceKey,
-    })
-  }
-
+// 将 ConfigForm 组件提取到外部
+const ConfigForm: React.FC<ConfigFormProps> = ({
+  formData,
+  setFormData,
+  editingConfig,
+  errors,
+  getFieldError,
+  handleTypeChange,
+  keyValuePairs,
+  setKeyValuePairs,
+  booleanValue,
+  setBooleanValue,
+  colorValue,
+  setColorValue,
+  imageSize,
+  setImageSize,
+  setErrors,
+  selectedEnvKey,
+  selectedPipelineKey,
+  uploadAsset,
+  isMutating,
+  onSubmit,
+  onCancel,
+  selectedEnvironment,
+  pipelines,
+}) => {
   // 键值对操作
   const addKeyValuePair = () => {
     setKeyValuePairs([...keyValuePairs, { key: "", value: "" }])
@@ -384,10 +157,14 @@ export default function ConfigPage() {
           environmentKey: selectedEnvKey,
           pipelineKey: selectedPipelineKey,
         })
-        if (result.data?.asset?.url) {
-          setFormData({ ...formData, content: result.data.asset.url })
+        if (result.asset?.url) {
+          const uploadedUrl = result.asset.url
+          setFormData(prev => ({ ...prev, content: uploadedUrl }))
           
-          // 如果是图片，获取尺寸
+          // 清除相关字段的验证错误
+          setErrors(prev => prev.filter(e => e.field !== 'content'))
+                  
+          // 如果是图片,获取尺寸
           if (type === "image") {
             const img = new Image()
             img.onload = () => {
@@ -396,7 +173,7 @@ export default function ConfigPage() {
             img.onerror = () => {
               setImageSize(null)
             }
-            img.src = result.data.asset.url
+            img.src = uploadedUrl
           }
         }
       } catch (error) {
@@ -750,6 +527,7 @@ export default function ConfigPage() {
         )
       
       case "image":
+        const imagePreviewUrl = formData.content ? resolveAssetUrl(formData.content) : ''
         return (
           <div className="space-y-2">
             <Label>图片</Label>
@@ -767,7 +545,7 @@ export default function ConfigPage() {
                   {/* 图片预览 */}
                   <div className="w-full max-h-48 bg-muted rounded flex items-center justify-center overflow-hidden">
                     <img 
-                      src={formData.content} 
+                      src={imagePreviewUrl} 
                       alt="预览" 
                       className="max-w-full max-h-48 object-contain"
                       onLoad={(e) => {
@@ -819,9 +597,7 @@ export default function ConfigPage() {
     }
   }
 
-  const isMutating = createConfig.isPending || updateConfig.isPending
-
-  const ConfigForm = ({ onSubmit }: { onSubmit: () => void }) => (
+  return (
     <div className="space-y-4">
       {/* 错误提示汇总 */}
       {errors.length > 0 && (
@@ -843,7 +619,7 @@ export default function ConfigPage() {
           <Label htmlFor="name">名称 *</Label>
           <Input
             id="name"
-            placeholder="例如: API_BASE_URL"
+            placeholder="例如: API基础地址"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className={getFieldError("name") ? "border-destructive" : ""}
@@ -858,7 +634,7 @@ export default function ConfigPage() {
           <Label htmlFor="alias">别名 *</Label>
           <Input
             id="alias"
-            placeholder="例如: API基础地址"
+            placeholder="例如: API_BASE_URL"
             value={formData.alias}
             onChange={(e) => setFormData({ ...formData, alias: e.target.value })}
             className={getFieldError("alias") ? "border-destructive" : ""}
@@ -905,7 +681,7 @@ export default function ConfigPage() {
       {renderContentInput()}
       
       <DialogFooter>
-        <Button variant="outline" onClick={resetForm} className="bg-transparent">
+        <Button variant="outline" onClick={onCancel} className="bg-transparent">
           取消
         </Button>
         <Button onClick={onSubmit} disabled={isMutating}>
@@ -915,71 +691,507 @@ export default function ConfigPage() {
       </DialogFooter>
     </div>
   )
+}
+
+export default function ConfigPage() {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedEnvKey, setSelectedEnvKey] = useState<string>("")
+  const [selectedPipelineKey, setSelectedPipelineKey] = useState<string>("")
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [editingConfig, setEditingConfig] = useState<ConfigItem | null>(null)
+  const [errors, setErrors] = useState<ValidationError[]>([])
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    alias: "",
+    type: "text" as ConfigType,
+    content: "",
+  })
+
+  // 键值对状态
+  const [keyValuePairs, setKeyValuePairs] = useState<KeyValuePair[]>([{ key: "", value: "" }])
+  // 布尔值状态
+  const [booleanValue, setBooleanValue] = useState(false)
+  // 颜色状态
+  const [colorValue, setColorValue] = useState("#3B82F6")
+  // 图片尺寸状态
+  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
+
+  // 获取环境和渠道数据
+  const { data: environments = [], isLoading: isEnvLoading } = useRuntimeOverview()
+  
+  // 获取配置列表
+  const { 
+    data: configs = [], 
+    isLoading: isConfigsLoading,
+    error: configsError 
+  } = useConfigs(selectedEnvKey, selectedPipelineKey)
+
+  // Mutations
+  const createConfig = useCreateConfig()
+  const updateConfig = useUpdateConfig()
+  const deleteConfig = useDeleteConfig()
+  const uploadAsset = useUploadAsset()
+
+  // 获取当前选中环境
+  const selectedEnvironment = useMemo(
+    () => environments.find((env) => env.key === selectedEnvKey),
+    [environments, selectedEnvKey]
+  )
+
+  // 获取当前选中环境的渠道列表
+  const pipelines = useMemo(
+    () => selectedEnvironment?.pipelines || [],
+    [selectedEnvironment]
+  )
+
+  // 根据搜索词过滤配置
+  const filteredConfigs = useMemo(() => {
+    if (!searchTerm) return configs
+    return configs.filter(
+      (config) =>
+        config.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        config.alias.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [configs, searchTerm])
+
+  const handleEnvChange = (envKey: string) => {
+    setSelectedEnvKey(envKey)
+    setSelectedPipelineKey("")
+  }
+
+  // 校验函数
+  const validateForm = useCallback((): ValidationError[] => {
+    const newErrors: ValidationError[] = []
+    
+    // 基础字段校验
+    if (!formData.name.trim()) {
+      newErrors.push({ field: "name", message: "名称不能为空" })
+    }
+
+    if (!formData.alias.trim()) {
+      newErrors.push({ field: "alias", message: "别名不能为空" })
+    } else if (!/^[A-Z_][A-Z0-9_]*$/i.test(formData.alias)) {
+      newErrors.push({ field: "alias", message: "别名只能包含字母、数字和下划线，且不能以数字开头" })
+    }
+
+    // 根据类型校验内容
+    switch (formData.type) {
+      case "text":
+      case "textarea":
+      case "richtext":
+        if (!formData.content.trim()) {
+          newErrors.push({ field: "content", message: "内容不能为空" })
+        }
+        break
+      
+      case "number":
+        if (!formData.content.trim()) {
+          newErrors.push({ field: "content", message: "请输入整数" })
+        } else if (!/^-?\d+$/.test(formData.content)) {
+          newErrors.push({ field: "content", message: "请输入有效的整数" })
+        }
+        break
+      
+      case "decimal":
+        if (!formData.content.trim()) {
+          newErrors.push({ field: "content", message: "请输入小数" })
+        } else if (!/^-?\d+(\.\d+)?$/.test(formData.content)) {
+          newErrors.push({ field: "content", message: "请输入有效的小数，例如: 3.14" })
+        }
+        break
+      
+      case "object":
+        if (!formData.content.trim()) {
+          newErrors.push({ field: "content", message: "JSON对象不能为空" })
+        } else {
+          try {
+            const parsed = JSON.parse(formData.content)
+            if (typeof parsed !== "object" || Array.isArray(parsed)) {
+              newErrors.push({ field: "content", message: "请输入有效的JSON对象（非数组）" })
+            }
+          } catch {
+            newErrors.push({ field: "content", message: "JSON格式无效，请检查语法" })
+          }
+        }
+        break
+      
+      case "keyvalue":
+        const validPairs = keyValuePairs.filter(p => p.key.trim() || p.value.trim())
+        if (validPairs.length === 0) {
+          newErrors.push({ field: "content", message: "请至少添加一个键值对" })
+        } else {
+          const hasEmptyKey = validPairs.some(p => !p.key.trim())
+          const hasEmptyValue = validPairs.some(p => !p.value.trim())
+          if (hasEmptyKey) {
+            newErrors.push({ field: "content", message: "键名不能为空" })
+          }
+          if (hasEmptyValue) {
+            newErrors.push({ field: "content", message: "键值不能为空" })
+          }
+          // 检查重复键
+          const keys = validPairs.map(p => p.key.trim())
+          const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index)
+          if (duplicates.length > 0) {
+            newErrors.push({ field: "content", message: `存在重复的键名: ${duplicates.join(", ")}` })
+          }
+        }
+        break
+      
+      case "color":
+        if (!/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
+          newErrors.push({ field: "content", message: "请输入有效的颜色值，例如: #3B82F6" })
+        }
+        break
+      
+      case "file":
+      case "image":
+        if (!formData.content.trim()) {
+          newErrors.push({ field: "content", message: formData.type === "image" ? "请上传图片" : "请上传文件" })
+        }
+        break
+    }
+
+    return newErrors
+  }, [formData, keyValuePairs, colorValue])
+
+  // 获取字段错误
+  const getFieldError = (field: string) => {
+    return errors.find(e => e.field === field)?.message
+  }
+
+  const resetForm = () => {
+    setFormData({ name: "", alias: "", type: "text", content: "" })
+    setKeyValuePairs([{ key: "", value: "" }])
+    setBooleanValue(false)
+    setColorValue("#3B82F6")
+    setImageSize(null)
+    setEditingConfig(null)
+    setErrors([])
+  }
+
+  // 处理类型变化时重置内容
+  const handleTypeChange = (type: ConfigType) => {
+    setFormData({ ...formData, type, content: "" })
+    setKeyValuePairs([{ key: "", value: "" }])
+    setBooleanValue(false)
+    setColorValue("#3B82F6")
+    setImageSize(null)
+    setErrors([])
+  }
+
+  // 获取最终内容
+  const getFinalContent = (): string => {
+    switch (formData.type) {
+      case "keyvalue":
+        const pairs = keyValuePairs.filter(p => p.key.trim())
+        return JSON.stringify(Object.fromEntries(pairs.map(p => [p.key, p.value])))
+      case "boolean":
+        return String(booleanValue)
+      case "color":
+        return colorValue
+      default:
+        return formData.content
+    }
+  }
+
+  const handleAdd = async () => {
+    const validationErrors = validateForm()
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+    
+    if (!selectedEnvKey || !selectedPipelineKey) return
+    
+    await createConfig.mutateAsync({
+      name: formData.name,
+      alias: formData.alias,
+      type: formData.type,
+      content: getFinalContent(),
+      environmentId: selectedEnvKey,
+      pipelineId: selectedPipelineKey,
+    })
+    
+    setIsAddDialogOpen(false)
+    resetForm()
+  }
+
+  const handleEdit = (config: ConfigItem) => {
+    setEditingConfig(config)
+    setFormData({
+      name: config.name,
+      alias: config.alias,
+      type: config.type,
+      content: config.content,
+    })
+    
+    // 根据类型初始化特殊状态
+    if (config.type === "keyvalue") {
+      try {
+        const obj = JSON.parse(config.content)
+        setKeyValuePairs(Object.entries(obj).map(([key, value]) => ({ key, value: String(value) })))
+      } catch {
+        setKeyValuePairs([{ key: "", value: "" }])
+      }
+    } else if (config.type === "boolean") {
+      setBooleanValue(config.content === "true")
+    } else if (config.type === "color") {
+      setColorValue(config.content || "#3B82F6")
+    } else if (config.type === "image" && config.content) {
+      // 加载图片尺寸
+      const img = new Image()
+      img.onload = () => {
+        setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
+      }
+      img.onerror = () => {
+        setImageSize(null)
+      }
+      img.src = config.content
+    }
+    setErrors([])
+  }
+
+  const handleUpdate = async () => {
+    const validationErrors = validateForm()
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+    
+    if (!editingConfig || !selectedEnvKey || !selectedPipelineKey) return
+    
+    await updateConfig.mutateAsync({
+      id: editingConfig.id,
+      name: formData.name,
+      alias: formData.alias,
+      type: formData.type,
+      content: getFinalContent(),
+      environmentId: selectedEnvKey,
+      pipelineId: selectedPipelineKey,
+    })
+    
+    resetForm()
+  }
+
+  const handleDelete = async (resourceKey: string) => {
+    if (!selectedEnvKey || !selectedPipelineKey) return
+    await deleteConfig.mutateAsync({
+      environmentKey: selectedEnvKey,
+      pipelineKey: selectedPipelineKey,
+      resourceKey,
+    })
+  }
+
+  const isMutating = createConfig.isPending || updateConfig.isPending
 
   // 渲染内容预览
   const renderContentPreview = (config: ConfigItem) => {
     switch (config.type) {
-      case "boolean":
-        return (
-          <Badge variant={config.content === "true" ? "default" : "secondary"}>
-            {config.content}
-          </Badge>
-        )
-      case "color":
+      case "text":
         return (
           <div className="flex items-center gap-2">
-            <div 
-              className="w-6 h-6 rounded border-2 shadow-sm"
-              style={{ backgroundColor: config.content }}
-            />
-            <span className="font-mono text-xs">{config.content}</span>
+            <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <span className="text-sm truncate max-w-xs">{config.content}</span>
           </div>
         )
-      case "image":
+      
+      case "textarea":
         return (
-          <div className="flex items-center gap-2">
-            <div className="relative group">
-              <img 
-                src={config.content} 
-                alt="缩略图" 
-                className="w-10 h-10 object-cover rounded border"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none'
-                }}
-                onLoad={(e) => {
-                  // 在图片上显示尺寸提示
-                  const img = e.target as HTMLImageElement
-                  const title = `${img.naturalWidth} × ${img.naturalHeight} px`
-                  img.setAttribute('title', title)
-                }}
-              />
-            </div>
-            <span className="text-xs text-muted-foreground truncate max-w-[200px] block break-all">
+          <div className="flex items-start gap-2">
+            <FileText className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+            <span className="text-sm line-clamp-2 text-muted-foreground">
               {config.content}
             </span>
           </div>
         )
+      
+      case "richtext":
+        return (
+          <div className="flex items-start gap-2">
+            <FileText className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
+            <div 
+              className="text-sm line-clamp-2 prose prose-sm max-w-xs"
+              dangerouslySetInnerHTML={{ __html: config.content }}
+            />
+          </div>
+        )
+      
+      case "number":
+        return (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-mono text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950 dark:text-amber-400">
+              {config.content}
+            </Badge>
+          </div>
+        )
+      
+      case "decimal":
+        return (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-mono text-orange-700 border-orange-300 bg-orange-50 dark:bg-orange-950 dark:text-orange-400">
+              {config.content}
+            </Badge>
+          </div>
+        )
+      
+      case "boolean":
+        return (
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${config.content === "true" ? "bg-green-500" : "bg-gray-400"}`} />
+            <Badge variant={config.content === "true" ? "default" : "secondary"}>
+              {config.content === "true" ? "true" : "false"}
+            </Badge>
+          </div>
+        )
+      
+      case "color":
+        return (
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-8 h-8 rounded-md border-2 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700"
+              style={{ backgroundColor: config.content }}
+              title={config.content}
+            />
+            <span className="font-mono text-xs text-muted-foreground">{config.content}</span>
+          </div>
+        )
+      
+      case "image":
+        const resolvedImageUrl = resolveAssetUrl(config.content)
+        return (
+          <div className="flex items-center gap-3 group cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation()
+              // 创建预览弹窗
+              const dialog = document.createElement('div')
+              dialog.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm'
+              dialog.onclick = () => dialog.remove()
+              
+              const imgContainer = document.createElement('div')
+              imgContainer.className = 'relative max-w-4xl max-h-[90vh] p-4'
+              imgContainer.onclick = (e) => e.stopPropagation()
+              
+              const img = document.createElement('img')
+              img.src = resolvedImageUrl
+              img.className = 'max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl'
+              img.alt = config.alias
+              
+              const closeBtn = document.createElement('button')
+              closeBtn.innerHTML = '✕'
+              closeBtn.className = 'absolute top-6 right-6 w-8 h-8 rounded-full bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center font-bold'
+              closeBtn.onclick = () => dialog.remove()
+              
+              imgContainer.appendChild(img)
+              imgContainer.appendChild(closeBtn)
+              dialog.appendChild(imgContainer)
+              document.body.appendChild(dialog)
+            }}
+          >
+            <div className="relative">
+              <img 
+                src={resolvedImageUrl} 
+                alt="缩略图" 
+                className="w-12 h-12 object-cover rounded-md border-2 shadow-sm group-hover:scale-105 transition-transform"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none'
+                  const parent = (e.target as HTMLElement).parentElement
+                  if (parent) {
+                    parent.innerHTML = '<div class="w-12 h-12 rounded-md border-2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
+                  }
+                }}
+                onLoad={(e) => {
+                  const img = e.target as HTMLImageElement
+                  const title = `${img.naturalWidth} × ${img.naturalHeight} px\n点击查看大图`
+                  img.setAttribute('title', title)
+                }}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-md transition-colors flex items-center justify-center">
+                <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity font-medium">查看</span>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <ImageIcon className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                <span className="text-xs font-medium text-muted-foreground">图片资源</span>
+              </div>
+              <span className="text-xs text-muted-foreground truncate block">
+                {config.content.split('/').pop() || config.content}
+              </span>
+            </div>
+          </div>
+        )
+      
       case "keyvalue":
+        try {
+          const obj = JSON.parse(config.content)
+          const entries = Object.entries(obj)
+          return (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-cyan-700 border-cyan-300 bg-cyan-50 dark:bg-cyan-950 dark:text-cyan-400">
+                <span className="font-mono text-xs">{entries.length} 项</span>
+              </Badge>
+              {entries.length > 0 && (
+                <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                  {entries.slice(0, 2).map(([k]) => k).join(', ')}
+                  {entries.length > 2 ? '...' : ''}
+                </span>
+              )}
+            </div>
+          )
+        } catch {
+          return <span className="font-mono text-xs text-muted-foreground">无效格式</span>
+        }
+      
       case "object":
         try {
           const obj = JSON.parse(config.content)
+          const keys = Object.keys(obj)
           return (
-            <span className="font-mono text-xs">
-              {`{${Object.keys(obj).length} 项}`}
-            </span>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400">
+                <span className="font-mono text-xs">{`{ ${keys.length} }`}</span>
+              </Badge>
+              {keys.length > 0 && (
+                <span className="text-xs text-muted-foreground truncate max-w-[200px] font-mono">
+                  {keys.slice(0, 3).join(', ')}
+                  {keys.length > 3 ? '...' : ''}
+                </span>
+              )}
+            </div>
           )
         } catch {
-          return <span className="font-mono text-xs truncate max-w-xs block break-all">{config.content}</span>
+          return (
+            <span className="font-mono text-xs text-destructive flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              JSON格式错误
+            </span>
+          )
         }
+      
       case "file":
+        const fileName = config.content.split('/').pop() || config.content
+        const fileExt = fileName.split('.').pop()?.toLowerCase() || ''
         return (
-          <span className="text-xs text-muted-foreground truncate max-w-xs block break-all">
-            {config.content}
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-md border-2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <FileText className="w-4 h-4 text-gray-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium truncate">{fileName}</span>
+                {fileExt && (
+                  <Badge variant="secondary" className="text-xs">{fileExt.toUpperCase()}</Badge>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground truncate block">{config.content}</span>
+            </div>
+          </div>
         )
+      
       default:
         return (
-          <span className="font-mono text-sm truncate max-w-xs block break-all">
+          <span className="text-sm text-muted-foreground truncate max-w-xs block">
             {config.content}
           </span>
         )
@@ -1089,7 +1301,31 @@ export default function ConfigPage() {
                           为 {selectedEnvironment?.name} - {pipelines.find(p => p.key === selectedPipelineKey)?.name} 添加配置项
                         </DialogDescription>
                       </DialogHeader>
-                      <ConfigForm onSubmit={handleAdd} />
+                      <ConfigForm
+                        formData={formData}
+                        setFormData={setFormData}
+                        editingConfig={editingConfig}
+                        errors={errors}
+                        getFieldError={getFieldError}
+                        handleTypeChange={handleTypeChange}
+                        keyValuePairs={keyValuePairs}
+                        setKeyValuePairs={setKeyValuePairs}
+                        booleanValue={booleanValue}
+                        setBooleanValue={setBooleanValue}
+                        colorValue={colorValue}
+                        setColorValue={setColorValue}
+                        imageSize={imageSize}
+                        setImageSize={setImageSize}
+                        setErrors={setErrors}
+                        selectedEnvKey={selectedEnvKey}
+                        selectedPipelineKey={selectedPipelineKey}
+                        uploadAsset={uploadAsset}
+                        isMutating={isMutating}
+                        onSubmit={handleAdd}
+                        onCancel={() => setIsAddDialogOpen(false)}
+                        selectedEnvironment={selectedEnvironment}
+                        pipelines={pipelines}
+                      />
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -1163,8 +1399,11 @@ export default function ConfigPage() {
                                 <Dialog
                                   open={editingConfig?.id === config.id}
                                   onOpenChange={(open) => {
-                                    if (!open) resetForm()
-                                    else handleEdit(config)
+                                    if (open) {
+                                      handleEdit(config)
+                                    } else {
+                                      resetForm()
+                                    }
                                   }}
                                 >
                                   <DialogTrigger asChild>
@@ -1179,7 +1418,31 @@ export default function ConfigPage() {
                                         修改配置项信息
                                       </DialogDescription>
                                     </DialogHeader>
-                                    <ConfigForm onSubmit={handleUpdate} />
+                                    <ConfigForm
+                                      formData={formData}
+                                      setFormData={setFormData}
+                                      editingConfig={editingConfig}
+                                      errors={errors}
+                                      getFieldError={getFieldError}
+                                      handleTypeChange={handleTypeChange}
+                                      keyValuePairs={keyValuePairs}
+                                      setKeyValuePairs={setKeyValuePairs}
+                                      booleanValue={booleanValue}
+                                      setBooleanValue={setBooleanValue}
+                                      colorValue={colorValue}
+                                      setColorValue={setColorValue}
+                                      imageSize={imageSize}
+                                      setImageSize={setImageSize}
+                                      setErrors={setErrors}
+                                      selectedEnvKey={selectedEnvKey}
+                                      selectedPipelineKey={selectedPipelineKey}
+                                      uploadAsset={uploadAsset}
+                                      isMutating={isMutating}
+                                      onSubmit={handleUpdate}
+                                      onCancel={() => setEditingConfig(null)}
+                                      selectedEnvironment={selectedEnvironment}
+                                      pipelines={pipelines}
+                                    />
                                   </DialogContent>
                                 </Dialog>
                                 <Button

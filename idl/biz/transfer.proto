@@ -186,9 +186,10 @@ message ImportPreviewSummary {
   int32 total_environments = 1;
   int32 total_pipelines = 2;
   int32 total_configs = 3;
-  int32 new_count = 4;
-  int32 existing_count = 5;
-  int32 conflict_count = 6;
+  int32 total_assets = 4;
+  int32 new_count = 5;
+  int32 existing_count = 6;
+  int32 conflict_count = 7;
 }
 
 // ImportPreviewData is the data wrapper for import preview.

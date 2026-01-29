@@ -118,8 +118,49 @@ func defaultConfig() *Config {
 				"image/vnd.microsoft.icon", // .ico
 				"image/heic",               // .heic (iOS)
 				"image/heif",               // .heif
-				// 其他文件类型
-				"application/json",
+				// 压缩包格式
+				"application/zip",              // .zip
+				"application/x-zip-compressed", // .zip
+				"application/x-rar-compressed", // .rar
+				"application/x-7z-compressed",  // .7z
+				"application/x-tar",            // .tar
+				"application/gzip",             // .gz
+				"application/x-gzip",           // .gz
+				"application/x-bzip2",          // .bz2
+				// 字体文件格式
+				"font/ttf",               // .ttf
+				"font/otf",               // .otf
+				"font/woff",              // .woff
+				"font/woff2",             // .woff2
+				"application/x-font-ttf", // .ttf
+				"application/x-font-otf", // .otf
+				"application/font-woff",  // .woff
+				"application/font-woff2", // .woff2
+				// 文档格式
+				"application/pdf",    // .pdf
+				"application/msword", // .doc
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+				"application/vnd.ms-excel", // .xls
+				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",         // .xlsx
+				"application/vnd.ms-powerpoint",                                             // .ppt
+				"application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+				// 文本格式
+				"text/plain",       // .txt
+				"text/csv",         // .csv
+				"text/html",        // .html
+				"text/css",         // .css
+				"text/javascript",  // .js
+				"application/json", // .json
+				"application/xml",  // .xml
+				"text/xml",         // .xml
+				// 音视频格式
+				"audio/mpeg",      // .mp3
+				"audio/wav",       // .wav
+				"audio/ogg",       // .ogg
+				"video/mp4",       // .mp4
+				"video/mpeg",      // .mpeg
+				"video/webm",      // .webm
+				"video/quicktime", // .mov
 			},
 		},
 	}

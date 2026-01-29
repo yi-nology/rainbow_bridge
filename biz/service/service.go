@@ -305,6 +305,8 @@ func normalizeConfigTypeString(t string) string {
 	switch strings.ToLower(strings.TrimSpace(t)) {
 	case "image":
 		return "image"
+	case "file":
+		return "file"
 	case "text", "string", "copy", "文案":
 		return "text"
 	case "color", "colour", "color_tag", "color-tag", "色彩", "色彩标签":

@@ -61,9 +61,10 @@ function mapFrontendTypeToBackend(frontendType: string): string {
       return 'text'
     case 'color':
       return 'color'
-    case 'file':
     case 'image':
       return 'image'
+    case 'file':
+      return 'file'
     case 'keyvalue':
       return 'kv'
     case 'number':

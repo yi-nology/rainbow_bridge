@@ -218,59 +218,7 @@ func (l *Logic) validateConfigContent(ctx context.Context, cfg *model.Config) er
 		return errors.New("config payload required")
 	}
 
-	// 自动修复：如果类型为 image 但内容是文件路径，且路径不是图片格式，自动调整为 file 类型
-	if cfg.Type == "image" && cfg.Content != "" {
-		if strings.HasPrefix(cfg.Content, "/api/v1/asset/file/") ||
-			strings.Contains(cfg.Content, "/api/v1/asset/file/") {
-			// 检查文件名是否为图片格式
-			contentLower := strings.ToLower(cfg.Content)
-			isImage := strings.HasSuffix(contentLower, ".jpg") ||
-				strings.HasSuffix(contentLower, ".jpeg") ||
-				strings.HasSuffix(contentLower, ".png") ||
-				strings.HasSuffix(contentLower, ".gif") ||
-				strings.HasSuffix(contentLower, ".webp") ||
-				strings.HasSuffix(contentLower, ".svg") ||
-				strings.HasSuffix(contentLower, ".bmp") ||
-				strings.HasSuffix(contentLower, ".tiff") ||
-				strings.HasSuffix(contentLower, ".ico") ||
-				strings.HasSuffix(contentLower, ".heic") ||
-				strings.HasSuffix(contentLower, ".heif")
-
-			if !isImage {
-				// 自动修正为 file 类型
-				cfg.Type = "file"
-			}
-		}
-	}
-
-	// 自动修复：如果类型为 text 但内容是资产文件路径，自动调整为 file 或 image 类型
-	if cfg.Type == "text" && cfg.Content != "" {
-		if strings.HasPrefix(cfg.Content, "/api/v1/asset/file/") ||
-			strings.Contains(cfg.Content, "/api/v1/asset/file/") ||
-			strings.HasPrefix(cfg.Content, "asset://") {
-			// 检查文件名是否为图片格式
-			contentLower := strings.ToLower(cfg.Content)
-			isImage := strings.HasSuffix(contentLower, ".jpg") ||
-				strings.HasSuffix(contentLower, ".jpeg") ||
-				strings.HasSuffix(contentLower, ".png") ||
-				strings.HasSuffix(contentLower, ".gif") ||
-				strings.HasSuffix(contentLower, ".webp") ||
-				strings.HasSuffix(contentLower, ".svg") ||
-				strings.HasSuffix(contentLower, ".bmp") ||
-				strings.HasSuffix(contentLower, ".tiff") ||
-				strings.HasSuffix(contentLower, ".ico") ||
-				strings.HasSuffix(contentLower, ".heic") ||
-				strings.HasSuffix(contentLower, ".heif")
-
-			if isImage {
-				// 自动修正为 image 类型
-				cfg.Type = "image"
-			} else {
-				// 自动修正为 file 类型
-				cfg.Type = "file"
-			}
-		}
-	}
+	// 前端传什么类型就存什么类型，不做自动类型转换
 
 	switch cfg.Type {
 	case "image":

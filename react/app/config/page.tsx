@@ -160,26 +160,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         if (result.asset?.url) {
           const uploadedUrl = result.asset.url
           
-          // 根据文件的 MIME 类型自动判断应该使用的配置类型
-          const isImageFile = file.type.startsWith('image/')
-          const autoDetectedType = isImageFile ? 'image' : 'file'
-          
-          // 如果当前表单类型与上传文件类型不匹配，自动更新类型
-          if (formData.type !== autoDetectedType) {
-            setFormData(prev => ({ 
-              ...prev, 
-              type: autoDetectedType,
-              content: uploadedUrl 
-            }))
-          } else {
-            setFormData(prev => ({ ...prev, content: uploadedUrl }))
-          }
+          // 前端传什么类型就存什么类型，不做自动类型转换
+          setFormData(prev => ({ ...prev, content: uploadedUrl }))
           
           // 清除相关字段的验证错误
           setErrors(prev => prev.filter(e => e.field !== 'content'))
                   
-          // 如果是图片,获取尺寸
-          if (isImageFile) {
+          // 如果是图片类型,获取尺寸
+          if (type === 'image') {
             const img = new Image()
             img.onload = () => {
               setImageSize({ width: img.naturalWidth, height: img.naturalHeight })

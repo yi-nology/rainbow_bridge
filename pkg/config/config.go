@@ -16,6 +16,7 @@ type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	CORS     CORSConfig     `yaml:"cors"`
 	Upload   UploadConfig   `yaml:"upload"`
+	Intranet IntranetConfig `yaml:"intranet"`
 }
 
 // CORSConfig defines CORS middleware settings.
@@ -30,6 +31,11 @@ type CORSConfig struct {
 type UploadConfig struct {
 	MaxSize      int64    `yaml:"max_size"`
 	AllowedTypes []string `yaml:"allowed_types"`
+}
+
+// IntranetConfig defines intranet environment settings.
+type IntranetConfig struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 // ServerConfig defines HTTP server options.
@@ -101,6 +107,9 @@ func defaultConfig() *Config {
 			AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
 			AllowHeaders:     "*",
 			AllowCredentials: false,
+		},
+		Intranet: IntranetConfig{
+			Enabled: false,
 		},
 		Upload: UploadConfig{
 			MaxSize: 10 * 1024 * 1024, // 10MB

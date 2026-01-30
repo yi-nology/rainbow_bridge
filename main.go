@@ -75,6 +75,7 @@ func main() {
 	versionhandler.AppVersion = Version
 	versionhandler.AppGitCommit = GitCommit
 	versionhandler.AppBuildTime = BuildTime
+	versionhandler.IsIntranet = cfg.Intranet.Enabled
 
 	// Initialize handlers with service
 	bizrouter.InitHandlers(service)

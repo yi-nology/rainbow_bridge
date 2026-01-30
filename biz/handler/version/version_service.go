@@ -22,6 +22,9 @@ var (
 	// GitHub repository information
 	GitHubOwner = "yi-nology"
 	GitHubRepo  = "rainbow_bridge"
+
+	// Intranet environment flag, injected at startup
+	IsIntranet = false
 )
 
 // GitHubRelease represents the GitHub API release response
@@ -73,6 +76,25 @@ func GetLatestRelease(ctx context.Context, c *app.RequestContext) {
 			Code:  consts.StatusBadRequest,
 			Msg:   "error",
 			Error: err.Error(),
+		})
+		return
+	}
+
+	// Check if in intranet environment
+	if IsIntranet {
+		c.JSON(consts.StatusOK, &version.GitHubReleaseResponse{
+			Code: consts.StatusOK,
+			Msg:  "OK",
+			Data: &version.GitHubReleaseData{
+				ReleaseInfo: &version.GitHubReleaseInfo{
+					TagName:     "N/A",
+					Name:        "内网环境",
+					PublishedAt: "",
+					HtmlUrl:     "",
+					Prerelease:  false,
+					Body:        "当前为内网环境,无法连接 GitHub 获取最新版本信息",
+				},
+			},
 		})
 		return
 	}

@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
@@ -25,9 +24,8 @@ const (
 )
 
 var (
-	assetRefRegexp        = regexp.MustCompile(`asset://([a-zA-Z0-9\-]+)`)
-	fileURLRefRegexp      = regexp.MustCompile(`/api/v1/asset/file/([a-zA-Z0-9\-]+)`)
-	staticAssetPathRegexp = regexp.MustCompile(`static/assets/([a-zA-Z0-9\-]+)/[^"'\s]+`)
+	assetRefRegexp   = regexp.MustCompile(`asset://([a-zA-Z0-9\-]+)`)
+	fileURLRefRegexp = regexp.MustCompile(`/api/v1/asset/file/([a-zA-Z0-9\-]+)`)
 )
 
 // FileUploadInput captures metadata and payload for asset uploads.
@@ -274,16 +272,6 @@ func (s *Service) decorateAssetList(list []*common.FileAsset) []*common.FileAsse
 	return list
 }
 
-func (s *Service) decorateRealtimePayload(payload map[string]any) map[string]any {
-	if s == nil || s.basePath == "" || payload == nil {
-		return payload
-	}
-	for key, value := range payload {
-		payload[key] = s.expandNestedValue(value)
-	}
-	return payload
-}
-
 func ensureUploadDir(fileID string) error {
 	relative := filepath.Join(uploadDirectory, fileID)
 	return os.MkdirAll(filepath.Join(dataDirectory, relative), 0o755)
@@ -338,54 +326,4 @@ func normalizeConfigTypeString(t string) string {
 	default:
 		return t
 	}
-}
-
-func getString(value any) string {
-	switch v := value.(type) {
-	case string:
-		return v
-	case json.Number:
-		return v.String()
-	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64)
-	case float32:
-		return strconv.FormatFloat(float64(v), 'f', -1, 64)
-	case int, int8, int16, int32, int64:
-		return fmt.Sprintf("%d", v)
-	case uint, uint8, uint16, uint32, uint64:
-		return fmt.Sprintf("%d", v)
-	case bool:
-		if v {
-			return "true"
-		}
-		return "false"
-	case nil:
-		return ""
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-func getBool(value any) bool {
-	switch v := value.(type) {
-	case bool:
-		return v
-	case string:
-		lower := strings.ToLower(strings.TrimSpace(v))
-		return lower == "true" || lower == "1"
-	case float64:
-		return v != 0
-	case json.Number:
-		f, _ := v.Float64()
-		return f != 0
-	default:
-		return false
-	}
-}
-
-func formatContentString(value any) string {
-	if str, ok := value.(string); ok {
-		return str
-	}
-	return fmt.Sprintf("%v", value)
 }

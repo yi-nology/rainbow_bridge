@@ -469,47 +469,6 @@ func (s *Service) importPipelines(ctx context.Context, data any) error {
 
 // --------------------- Transfer helpers ---------------------
 
-func sanitizeBusinessKeys(keys []string) []string {
-	seen := make(map[string]struct{}, len(keys))
-	result := make([]string, 0, len(keys))
-	for _, key := range keys {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		result = append(result, key)
-	}
-	return result
-}
-
-func sanitizeFileComponent(name string) string {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "configs"
-	}
-	name = strings.ReplaceAll(name, " ", "_")
-	re := regexp.MustCompile(`[^a-zA-Z0-9\-_]+`)
-	name = re.ReplaceAllString(name, "_")
-	if name == "" {
-		return "configs"
-	}
-	return name
-}
-
-func bundleBaseName(keys []string) string {
-	if len(keys) == 0 {
-		return "configs"
-	}
-	if len(keys) == 1 {
-		return sanitizeFileComponent(keys[0])
-	}
-	return fmt.Sprintf("%s_and_%d_more", sanitizeFileComponent(keys[0]), len(keys)-1)
-}
-
 func extractAssetIDs(configs []model.Config) []string {
 	ids := make([]string, 0)
 	seen := make(map[string]struct{})
@@ -533,20 +492,6 @@ func extractAssetIDs(configs []model.Config) []string {
 		extract(cfg.Content)
 	}
 	return ids
-}
-
-func inferAssetBusinessKey(fileID string, explicit map[string]string, configs []model.Config) string {
-	// Deprecated: business_key no longer used
-	return ""
-}
-
-func containsString(list []string, target string) bool {
-	for _, item := range list {
-		if item == target {
-			return true
-		}
-	}
-	return false
 }
 
 // ensureEnvironmentExists 确保环境存在，如果不存在则返回错误
@@ -1619,7 +1564,11 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 			if !errors.Is(err, ErrAssetNotFound) {
 				continue
 			}
-			s.logic.CreateAsset(ctx, asset)
+			// 资产不存在,创建新资产
+			if err := s.logic.CreateAsset(ctx, asset); err != nil {
+				// 忽略创建失败的资产
+				continue
+			}
 		}
 	}
 
@@ -1798,7 +1747,11 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 			if !errors.Is(err, ErrAssetNotFound) {
 				continue
 			}
-			s.logic.CreateAsset(ctx, asset)
+			// 资产不存在,创建新资产
+			if err := s.logic.CreateAsset(ctx, asset); err != nil {
+				// 忽略创建失败的资产
+				continue
+			}
 		}
 	}
 

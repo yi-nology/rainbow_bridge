@@ -201,7 +201,9 @@ func (s *Service) expandConfigContent(content string, typ string) string {
 	if s == nil || s.basePath == "" || content == "" {
 		return content
 	}
-	if normalizeConfigTypeString(typ) != "config" {
+	normalizedType := normalizeConfigTypeString(typ)
+	// 只有 object 和 keyvalue 类型需要展开嵌套的文件URL
+	if normalizedType != "object" && normalizedType != "keyvalue" {
 		return s.applyFileURLPrefix(content)
 	}
 	var payload any
@@ -302,20 +304,39 @@ func (s *Service) generateFileURL(asset *model.Asset) string {
 }
 
 func normalizeConfigTypeString(t string) string {
-	switch strings.ToLower(strings.TrimSpace(t)) {
-	case "image":
-		return "image"
+	normalized := strings.ToLower(strings.TrimSpace(t))
+	switch normalized {
+	// 直接支持的类型
+	case "text", "textarea", "richtext":
+		return normalized
+	case "number", "decimal":
+		return normalized
+	case "boolean":
+		return normalized
+	case "keyvalue":
+		return normalized
+	case "object":
+		return normalized
+	case "color":
+		return normalized
 	case "file":
-		return "file"
-	case "text", "string", "copy", "文案":
+		return normalized
+	case "image":
+		return normalized
+
+	// 兼容旧的中文别名
+	case "string", "copy", "文案":
 		return "text"
-	case "color", "colour", "color_tag", "color-tag", "色彩", "色彩标签":
+	case "colour", "color_tag", "color-tag", "色彩", "色彩标签":
 		return "color"
 	case "kv", "key-value", "键值对":
-		return "kv"
+		return "keyvalue"
+	case "json", "config":
+		return "object"
 
+	// 默认返回原值(直接透传)
 	default:
-		return "config"
+		return t
 	}
 }
 

@@ -41,6 +41,10 @@ data:
       postgres:
         dsn: "host=postgres user=postgres password=postgres dbname=resource port=5432 sslmode=disable TimeZone=UTC"
 
+    # 内网环境配置
+    intranet:
+      enabled: false  # 设置为 true 时,版本检查接口不请求 GitHub,直接返回内网环境说明
+
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -101,11 +105,11 @@ spec:
       labels:
         app: rainbow-bridge
       annotations:
-        kubectl.kubernetes.io/restartedAt: "2025-11-07T13:28:14+08:00"
+        kubectl.kubernetes.io/restartedAt: "2026-02-11T01:30:00+08:00"
     spec:
       containers:
         - name: rainbow-bridge
-          image: ghcr.io/yi-nology/rainbow_bridge:v0.7.1
+          image: ghcr.io/yi-nology/rainbow_bridge:latest
           imagePullPolicy: Always
           args:
             - "--config"
@@ -126,9 +130,12 @@ spec:
             - name: data
               mountPath: /var/lib/rainbow_bridge
           readinessProbe:
-            # 注意：如果修改 BASE_PATH，需要同步修改此 probe 路径
-            # 默认 BASE_PATH=rainbow-bridge，对应路径 /rainbow-bridge/ping
-            # 如果 BASE_PATH=""，则改为 /ping
+            # 健康检查路径说明：
+            # - 默认 BASE_PATH=/rainbow-bridge，探测路径为 /rainbow-bridge/ping
+            # - 如需修改 BASE_PATH，需同步更新：
+            #   1. Dockerfile 中的 ARG BASE_PATH
+            #   2. 此处的 httpGet.path
+            # - 如果部署在根路径（BASE_PATH=""），探测路径改为 /ping
             httpGet:
               path: /rainbow-bridge/ping
               port: http
@@ -139,7 +146,7 @@ spec:
             successThreshold: 1
             failureThreshold: 3
           livenessProbe:
-            # 注意：如果修改 BASE_PATH，需要同步修改此 probe 路径
+            # 存活探测，配置同 readinessProbe
             httpGet:
               path: /rainbow-bridge/ping
               port: http
@@ -172,30 +179,46 @@ kind: Service
 metadata:
   name: rainbow-bridge
   namespace: rainbow_bridge
+  labels:
+    app: rainbow-bridge
 spec:
-  type: NodePort
+  type: NodePort  # 使用 NodePort 暴露服务，如使用 LoadBalancer 或 ClusterIP 可自行修改
   selector:
     app: rainbow-bridge
   ports:
     - name: http
-      port: 8080
-      targetPort: http
-      nodePort: 32222
+      port: 8080        # Service 端口
+      targetPort: http  # Pod 端口
+      nodePort: 32222   # NodePort 端口，范围 30000-32767
       protocol: TCP
   externalTrafficPolicy: Cluster
   sessionAffinity: None
 
 # ---
+# # Ingress 配置示例（可选）
+# # 取消注释以启用 Ingress，根据实际环境调整配置
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
 #   name: rainbow-bridge
 #   namespace: rainbow_bridge
 #   annotations:
+#     # 根据使用的 Ingress Controller 选择合适的注解
 #     kubernetes.io/ingress.class: nginx
+#     # Nginx Ingress Controller 配置
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+#     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+#     # 如果启用 HTTPS
+#     # cert-manager.io/cluster-issuer: letsencrypt-prod
+#     # nginx.ingress.kubernetes.io/ssl-redirect: "true"
 # spec:
+#   # 如果使用 HTTPS
+#   # tls:
+#   #   - hosts:
+#   #       - rainbow-bridge.example.com
+#   #     secretName: rainbow-bridge-tls
 #   rules:
-#     - host: rainbow-bridge.example.com
+#     - host: rainbow-bridge.example.com  # 修改为实际域名
 #       http:
 #         paths:
 #           - path: /
@@ -204,4 +227,4 @@ spec:
 #               service:
 #                 name: rainbow-bridge
 #                 port:
-#                   number: 80
+#                   number: 8080

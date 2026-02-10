@@ -26,26 +26,31 @@ func _transferMw() []app.HandlerFunc {
 	return nil
 }
 
+//nolint:unused // auto-generated middleware, may be used in future routes
 func _exportMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
+//nolint:unused // auto-generated middleware, may be used in future routes
 func _export0Mw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
+//nolint:unused // auto-generated middleware, may be used in future routes
 func _staticMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
+//nolint:unused // auto-generated middleware, may be used in future routes
 func _exportstaticallMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
+//nolint:unused // auto-generated middleware, may be used in future routes
 func _exportstaticselectedMw() []app.HandlerFunc {
 	// your code...
 	return nil

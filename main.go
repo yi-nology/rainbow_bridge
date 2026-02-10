@@ -154,13 +154,13 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS, basePath string) {
 				data, readErr = fs.ReadFile(fsys, p)
 				if readErr == nil {
 					c.Response.Header.Set("Content-Type", "text/html; charset=utf-8")
-					c.Write(data)
+					_, _ = c.Write(data)
 					return
 				}
 			}
 
 			c.Response.SetStatusCode(404)
-			c.Write([]byte("Not Found"))
+			_, _ = c.Write([]byte("Not Found"))
 			return
 		}
 
@@ -176,7 +176,7 @@ func registerStaticRoutes(h *server.Hertz, fsys fs.FS, basePath string) {
 			c.Response.Header.Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
 
-		c.Write(data)
+		_, _ = c.Write(data)
 	}
 
 	// 注册根路由和通配符路由

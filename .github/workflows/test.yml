@@ -78,6 +78,11 @@ jobs:
         with:
           go-version: '1.23'
       
+      - name: Prepare Test Config
+        run: |
+          cp config.yaml.demo config.yaml
+          mkdir -p data
+      
       - name: Build Backend
         run: |
           go build -o output/local/hertz_service .

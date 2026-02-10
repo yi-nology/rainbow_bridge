@@ -1,6 +1,6 @@
 module github.com/yi-nology/rainbow_bridge
 
-go 1.25
+go 1.23
 
 require (
 	github.com/cloudwego/hertz v0.10.4

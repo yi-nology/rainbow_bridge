@@ -227,14 +227,14 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 		zipPath := path.Join(filesPrefix, asset.FileID, asset.FileName)
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
 		if err != nil {
-			file.Close()
+			closeQuietly(file)
 			return nil, err
 		}
 		if _, err := io.Copy(writer, file); err != nil {
-			file.Close()
+			closeQuietly(file)
 			return nil, err
 		}
-		file.Close()
+		closeQuietly(file)
 	}
 
 	if err := zipWriter.Close(); err != nil {

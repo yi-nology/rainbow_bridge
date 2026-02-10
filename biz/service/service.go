@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,6 +16,13 @@ import (
 
 	"gorm.io/gorm"
 )
+
+// closeQuietly 安静地关闭资源,忽略错误
+func closeQuietly(closer io.Closer) {
+	if closer != nil {
+		_ = closer.Close()
+	}
+}
 
 const (
 	dataDirectory   = "data"

@@ -212,7 +212,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 				return nil, err
 			}
 			payload, err := io.ReadAll(rc)
-			rc.Close()
+			closeQuietly(rc)
 			if err != nil {
 				return nil, err
 			}
@@ -320,7 +320,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 			continue
 		}
 		fileData, err := io.ReadAll(rc)
-		rc.Close()
+		closeQuietly(rc)
 		if err != nil {
 			continue
 		}
@@ -1242,7 +1242,7 @@ func (s *Service) parseZip(data []byte) (map[string]any, error) {
 				return nil, err
 			}
 			payload, err := io.ReadAll(rc)
-			rc.Close()
+			closeQuietly(rc)
 			if err != nil {
 				return nil, err
 			}
@@ -1264,7 +1264,7 @@ func (s *Service) parseTarGz(data []byte) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer gzReader.Close()
+	defer func() { _ = gzReader.Close() }()
 
 	tarReader := tar.NewReader(gzReader)
 	for {
@@ -1409,7 +1409,7 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 				return nil, err
 			}
 			payload, err := io.ReadAll(rc)
-			rc.Close()
+			closeQuietly(rc)
 			if err != nil {
 				return nil, err
 			}
@@ -1529,7 +1529,7 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 			continue
 		}
 		fileData, err := io.ReadAll(rc)
-		rc.Close()
+		closeQuietly(rc)
 		if err != nil {
 			continue
 		}
@@ -1581,7 +1581,7 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 	if err != nil {
 		return nil, err
 	}
-	defer gzReader.Close()
+	defer func() { _ = gzReader.Close() }()
 
 	var allConfigs []*common.ResourceConfig
 	var archiveData map[string]any

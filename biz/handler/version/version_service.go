@@ -138,7 +138,7 @@ func fetchLatestGitHubRelease(ctx context.Context) (*version.GitHubReleaseInfo, 
 	if err != nil {
 		return nil, fmt.Errorf("fetch release: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

@@ -921,11 +921,24 @@ export default function ConfigPage() {
 
   const handleEdit = (config: ConfigItem) => {
     setEditingConfig(config)
+    
+    // 处理 object 类型的格式化
+    let formattedContent = config.content
+    if (config.type === "object" && config.content.trim()) {
+      try {
+        const parsed = JSON.parse(config.content)
+        formattedContent = JSON.stringify(parsed, null, 2)
+      } catch {
+        // JSON 解析失败，保持原样
+        formattedContent = config.content
+      }
+    }
+    
     setFormData({
       name: config.name,
       alias: config.alias,
       type: config.type,
-      content: config.content,
+      content: formattedContent,
     })
     
     // 根据类型初始化特殊状态

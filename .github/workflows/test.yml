@@ -85,7 +85,7 @@ jobs:
       
       - name: Build Backend
         run: |
-          go build -o output/local/hertz_service .
+          BASE_PATH=/rainbow-bridge go build -ldflags "-X main.basePath=/rainbow-bridge" -o rainbow_bridge .
       
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -135,24 +135,32 @@ jobs:
         with:
           go-version: '1.23'
       
+      - name: Prepare Test Config
+        run: |
+          cp config.yaml.demo config.yaml
+          mkdir -p data
+      
       - name: Build and Start Server
         run: |
-          go build -o output/local/hertz_service .
-          ./output/local/hertz_service --config config.yaml &
+          BASE_PATH=/rainbow-bridge go build -ldflags "-X main.basePath=/rainbow-bridge" -o rainbow_bridge .
+          ./rainbow_bridge &
           sleep 5
+          # 验证服务启动
+          curl -f http://localhost:8080/rainbow-bridge/ping || exit 1
       
       - name: Install k6
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /usr/share/keyrings/k6-archive-keyring.list
-          sudo apt-get update
-          sudo apt-get install k6
+          # 使用官方安装脚本，更稳定可靠
+          curl -L https://github.com/grafana/k6/releases/download/v0.48.0/k6-v0.48.0-linux-amd64.tar.gz | tar xvz
+          sudo mv k6-v0.48.0-linux-amd64/k6 /usr/local/bin/
+          k6 version
       
       - name: Run Performance Tests
         run: |
           mkdir -p tests/performance/reports
           k6 run tests/performance/api-load-test.js --out json=tests/performance/reports/results.json
+        env:
+          BASE_PATH: /rainbow-bridge
       
       - name: Upload Performance Results
         uses: actions/upload-artifact@v4

@@ -35,7 +35,7 @@ data:
     database:
       driver: "sqlite"
       sqlite:
-        path: "/var/lib/rainbow_bridge/resource.db"
+        path: "/app/data/resource.db"
       mysql:
         dsn: "user:password@tcp(mysql:3306)/resource?charset=utf8mb4&parseTime=True&loc=Local"
       postgres:
@@ -111,9 +111,11 @@ spec:
         - name: rainbow-bridge
           image: ghcr.io/yi-nology/rainbow_bridge:latest
           imagePullPolicy: Always
-          args:
-            - "--config"
-            - "/etc/rainbow_bridge/config.yaml"
+          # 注意：容器 ENTRYPOINT 已包含 --config 参数，无需在此指定
+          # 如需覆盖配置文件路径，可取消注释以下 args
+          # args:
+          #   - "--config"
+          #   - "/app/config.yaml"
           ports:
             - containerPort: 8080
               name: http
@@ -125,10 +127,10 @@ spec:
             #   value: sqlite
           volumeMounts:
             - name: config
-              mountPath: /etc/rainbow_bridge/config.yaml
+              mountPath: /app/config.yaml
               subPath: config.yaml
             - name: data
-              mountPath: /var/lib/rainbow_bridge
+              mountPath: /app/data
           readinessProbe:
             # 健康检查路径说明：
             # - 默认 BASE_PATH=/rainbow-bridge，探测路径为 /rainbow-bridge/ping

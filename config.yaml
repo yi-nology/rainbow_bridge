@@ -14,4 +14,4 @@ database:
 
 # 内网环境配置
 intranet:
-  enabled: false  # 设置为 true 时,版本检查接口不请求 GitHub,直接返回内网环境说明
+  enabled: true  # 设置为 true 时,版本检查接口不请求 GitHub,直接返回内网环境说明

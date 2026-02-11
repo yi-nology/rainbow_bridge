@@ -83,6 +83,33 @@ export function handleSummary(data) {
 
 function htmlReport(data) {
   const results = data.metrics;
+  
+  // 安全获取嵌套属性的辅助函数
+  const safeGet = (obj, path, defaultValue = 'N/A') => {
+    try {
+      const value = path.split('.').reduce((acc, part) => acc && acc[part], obj);
+      return value !== undefined && value !== null ? value : defaultValue;
+    } catch (e) {
+      return defaultValue;
+    }
+  };
+  
+  const formatNumber = (value, decimals = 2) => {
+    if (typeof value === 'number') {
+      return value.toFixed(decimals);
+    }
+    return value;
+  };
+  
+  // 获取指标值
+  const p95Duration = formatNumber(safeGet(results, "http_req_duration.values.p(95)"));
+  const avgDuration = formatNumber(safeGet(results, "http_req_duration.values.avg"));
+  const totalRequests = safeGet(results, "http_reqs.values.count", 0);
+  const requestRate = formatNumber(safeGet(results, "http_reqs.values.rate"));
+  const errorRate = safeGet(results, "errors.values.rate", 0);
+  const errorRatePercent = formatNumber(errorRate * 100);
+  const errorClass = errorRate < 0.1 ? 'pass' : 'fail';
+  
   return `
 <!DOCTYPE html>
 <html>
@@ -111,24 +138,24 @@ function htmlReport(data) {
     </tr>
     <tr>
       <td>HTTP Request Duration (p95)</td>
-      <td>${results.http_req_duration?.values['p(95)']?.toFixed(2) || 'N/A'} ms</td>
+      <td>${p95Duration} ms</td>
     </tr>
     <tr>
       <td>HTTP Request Duration (avg)</td>
-      <td>${results.http_req_duration?.values?.avg?.toFixed(2) || 'N/A'} ms</td>
+      <td>${avgDuration} ms</td>
     </tr>
     <tr>
       <td>HTTP Requests Total</td>
-      <td>${results.http_reqs?.values?.count || 'N/A'}</td>
+      <td>${totalRequests}</td>
     </tr>
     <tr>
       <td>HTTP Request Rate</td>
-      <td>${results.http_reqs?.values?.rate?.toFixed(2) || 'N/A'} req/s</td>
+      <td>${requestRate} req/s</td>
     </tr>
     <tr>
       <td>Error Rate</td>
-      <td class="${(results.errors?.values?.rate || 0) < 0.1 ? 'pass' : 'fail'}">
-        ${((results.errors?.values?.rate || 0) * 100).toFixed(2)}%
+      <td class="${errorClass}">
+        ${errorRatePercent}%
       </td>
     </tr>
   </table>

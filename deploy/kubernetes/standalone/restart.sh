@@ -19,7 +19,8 @@ usage() {
 
 选项:
   -n, --namespace <name>  指定 namespace（跳过交互式选择）
-  -f, --force            强制重启（无需确认）
+  -f, --force            强制滚动重启（无需确认，默认使用滚动重启）
+  -y, --yes              跳过确认提示（同 --force）
   -h, --help             显示此帮助信息
 
 重启方式:
@@ -29,7 +30,8 @@ usage() {
 示例:
   $(basename "$0")                    # 交互式选择 namespace
   $(basename "$0") -n production      # 重启 production namespace 下的服务
-  $(basename "$0") -n test --force    # 强制重启，无需确认
+  $(basename "$0") -n test --force    # 强制滚动重启，无需确认
+  $(basename "$0") -n dev -y          # 跳过确认，直接滚动重启
   NAMESPACE=dev $(basename "$0")      # 使用环境变量指定 namespace
 EOF
 }
@@ -44,7 +46,7 @@ while [[ $# -gt 0 ]]; do
       NAMESPACE="$2"
       shift 2
       ;;
-    -f|--force)
+    -f|--force|-y|--yes)
       FORCE_RESTART=true
       shift
       ;;
@@ -259,3 +261,5 @@ echo -e "\n  查看 Deployment 详情:"
 echo -e "    ${BLUE}kubectl describe deployment/rainbow-bridge -n ${NAMESPACE}${NC}"
 echo -e "\n  查看滚动更新历史:"
 echo -e "    ${BLUE}kubectl rollout history deployment/rainbow-bridge -n ${NAMESPACE}${NC}"
+echo -e "\n  销毁部署:"
+echo -e "    ${BLUE}${SCRIPT_DIR}/destroy.sh -n ${NAMESPACE}${NC}"

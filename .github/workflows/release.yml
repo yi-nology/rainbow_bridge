@@ -99,6 +99,8 @@ jobs:
             -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.BasePath=${{ env.BASE_PATH }}'" \
             -o "$OUTPUT_DIR/${{ env.RUN_NAME }}${{ matrix.bin_ext }}" .
           cp config.yaml "$OUTPUT_DIR/config.yaml"
+          # 复制部署文件
+          cp -r deploy "$OUTPUT_DIR/deploy"
 
       - name: Package artifact
         run: |

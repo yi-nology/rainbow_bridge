@@ -1,30 +1,42 @@
 # Rainbow Bridge Kubernetes deployment manifests
 #
-# This file defines the core resources required to run the rainbow_bridge
-# service on a Kubernetes cluster. It includes:
-# - Namespace (optional, remove if you deploy into an existing namespace)
-# - ConfigMap (application configuration)
-# - PersistentVolumeClaim (for SQLite database & uploaded assets)
-# - Deployment (application pods)
-# - Service (cluster-internal exposure)
-# - Ingress (optional, comment out or customise to match your ingress class)
+# 此文件定义了在 Kubernetes 集群上运行 rainbow_bridge 服务所需的资源。
+# 支持多环境部署：不同 namespace 可以独立部署互不干扰。
 #
-# Apply with: kubectl apply -f deploy/kubernetes/rainbow-bridge.yaml
-# Ensure the image reference points to a published container image, e.g.
-# ghcr.io/yi-nology/rainbow_bridge:latest
+# 资源说明：
+# - Namespace: 动态创建，由部署脚本替换占位符
+# - ConfigMap: 应用配置
+# - PersistentVolume/PVC: 数据持久化（按 namespace 隔离）
+# - Deployment: 应用 Pod
+# - Service: 服务暴露（ClusterIP，避免 NodePort 冲突）
+#
+# 使用方式：
+#   ./deploy.sh -n <namespace>       # 部署到指定 namespace
+#   ./destroy.sh -n <namespace>      # 销毁指定 namespace 的部署
+#   ./restart.sh -n <namespace>      # 重启指定 namespace 的服务
+#
+# 占位符说明（由部署脚本自动替换）：
+#   __NAMESPACE__    - 目标 namespace 名称
+#   __NODE_PORT__    - NodePort 端口（可选，仅当使用 NodePort 时）
+#   __PV_HOST_PATH__ - PV 的 hostPath 路径
 
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: rainbow_bridge
+  name: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: rainbow-bridge
+    app.kubernetes.io/managed-by: deploy-script
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: rainbow-bridge-config
-  namespace: rainbow_bridge
+  namespace: __NAMESPACE__
+  labels:
+    app: rainbow-bridge
 data:
   config.yaml: |
     server:
@@ -46,48 +58,73 @@ data:
       enabled: false  # 设置为 true 时,版本检查接口不请求 GitHub,直接返回内网环境说明
 
 ---
+# StorageClass（集群级别资源，仅首次部署时创建）
+# 如果集群已有 StorageClass，可以删除此部分并修改 PVC 的 storageClassName
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: local-storage
+  name: rainbow-bridge-local-storage
+  labels:
+    app: rainbow-bridge
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
 
 ---
+# PersistentVolume（按 namespace 隔离，名称包含 namespace 后缀）
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: pv-rainbow-bridge
+  name: pv-rainbow-bridge-__NAMESPACE__
+  labels:
+    app: rainbow-bridge
+    namespace: __NAMESPACE__
 spec:
   capacity:
     storage: 5Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-storage
+  storageClassName: rainbow-bridge-local-storage
   hostPath:
-    path: /mnt/data/rainbow-data
+    path: __PV_HOST_PATH__
+  # 通过 nodeAffinity 确保 PV 绑定到正确的节点（可选）
+  # nodeAffinity:
+  #   required:
+  #     nodeSelectorTerms:
+  #       - matchExpressions:
+  #           - key: kubernetes.io/hostname
+  #             operator: In
+  #             values:
+  #               - <node-name>
 
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: rainbow-bridge-data
-  namespace: rainbow_bridge
+  namespace: __NAMESPACE__
+  labels:
+    app: rainbow-bridge
 spec:
-  storageClassName: local-storage
+  storageClassName: rainbow-bridge-local-storage
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
+  # 指定绑定到对应 namespace 的 PV
+  selector:
+    matchLabels:
+      namespace: __NAMESPACE__
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rainbow-bridge
-  namespace: rainbow_bridge
+  namespace: __NAMESPACE__
+  labels:
+    app: rainbow-bridge
 spec:
   replicas: 1
   revisionHistoryLimit: 10
@@ -105,26 +142,20 @@ spec:
       labels:
         app: rainbow-bridge
       annotations:
-        kubectl.kubernetes.io/restartedAt: "2026-02-11T01:30:00+08:00"
+        kubectl.kubernetes.io/restartedAt: ""
     spec:
       containers:
         - name: rainbow-bridge
           image: ghcr.io/yi-nology/rainbow_bridge:latest
           imagePullPolicy: Always
-          # 注意：容器 ENTRYPOINT 已包含 --config 参数，无需在此指定
-          # 如需覆盖配置文件路径，可取消注释以下 args
-          # args:
-          #   - "--config"
-          #   - "/app/config.yaml"
           ports:
             - containerPort: 8080
               name: http
           env:
             - name: TZ
               value: Asia/Shanghai
-            # Expose database driver override via env if needed.
-            # - name: RB_DATABASE_DRIVER
-            #   value: sqlite
+            - name: NAMESPACE
+              value: __NAMESPACE__
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
@@ -132,12 +163,6 @@ spec:
             - name: data
               mountPath: /app/data
           readinessProbe:
-            # 健康检查路径说明：
-            # - 默认 BASE_PATH=/rainbow-bridge，探测路径为 /rainbow-bridge/ping
-            # - 如需修改 BASE_PATH，需同步更新：
-            #   1. Dockerfile 中的 ARG BASE_PATH
-            #   2. 此处的 httpGet.path
-            # - 如果部署在根路径（BASE_PATH=""），探测路径改为 /ping
             httpGet:
               path: /rainbow-bridge/ping
               port: http
@@ -148,7 +173,6 @@ spec:
             successThreshold: 1
             failureThreshold: 3
           livenessProbe:
-            # 存活探测，配置同 readinessProbe
             httpGet:
               path: /rainbow-bridge/ping
               port: http
@@ -176,25 +200,24 @@ spec:
             claimName: rainbow-bridge-data
 
 ---
+# Service（默认使用 ClusterIP，避免多环境 NodePort 冲突）
+# 如需 NodePort，使用 deploy.sh --node-port <port> 参数
 apiVersion: v1
 kind: Service
 metadata:
   name: rainbow-bridge
-  namespace: rainbow_bridge
+  namespace: __NAMESPACE__
   labels:
     app: rainbow-bridge
 spec:
-  type: NodePort  # 使用 NodePort 暴露服务，如使用 LoadBalancer 或 ClusterIP 可自行修改
+  type: ClusterIP
   selector:
     app: rainbow-bridge
   ports:
     - name: http
-      port: 8080        # Service 端口
-      targetPort: http  # Pod 端口
-      nodePort: 32222   # NodePort 端口，范围 30000-32767
+      port: 8080
+      targetPort: http
       protocol: TCP
-  externalTrafficPolicy: Cluster
-  sessionAffinity: None
 
 # ---
 # # Ingress 配置示例（可选）
@@ -203,24 +226,14 @@ spec:
 # kind: Ingress
 # metadata:
 #   name: rainbow-bridge
-#   namespace: rainbow_bridge
+#   namespace: __NAMESPACE__
 #   annotations:
-#     # 根据使用的 Ingress Controller 选择合适的注解
 #     kubernetes.io/ingress.class: nginx
-#     # Nginx Ingress Controller 配置
 #     nginx.ingress.kubernetes.io/rewrite-target: /
 #     nginx.ingress.kubernetes.io/ssl-redirect: "false"
-#     # 如果启用 HTTPS
-#     # cert-manager.io/cluster-issuer: letsencrypt-prod
-#     # nginx.ingress.kubernetes.io/ssl-redirect: "true"
 # spec:
-#   # 如果使用 HTTPS
-#   # tls:
-#   #   - hosts:
-#   #       - rainbow-bridge.example.com
-#   #     secretName: rainbow-bridge-tls
 #   rules:
-#     - host: rainbow-bridge.example.com  # 修改为实际域名
+#     - host: rainbow-bridge.example.com
 #       http:
 #         paths:
 #           - path: /

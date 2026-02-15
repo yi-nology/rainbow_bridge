@@ -1,23 +1,51 @@
 # Rainbow Bridge Docker Compose 部署方案
 
-本目录提供了多种数据库和存储方案的 Docker Compose 部署配置：
+本目录提供了多种数据库和存储方案的 Docker Compose 部署配置。
+
+## 📁 目录结构
+
+```
+deploy/docker-compose/
+├── sqlite/                  # SQLite 方案（最简单）
+│   ├── docker-compose.yaml
+│   └── config.yaml
+├── mysql/                   # MySQL 方案
+│   ├── docker-compose.yaml
+│   ├── config.yaml
+│   └── init-mysql.sql
+├── postgres/                # PostgreSQL 方案
+│   ├── docker-compose.yaml
+│   ├── config.yaml
+│   └── init-postgres.sql
+├── pgsql-minio/             # PostgreSQL + MinIO 单节点
+│   ├── docker-compose.yaml
+│   ├── config.yaml
+│   └── init-postgres.sql
+├── minio-cluster/           # MinIO 4节点集群 + PostgreSQL
+│   ├── docker-compose.yaml
+│   ├── config.yaml
+│   └── nginx-minio.conf
+├── docker-compose.yaml      # 默认配置（SQLite）
+├── config.yaml              # 默认配置文件
+└── README.md
+```
 
 ## 📦 方案概览
 
 ### 数据库方案
 
-| 方案 | 文件 | 数据库 | 特点 | 推荐场景 |
-|------|------|--------|------|---------||
-| **SQLite** | `docker-compose.sqlite.yaml` | 内置 SQLite | 零依赖、单容器、轻量级 | 个人使用、测试环境、小规模部署 |
-| **MySQL** | `docker-compose.mysql.yaml` | MySQL 8.0 | 成熟稳定、生态丰富 | 中小型生产环境 |
-| **PostgreSQL** | `docker-compose.postgres.yaml` | PostgreSQL 16 | 功能强大、高性能 | 大型生产环境、复杂查询场景 |
+| 方案 | 目录 | 数据库 | 特点 | 推荐场景 |
+|------|------|--------|------|----------|
+| **SQLite** | `sqlite/` | 内置 SQLite | 零依赖、单容器、轻量级 | 个人使用、测试环境、小规模部署 |
+| **MySQL** | `mysql/` | MySQL 8.0 | 成熟稳定、生态丰富 | 中小型生产环境 |
+| **PostgreSQL** | `postgres/` | PostgreSQL 16 | 功能强大、高性能 | 大型生产环境、复杂查询场景 |
 
 ### 对象存储方案
 
-| 方案 | 文件 | 存储 | 特点 | 推荐场景 |
-|------|------|------|------|---------||
-| **MinIO 单节点** | `docker-compose.minio.yaml` | MinIO + PostgreSQL | S3 兼容、易部署 | 中型生产环境、云原生应用 |
-| **MinIO 集群** | `docker-compose.minio-cluster.yaml` | MinIO 4节点集群 + Nginx | 高可用、数据冗余、负载均衡 | 大型生产环境、企业级应用 |
+| 方案 | 目录 | 存储 | 特点 | 推荐场景 |
+|------|------|------|------|----------|
+| **MinIO 单节点** | `pgsql-minio/` | MinIO + PostgreSQL | S3 兼容、易部署 | 中型生产环境、云原生应用 |
+| **MinIO 集群** | `minio-cluster/` | MinIO 4节点集群 + Nginx | 高可用、数据冗余、负载均衡 | 大型生产环境、企业级应用 |
 
 ---
 
@@ -32,13 +60,13 @@
 
 **启动命令：**
 ```bash
-cd deploy/docker-compose
-docker compose -f docker-compose.sqlite.yaml up -d
+cd deploy/docker-compose/sqlite
+docker compose up -d
 ```
 
 **停止命令：**
 ```bash
-docker compose -f docker-compose.sqlite.yaml down
+docker compose down
 ```
 
 **数据备份：**
@@ -59,22 +87,22 @@ docker run --rm -v rainbow_bridge_data:/data -v $(pwd):/backup alpine \
 
 **启动命令：**
 ```bash
-cd deploy/docker-compose
-docker compose -f docker-compose.mysql.yaml up -d
+cd deploy/docker-compose/mysql
+docker compose up -d
 ```
 
 **停止命令：**
 ```bash
-docker compose -f docker-compose.mysql.yaml down
+docker compose down
 ```
 
 **查看日志：**
 ```bash
 # 查看应用日志
-docker compose -f docker-compose.mysql.yaml logs -f rainbow-bridge
+docker compose logs -f rainbow-bridge
 
 # 查看数据库日志
-docker compose -f docker-compose.mysql.yaml logs -f mysql
+docker compose logs -f mysql
 ```
 
 **连接数据库：**
@@ -89,14 +117,14 @@ docker exec -it rainbow-bridge-mysql mysql -u rainbow_bridge -prainbow_bridge_pa
 
 **修改密码：**
 
-编辑 `docker-compose.mysql.yaml` 和 `config.mysql.yaml` 中的密码：
+编辑 `docker-compose.yaml` 和 `config.yaml` 中的密码：
 
-1. `docker-compose.mysql.yaml`:
+1. `docker-compose.yaml`:
    ```yaml
    MYSQL_PASSWORD: 你的新密码
    ```
 
-2. `config.mysql.yaml`:
+2. `config.yaml`:
    ```yaml
    dsn: "rainbow_bridge:你的新密码@tcp(mysql:3306)/..."
    ```
@@ -121,22 +149,22 @@ docker exec -i rainbow-bridge-mysql mysql -u rainbow_bridge -prainbow_bridge_pas
 
 **启动命令：**
 ```bash
-cd deploy/docker-compose
-docker compose -f docker-compose.postgres.yaml up -d
+cd deploy/docker-compose/postgres
+docker compose up -d
 ```
 
 **停止命令：**
 ```bash
-docker compose -f docker-compose.postgres.yaml down
+docker compose down
 ```
 
 **查看日志：**
 ```bash
 # 查看应用日志
-docker compose -f docker-compose.postgres.yaml logs -f rainbow-bridge
+docker compose logs -f rainbow-bridge
 
 # 查看数据库日志
-docker compose -f docker-compose.postgres.yaml logs -f postgres
+docker compose logs -f postgres
 ```
 
 **连接数据库：**
@@ -151,14 +179,14 @@ docker exec -it rainbow-bridge-postgres psql -U rainbow_bridge -d rainbow_bridge
 
 **修改密码：**
 
-编辑 `docker-compose.postgres.yaml` 和 `config.postgres.yaml` 中的密码：
+编辑 `docker-compose.yaml` 和 `config.yaml` 中的密码：
 
-1. `docker-compose.postgres.yaml`:
+1. `docker-compose.yaml`:
    ```yaml
    POSTGRES_PASSWORD: 你的新密码
    ```
 
-2. `config.postgres.yaml`:
+2. `config.yaml`:
    ```yaml
    dsn: "host=postgres user=rainbow_bridge password=你的新密码 ..."
    ```
@@ -174,7 +202,7 @@ docker exec -i rainbow-bridge-postgres psql -U rainbow_bridge rainbow_bridge < b
 
 ---
 
-### 方案四：MinIO 单节点（推荐云原生）
+### 方案四：PostgreSQL + MinIO 单节点（推荐云原生）
 
 **特点：**
 - ✅ S3 兼容对象存储
@@ -184,13 +212,13 @@ docker exec -i rainbow-bridge-postgres psql -U rainbow_bridge rainbow_bridge < b
 
 **启动命令：**
 ```bash
-cd deploy/docker-compose
-docker compose -f docker-compose.minio.yaml up -d
+cd deploy/docker-compose/pgsql-minio
+docker compose up -d
 ```
 
 **停止命令：**
 ```bash
-docker compose -f docker-compose.minio.yaml down
+docker compose down
 ```
 
 **访问 MinIO 控制台：**
@@ -207,9 +235,9 @@ http://localhost:9000
 
 **修改密码：**
 
-编辑 `docker-compose.minio.yaml` 和 `config.minio.yaml` 中的密码：
+编辑 `docker-compose.yaml` 和 `config.yaml` 中的密码：
 
-1. `docker-compose.minio.yaml`:
+1. `docker-compose.yaml`:
    ```yaml
    # MinIO 服务
    MINIO_ROOT_USER: 你的用户名
@@ -220,7 +248,7 @@ http://localhost:9000
    MINIO_SECRET_KEY: 你的新密码
    ```
 
-2. `config.minio.yaml`:
+2. `config.yaml`:
    ```yaml
    storage:
      minio:
@@ -252,25 +280,25 @@ docker run --rm -v rainbow-bridge_minio_data:/data -v $(pwd):/backup alpine \
 
 **启动命令：**
 ```bash
-cd deploy/docker-compose
-docker compose -f docker-compose.minio-cluster.yaml up -d
+cd deploy/docker-compose/minio-cluster
+docker compose up -d
 ```
 
 **停止命令：**
 ```bash
-docker compose -f docker-compose.minio-cluster.yaml down
+docker compose down
 ```
 
 **查看集群状态：**
 ```bash
 # 查看所有容器状态
-docker compose -f docker-compose.minio-cluster.yaml ps
+docker compose ps
 
 # 查看单个节点日志
-docker compose -f docker-compose.minio-cluster.yaml logs minio1
+docker compose logs minio1
 
 # 查看 Nginx 负载均衡器日志
-docker compose -f docker-compose.minio-cluster.yaml logs nginx
+docker compose logs nginx
 ```
 
 **访问 MinIO 控制台：**
@@ -310,28 +338,6 @@ done
 
 ## 🔧 配置说明
 
-### 文件结构
-
-```
-deploy/docker-compose/
-├── docker-compose.yaml                # 默认配置（SQLite）
-├── docker-compose.sqlite.yaml         # SQLite 方案
-├── docker-compose.mysql.yaml          # MySQL 方案
-├── docker-compose.postgres.yaml       # PostgreSQL 方案
-├── docker-compose.minio.yaml          # MinIO 单节点方案
-├── docker-compose.minio-cluster.yaml  # MinIO 分布式集群方案
-├── config.yaml                        # 默认配置
-├── config.sqlite.yaml                 # SQLite 配置
-├── config.mysql.yaml                  # MySQL 配置
-├── config.postgres.yaml               # PostgreSQL 配置
-├── config.minio.yaml                  # MinIO 单节点配置
-├── config.minio-cluster.yaml          # MinIO 集群配置
-├── init-mysql.sql                     # MySQL 初始化脚本
-├── init-postgres.sql                  # PostgreSQL 初始化脚本
-├── nginx-minio.conf                   # MinIO 负载均衡配置
-└── README.md                          # 本文档
-```
-
 ### 端口说明
 
 | 服务 | 端口 | 说明 |
@@ -367,11 +373,12 @@ deploy/docker-compose/
 ### 在不同方案间切换
 
 ```bash
-# 停止当前方案
-docker compose -f docker-compose.sqlite.yaml down
+# 停止当前方案（在对应目录下）
+docker compose down
 
-# 启动新方案
-docker compose -f docker-compose.mysql.yaml up -d
+# 切换到其他方案目录
+cd ../mysql  # 或 ../postgres, ../pgsql-minio 等
+docker compose up -d
 ```
 
 ---
@@ -444,20 +451,22 @@ command:
 ### 检查容器状态
 
 ```bash
-docker compose -f docker-compose.mysql.yaml ps
+# 进入对应方案目录
+cd deploy/docker-compose/mysql  # 或其他方案目录
+docker compose ps
 ```
 
 ### 查看容器日志
 
 ```bash
 # 查看所有日志
-docker compose -f docker-compose.mysql.yaml logs
+docker compose logs
 
 # 实时查看日志
-docker compose -f docker-compose.mysql.yaml logs -f
+docker compose logs -f
 
 # 查看特定服务日志
-docker compose -f docker-compose.mysql.yaml logs rainbow-bridge
+docker compose logs rainbow-bridge
 ```
 
 ### 健康检查
@@ -504,14 +513,17 @@ docker compose -f docker-compose.mysql.yaml logs mysql
 **Q: 如何清空数据重新开始**
 ```bash
 A: 删除 volumes
+# 进入对应方案目录
+cd deploy/docker-compose/mysql  # 或其他方案目录
+
 # 停止容器
-docker compose -f docker-compose.mysql.yaml down
+docker compose down
 
 # 删除 volumes（⚠️ 会删除所有数据）
-docker compose -f docker-compose.mysql.yaml down -v
+docker compose down -v
 
 # 重新启动
-docker compose -f docker-compose.mysql.yaml up -d
+docker compose up -d
 ```
 
 ---

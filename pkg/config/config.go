@@ -17,6 +17,15 @@ type Config struct {
 	CORS     CORSConfig     `yaml:"cors"`
 	Upload   UploadConfig   `yaml:"upload"`
 	Intranet IntranetConfig `yaml:"intranet"`
+	Redis    RedisConfig    `yaml:"redis"`
+}
+
+// RedisConfig defines Redis connection settings for distributed locking.
+type RedisConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Address  string `yaml:"address"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 // CORSConfig defines CORS middleware settings.

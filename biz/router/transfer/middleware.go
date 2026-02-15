@@ -4,6 +4,7 @@ package transfer
 
 import (
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/yi-nology/rainbow_bridge/biz/middleware"
 )
 
 func rootMw() []app.HandlerFunc {
@@ -57,18 +58,15 @@ func _exportstaticselectedMw() []app.HandlerFunc {
 }
 
 func _importMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }
 
 func _migrateMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }
 
 func _exportselectiveMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }
 
 func _exporttreeMw() []app.HandlerFunc {
@@ -77,11 +75,9 @@ func _exporttreeMw() []app.HandlerFunc {
 }
 
 func _importpreviewMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }
 
 func _importselectiveMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }

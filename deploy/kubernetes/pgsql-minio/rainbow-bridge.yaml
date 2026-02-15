@@ -509,7 +509,7 @@ spec:
               memory: 32Mi
       containers:
         - name: rainbow-bridge
-          image: ghcr.io/yi-nology/rainbow_bridge:latest
+          image: ghcr.io/yi-nology/rainbow_bridge-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -577,25 +577,168 @@ spec:
       targetPort: http
       protocol: TCP
 
-# ---
-# # Ingress 配置示例（可选）
-# apiVersion: networking.k8s.io/v1
-# kind: Ingress
-# metadata:
-#   name: rainbow-bridge
-#   namespace: __NAMESPACE__
-#   annotations:
-#     kubernetes.io/ingress.class: nginx
-#     nginx.ingress.kubernetes.io/rewrite-target: /
-# spec:
-#   rules:
-#     - host: rainbow-bridge.example.com
-#       http:
-#         paths:
-#           - path: /
-#             pathType: Prefix
-#             backend:
-#               service:
-#                 name: rainbow-bridge
-#                 port:
-#                   number: 8080
+---
+# ============================================
+# Nginx 前端配置
+# ============================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rainbow-bridge-nginx-config
+  namespace: __NAMESPACE__
+  labels:
+    app: rainbow-bridge
+    component: frontend
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html;
+
+        gzip on;
+        gzip_comp_level 6;
+        gzip_min_length 10k;
+        gzip_types text/plain text/css text/javascript
+                   application/javascript application/json
+                   application/xml image/svg+xml;
+        gzip_vary on;
+
+        client_max_body_size 100M;
+
+        location /rainbow-bridge/api/ {
+            proxy_pass http://rainbow-bridge:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 300s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
+        }
+
+        location /rainbow-bridge/ping {
+            proxy_pass http://rainbow-bridge:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /rainbow-bridge/_next/static/ {
+            expires max;
+            add_header Cache-Control "public, max-age=31536000, immutable";
+        }
+
+        location /rainbow-bridge/ {
+            try_files $uri $uri.html $uri/ /rainbow-bridge/index.html;
+        }
+
+        location / {
+            return 302 /rainbow-bridge/;
+        }
+    }
+
+---
+# ============================================
+# Frontend (Nginx) Deployment
+# ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rainbow-bridge-frontend
+  namespace: __NAMESPACE__
+  labels:
+    app: rainbow-bridge
+    component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rainbow-bridge
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: rainbow-bridge
+        component: frontend
+    spec:
+      initContainers:
+        - name: wait-api
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for API service..."
+              until nc -z rainbow-bridge 8080; do
+                echo "API is not ready, waiting..."
+                sleep 2
+              done
+              echo "API is ready!"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      containers:
+        - name: frontend
+          image: ghcr.io/yi-nology/rainbow_bridge-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          readinessProbe:
+            httpGet:
+              path: /rainbow-bridge/
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /rainbow-bridge/
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: rainbow-bridge-nginx-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rainbow-bridge-frontend
+  namespace: __NAMESPACE__
+  labels:
+    app: rainbow-bridge
+    component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: rainbow-bridge
+    component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

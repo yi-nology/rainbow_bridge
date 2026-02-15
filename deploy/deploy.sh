@@ -194,7 +194,7 @@ deploy_docker_compose() {
   docker compose ps
   
   echo -e "\n${GREEN}访问地址:${NC}"
-  echo -e "  ${BLUE}http://localhost:8080/rainbow-bridge/${NC}"
+  echo -e "  ${BLUE}http://localhost/rainbow-bridge/${NC}"
   
   if [[ "$DC_MODE" == "pgsql-minio" ]] || [[ "$DC_MODE" == "minio-cluster" ]]; then
     echo -e "\n${GREEN}MinIO 控制台:${NC}"
@@ -204,9 +204,11 @@ deploy_docker_compose() {
   fi
   
   echo -e "\n${GREEN}常用命令:${NC}"
-  echo -e "  查看日志:  ${BLUE}cd ${DC_DIR} && docker compose logs -f${NC}"
-  echo -e "  停止服务:  ${BLUE}cd ${DC_DIR} && docker compose down${NC}"
-  echo -e "  重启服务:  ${BLUE}cd ${DC_DIR} && docker compose restart${NC}"
+  echo -e "  查看API日志:   ${BLUE}cd ${DC_DIR} && docker compose logs -f rainbow-bridge-api${NC}"
+  echo -e "  查看前端日志:  ${BLUE}cd ${DC_DIR} && docker compose logs -f rainbow-bridge-frontend${NC}"
+  echo -e "  查看全部日志:  ${BLUE}cd ${DC_DIR} && docker compose logs -f${NC}"
+  echo -e "  停止服务:      ${BLUE}cd ${DC_DIR} && docker compose down${NC}"
+  echo -e "  重启服务:      ${BLUE}cd ${DC_DIR} && docker compose restart${NC}"
 }
 
 # Docker Compose 销毁

@@ -4,6 +4,7 @@ package pipeline
 
 import (
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/yi-nology/rainbow_bridge/biz/middleware"
 )
 
 func rootMw() []app.HandlerFunc {
@@ -27,13 +28,11 @@ func _pipelineMw() []app.HandlerFunc {
 }
 
 func _createMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }
 
 func _deleteMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }
 
 func _detailMw() []app.HandlerFunc {
@@ -47,6 +46,5 @@ func _listMw() []app.HandlerFunc {
 }
 
 func _updateMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }

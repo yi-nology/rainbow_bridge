@@ -15,3 +15,11 @@ database:
 # 内网环境配置
 intranet:
   enabled: true  # 设置为 true 时,版本检查接口不请求 GitHub,直接返回内网环境说明
+
+# Redis 分布式写锁配置
+# 启用后所有写操作(创建/更新/删除)通过 Redis 排他锁串行化
+redis:
+  enabled: false
+  address: "localhost:6379"
+  password: ""
+  db: 0

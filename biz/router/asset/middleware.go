@@ -4,6 +4,7 @@ package asset
 
 import (
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/yi-nology/rainbow_bridge/biz/middleware"
 )
 
 func rootMw() []app.HandlerFunc {
@@ -32,8 +33,7 @@ func _listMw() []app.HandlerFunc {
 }
 
 func _uploadMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	return middleware.WriteLockMw()
 }
 
 func _fileMw() []app.HandlerFunc {

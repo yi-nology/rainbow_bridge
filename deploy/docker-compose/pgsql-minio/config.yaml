@@ -23,6 +23,12 @@ upload:
   path: "/var/lib/rainbow_bridge/uploads"
   max_size: 10485760  # 10MB
 
+redis:
+  enabled: true
+  address: "redis:6379"
+  password: ""
+  db: 0
+
 log:
   level: "info"
   output: "stdout"

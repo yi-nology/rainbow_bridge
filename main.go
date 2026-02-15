@@ -4,15 +4,9 @@ package main
 
 import (
 	"context"
-	"embed"
-	"io/fs"
 	"log"
-	"mime"
-	"path"
-	"path/filepath"
-	"strings"
+	"time"
 
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	hconfig "github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
@@ -22,10 +16,9 @@ import (
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
+	"github.com/yi-nology/rainbow_bridge/pkg/lock"
+	appredis "github.com/yi-nology/rainbow_bridge/pkg/redis"
 )
-
-//go:embed all:web
-var embeddedWeb embed.FS
 
 var (
 	// Version information, injected at build time
@@ -61,6 +54,18 @@ func main() {
 		log.Fatalf("seed system defaults: %v", err)
 	}
 
+	// Initialize Redis distributed write lock (optional)
+	if cfg.Redis.Enabled {
+		redisClient, redisErr := appredis.NewClient(cfg.Redis)
+		if redisErr != nil {
+			log.Fatalf("connect redis: %v", redisErr)
+		}
+		defer redisClient.Close()
+		writeLock := lock.New(redisClient, "rainbow_bridge:write_lock", 30*time.Second, 60*time.Second)
+		middleware.InitWriteLock(writeLock)
+		log.Printf("Redis distributed write lock enabled (%s)", cfg.Redis.Address)
+	}
+
 	// Use build-time injected BasePath instead of config file
 	basePath := appconfig.NormalizeBasePath(BasePath)
 	opts := []hconfig.Option{server.WithHostPorts(cfg.Server.Address)}
@@ -93,93 +98,10 @@ func main() {
 	// Register all routes
 	register(h)
 
-	webFS, err := fs.Sub(embeddedWeb, "web")
-	if err != nil {
-		log.Fatalf("prepare web assets: %v", err)
-	}
-	registerStaticRoutes(h, webFS, basePath)
-
 	if basePath != "" {
 		log.Printf("server listening at %s with base path %s", cfg.Server.Address, basePath)
 	} else {
 		log.Printf("server listening at %s", cfg.Server.Address)
 	}
 	h.Spin()
-}
-
-func registerStaticRoutes(h *server.Hertz, fsys fs.FS, basePath string) {
-	baseDir := strings.TrimPrefix(basePath, "/")
-
-	// SPA 静态文件处理器 - 使用通配符路由
-	staticHandler := func(ctx context.Context, c *app.RequestContext) {
-		// 请求路径（已去掉 BasePath）
-		reqPath := string(c.Param("filepath"))
-		if reqPath == "" || reqPath == "/" {
-			reqPath = "index.html"
-		}
-		// 去掉开头的 /
-		reqPath = strings.TrimPrefix(reqPath, "/")
-
-		// 构造候选的静态资源路径：优先尝试带 baseDir 前缀，其次尝试不带前缀
-		candidates := []string{reqPath}
-		if baseDir != "" {
-			candidates = append([]string{path.Join(baseDir, reqPath)}, candidates...)
-		}
-
-		var (
-			data    []byte
-			readErr error
-			fsPath  string
-		)
-
-		for _, p := range candidates {
-			if p == "" {
-				continue
-			}
-			data, readErr = fs.ReadFile(fsys, p)
-			if readErr == nil {
-				fsPath = p
-				break
-			}
-		}
-
-		if readErr != nil {
-			// 文件不存在时回退到 index.html（SPA fallback）
-			indexCandidates := []string{"index.html"}
-			if baseDir != "" {
-				indexCandidates = append([]string{path.Join(baseDir, "index.html")}, indexCandidates...)
-			}
-
-			for _, p := range indexCandidates {
-				data, readErr = fs.ReadFile(fsys, p)
-				if readErr == nil {
-					c.Response.Header.Set("Content-Type", "text/html; charset=utf-8")
-					_, _ = c.Write(data)
-					return
-				}
-			}
-
-			c.Response.SetStatusCode(404)
-			_, _ = c.Write([]byte("Not Found"))
-			return
-		}
-
-		// 根据实际文件路径设置 Content-Type
-		contentType := mime.TypeByExtension(filepath.Ext(fsPath))
-		if contentType == "" {
-			contentType = "application/octet-stream"
-		}
-		c.Response.Header.Set("Content-Type", contentType)
-
-		// 为 _next/static 资源设置长期缓存
-		if strings.HasPrefix(fsPath, "_next/static/") || (baseDir != "" && strings.HasPrefix(fsPath, path.Join(baseDir, "_next/static")+"/")) {
-			c.Response.Header.Set("Cache-Control", "public, max-age=31536000, immutable")
-		}
-
-		_, _ = c.Write(data)
-	}
-
-	// 注册根路由和通配符路由
-	h.GET("/", staticHandler)
-	h.GET("/*filepath", staticHandler)
 }

@@ -85,7 +85,7 @@ jobs:
       
       - name: Build Backend
         run: |
-          BASE_PATH=/rainbow-bridge go build -ldflags "-X main.basePath=/rainbow-bridge" -o rainbow_bridge .
+          go build -ldflags "-X main.BasePath=/rainbow-bridge" -o rainbow_bridge .
       
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -142,7 +142,7 @@ jobs:
       
       - name: Build and Start Server
         run: |
-          BASE_PATH=/rainbow-bridge go build -ldflags "-X main.basePath=/rainbow-bridge" -o rainbow_bridge .
+          go build -ldflags "-X main.BasePath=/rainbow-bridge" -o rainbow_bridge .
           ./rainbow_bridge &
           sleep 5
           # 验证服务启动

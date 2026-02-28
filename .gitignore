@@ -52,7 +52,12 @@ data/uploads/
 /react/.next/
 
 # Generated web directory (built from react)
-/web/
+/web/*
+!/web/.placeholder
+
+# Embedded frontend for binary release
+/pkg/static/web/*
+!/pkg/static/web/.placeholder
 
 # Test coverage reports
 coverage.out

@@ -4,9 +4,13 @@ package main
 
 import (
 	"context"
+	"io/fs"
 	"log"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	hconfig "github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
@@ -18,6 +22,7 @@ import (
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
 	"github.com/yi-nology/rainbow_bridge/pkg/lock"
 	appredis "github.com/yi-nology/rainbow_bridge/pkg/redis"
+	"github.com/yi-nology/rainbow_bridge/pkg/static"
 )
 
 var (
@@ -98,10 +103,86 @@ func main() {
 	// Register all routes
 	register(h)
 
+	// Serve embedded frontend static files
+	setupStaticFileServer(h, basePath)
+
 	if basePath != "" {
 		log.Printf("server listening at %s with base path %s", cfg.Server.Address, basePath)
 	} else {
 		log.Printf("server listening at %s", cfg.Server.Address)
 	}
 	h.Spin()
+}
+
+func setupStaticFileServer(h *server.Hertz, basePath string) {
+	webFS, err := static.WebFS()
+	if err != nil {
+		log.Printf("Warning: failed to load embedded web files: %v", err)
+		return
+	}
+
+	staticHandler := func(c context.Context, ctx *app.RequestContext) {
+		path := string(ctx.URI().Path())
+
+		if basePath != "" {
+			path = strings.TrimPrefix(path, "/"+basePath)
+		}
+		if path == "" || path == "/" {
+			path = "/index.html"
+		}
+
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+
+		if ext := filepath.Ext(path); ext == "" && path != "/index.html" {
+			path = "/index.html"
+		}
+
+		content, err := fs.ReadFile(webFS, "."+path)
+		if err != nil {
+			ctx.Status(404)
+			return
+		}
+
+		contentType := "application/octet-stream"
+		switch filepath.Ext(path) {
+		case ".html":
+			contentType = "text/html; charset=utf-8"
+		case ".css":
+			contentType = "text/css; charset=utf-8"
+		case ".js":
+			contentType = "application/javascript; charset=utf-8"
+		case ".json":
+			contentType = "application/json; charset=utf-8"
+		case ".png":
+			contentType = "image/png"
+		case ".jpg", ".jpeg":
+			contentType = "image/jpeg"
+		case ".svg":
+			contentType = "image/svg+xml"
+		case ".ico":
+			contentType = "image/x-icon"
+		case ".woff", ".woff2":
+			contentType = "font/woff2"
+		case ".ttf":
+			contentType = "font/ttf"
+		}
+
+		ctx.Data(200, contentType, content)
+	}
+
+	if basePath != "" {
+		h.NoRoute(func(c context.Context, ctx *app.RequestContext) {
+			reqPath := string(ctx.URI().Path())
+			if strings.HasPrefix(reqPath, "/"+basePath+"/") ||
+				reqPath == "/"+basePath {
+				staticHandler(c, ctx)
+			} else {
+				ctx.Status(404)
+			}
+		})
+	} else {
+		h.NoRoute(staticHandler)
+	}
 }

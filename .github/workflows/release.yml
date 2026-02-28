@@ -69,9 +69,9 @@ jobs:
           fi
           npm run build
           cd ..
-          rm -rf web/*
-          mkdir -p web
-          cp -r react/out/* web/
+          rm -rf pkg/static/web/*
+          mkdir -p pkg/static/web
+          cp -r react/out/* pkg/static/web/
 
       - name: Set up Go
         uses: actions/setup-go@v5

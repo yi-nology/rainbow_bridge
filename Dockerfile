@@ -42,14 +42,11 @@ ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
 ARG BASE_PATH=rainbow-bridge
 
-ENV CGO_ENABLED=1 \
+ENV CGO_ENABLED=0 \
     GOOS=${TARGETOS:-linux} \
     GOARCH=${TARGETARCH:-amd64}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libsqlite3-dev \
-    pkg-config \
     ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
@@ -72,7 +69,6 @@ FROM debian:bookworm-slim AS api
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libsqlite3-0 \
     wget && \
     rm -rf /var/lib/apt/lists/*
 

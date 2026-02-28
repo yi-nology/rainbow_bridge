@@ -9,9 +9,9 @@ import (
 
 	"github.com/yi-nology/rainbow_bridge/pkg/config"
 
+	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

@@ -1,10 +1,11 @@
 package config
 
 import (
-	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -77,14 +78,19 @@ type PostgresConfig struct {
 }
 
 // Load reads a YAML configuration file from the provided path.
-func Load(path string) (*Config, error) {
+// It searches in the current working directory first, then next to the binary executable.
+func Load(name string) (*Config, error) {
 	cfg := defaultConfig()
 
-	f, err := os.Open(path)
+	configPath := findConfigFile(name)
+	if configPath == "" {
+		log.Printf("Warning: config file %q not found, using defaults", name)
+		return cfg, nil
+	}
+
+	log.Printf("Loading config from: %s", configPath)
+	f, err := os.Open(configPath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return cfg, nil
-		}
 		return nil, fmt.Errorf("open config: %w", err)
 	}
 	defer func() { _ = f.Close() }()
@@ -195,6 +201,28 @@ func applyDefaults(cfg *Config) {
 	if cfg.Database.SQLite.Path == "" {
 		cfg.Database.SQLite.Path = "data/resource.db"
 	}
+}
+
+// findConfigFile searches for a config file in the current directory first,
+// then next to the binary executable. Returns the full path or empty string.
+func findConfigFile(name string) string {
+	// 1. Current working directory
+	if _, err := os.Stat(name); err == nil {
+		abs, _ := filepath.Abs(name)
+		return abs
+	}
+
+	// 2. Next to the binary executable
+	exe, err := os.Executable()
+	if err == nil {
+		exeDir := filepath.Dir(exe)
+		candidate := filepath.Join(exeDir, name)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	return ""
 }
 
 // NormalizeBasePath cleans up user input and returns a URL path prefix suitable for routing.

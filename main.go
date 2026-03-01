@@ -125,7 +125,7 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 		path := string(ctx.URI().Path())
 
 		if basePath != "" {
-			path = strings.TrimPrefix(path, "/"+basePath)
+			path = strings.TrimPrefix(path, basePath)
 		}
 		if path == "" || path == "/" {
 			path = "/index.html"
@@ -139,7 +139,9 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 			path = "/index.html"
 		}
 
-		content, err := fs.ReadFile(webFS, "."+path)
+		// embed.FS requires clean paths without leading "./" or "/"
+		fsPath := strings.TrimPrefix(path, "/")
+		content, err := fs.ReadFile(webFS, fsPath)
 		if err != nil {
 			ctx.Status(404)
 			return
@@ -175,8 +177,8 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 	if basePath != "" {
 		h.NoRoute(func(c context.Context, ctx *app.RequestContext) {
 			reqPath := string(ctx.URI().Path())
-			if strings.HasPrefix(reqPath, "/"+basePath+"/") ||
-				reqPath == "/"+basePath {
+			if strings.HasPrefix(reqPath, basePath+"/") ||
+				reqPath == basePath {
 				staticHandler(c, ctx)
 			} else {
 				ctx.Status(404)

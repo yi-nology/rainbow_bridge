@@ -101,6 +101,8 @@ jobs:
           cp config.yaml "$OUTPUT_DIR/config.yaml"
           # 复制部署文件
           cp -r deploy "$OUTPUT_DIR/deploy"
+          # 复制前端构建产物，便于用户独立部署前端（如 nginx）
+          cp -r pkg/static/web "$OUTPUT_DIR/web"
 
       - name: Package artifact
         run: |

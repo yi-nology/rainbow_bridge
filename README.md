@@ -109,6 +109,108 @@ BUILD_MODE=dev ./build.sh
 
 你可以通过管理界面或 API 创建更多环境和渠道。
 
+## 部署测试状态
+
+本项目通过 GitHub Actions 自动运行部署测试，确保各种部署方式都能正常工作。
+
+### 最新部署测试结果
+
+<!-- deployment-status-start -->
+| 部署方式 | 状态 | 最后成功时间 | 详情 |
+|---------|------|------------|------|
+| Docker Compose (SQLite) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions/workflows/deployment.yml) |
+| Docker Compose (MySQL) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions/workflows/deployment.yml) |
+| Kubernetes (Standalone) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions/workflows/deployment.yml) |
+<!-- deployment-status-end -->
+
+**状态说明**：
+- 🟢 成功 - 最近一次部署测试通过
+- 🔴 失败 - 最近一次部署测试失败
+- 🟡 运行中 - 测试正在运行
+- ⚪ 未测试 - 尚未运行测试
+
+### 部署测试覆盖
+
+#### Docker Compose 部署测试
+
+测试场景包括：
+- ✅ SQLite 数据库部署
+- ✅ MySQL 数据库部署  
+- ✅ PostgreSQL 数据库部署（待添加）
+- ✅ MinIO 对象存储集群（待添加）
+
+测试验证内容：
+1. Docker 镜像构建成功
+2. Docker Compose 服务启动正常
+3. 健康检查接口响应 (`/ping`)
+4. API 接口正常工作 (`/api/v1/version`)
+5. 容器日志无严重错误
+
+#### Kubernetes 部署测试
+
+测试场景包括：
+- ✅ Standalone 单节点部署
+- ✅ PGSQL + MinIO 集群部署（待添加）
+
+测试验证内容：
+1. Docker 镜像加载到 Minikube
+2. Kubernetes 资源创建成功（ConfigMap/Deployment/Service）
+3. Pod 状态变为 Ready
+4. Service 端口转发正常
+5. 健康检查和 API 接口验证
+6. Pod 日志无异常
+
+### 手动运行部署测试
+
+#### 本地测试 Docker Compose
+
+```bash
+# SQLite 部署测试
+cd deploy/docker-compose/sqlite
+docker compose up -d
+sleep 30
+curl http://localhost:8080/rainbow-bridge/ping
+docker compose down
+
+# MySQL 部署测试
+cd deploy/docker-compose/mysql
+docker compose up -d
+sleep 60  # 等待 MySQL 初始化
+curl http://localhost:8080/rainbow-bridge/ping
+docker compose down
+```
+
+#### 本地测试 Kubernetes
+
+```bash
+# 启动 Minikube
+minikube start
+
+# 加载镜像
+eval $(minikube docker-env)
+docker build -t rainbow-bridge-api:k8s --target api .
+docker build -t rainbow-bridge-frontend:k8s --target frontend .
+
+# 部署到 K8s
+cd deploy/kubernetes/standalone
+kubectl apply -f configmap.yaml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+
+# 等待 Pod 就绪
+kubectl wait --for=condition=ready pod -l app=rainbow-bridge-api --timeout=120s
+kubectl get pods
+
+# 端口转发并测试
+kubectl port-forward svc/rainbow-bridge-service 8080:80 &
+sleep 5
+curl http://localhost:8080/rainbow-bridge/ping
+
+# 清理
+kubectl delete -f deploy/kubernetes/standalone/
+minikube stop
+```
+
 ## UI 配置流程
 
 本节详细介绍如何通过管理界面完成配置管理的全流程。

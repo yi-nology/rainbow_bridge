@@ -1,0 +1,268 @@
+name: Deployment Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'deploy/**'
+      - 'Dockerfile'
+      - '.github/workflows/deployment.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'deploy/**'
+      - 'Dockerfile'
+
+env:
+  BASE_PATH: "rainbow-bridge"
+
+jobs:
+  # Docker Compose SQLite Deployment Test
+  docker-compose-sqlite:
+    name: Docker Compose (SQLite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build API image (local)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: rainbow-bridge-api:test
+          target: api
+          build-args: |
+            GO_VERSION=1.24
+            BASE_PATH=${{ env.BASE_PATH }}
+            VERSION=test
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
+      
+      - name: Build Frontend image (local)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: rainbow-bridge-frontend:test
+          target: frontend
+          build-args: |
+            GO_VERSION=1.24
+            BASE_PATH=${{ env.BASE_PATH }}
+      
+      - name: Prepare SQLite Docker Compose
+        run: |
+          cd deploy/docker-compose/sqlite
+          cp ../../config.yaml ./config.yaml
+          ls -la
+      
+      - name: Start Docker Compose (SQLite)
+        working-directory: deploy/docker-compose/sqlite
+        run: docker compose -f docker-compose.yaml -p rainbow-sqlite up -d
+      
+      - name: Wait for service to be ready
+        run: |
+          echo "Waiting for service to start..."
+          sleep 30
+          docker ps -a
+      
+      - name: Health Check
+        run: |
+          curl -f http://localhost:8080/rainbow-bridge/ping || exit 1
+      
+      - name: Verify API Endpoint
+        run: |
+          response=$(curl -s http://localhost:8080/rainbow-bridge/api/v1/version)
+          echo "Version response: $response"
+          if echo "$response" | grep -q "version"; then
+            echo "✓ API endpoint is working"
+          else
+            echo "✗ API endpoint failed"
+            exit 1
+          fi
+      
+      - name: Check Logs
+        if: failure()
+        working-directory: deploy/docker-compose/sqlite
+        run: docker compose -f docker-compose.yaml -p rainbow-sqlite logs
+      
+      - name: Stop Docker Compose (SQLite)
+        if: always()
+        working-directory: deploy/docker-compose/sqlite
+        run: docker compose -f docker-compose.yaml -p rainbow-sqlite down -v
+  
+  # Docker Compose MySQL Deployment Test
+  docker-compose-mysql:
+    name: Docker Compose (MySQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build API image (local)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: rainbow-bridge-api:test
+          target: api
+          build-args: |
+            GO_VERSION=1.24
+            BASE_PATH=${{ env.BASE_PATH }}
+      
+      - name: Build Frontend image (local)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: rainbow-bridge-frontend:test
+          target: frontend
+          build-args: |
+            GO_VERSION=1.24
+            BASE_PATH=${{ env.BASE_PATH }}
+      
+      - name: Prepare MySQL Docker Compose
+        run: |
+          cd deploy/docker-compose/mysql
+          cp ../../config.yaml ./config.yaml
+      
+      - name: Start Docker Compose (MySQL)
+        working-directory: deploy/docker-compose/mysql
+        run: docker compose -f docker-compose.yaml -p rainbow-mysql up -d
+      
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "Waiting for MySQL and service to start..."
+          sleep 60
+      
+      - name: Health Check
+        run: |
+          curl -f http://localhost:8080/rainbow-bridge/ping || exit 1
+      
+      - name: Verify API Endpoint
+        run: |
+          response=$(curl -s http://localhost:8080/rainbow-bridge/api/v1/version)
+          echo "Version response: $response"
+          if echo "$response" | grep -q "version"; then
+            echo "✓ MySQL deployment is working"
+          else
+            echo "✗ MySQL deployment failed"
+            exit 1
+          fi
+      
+      - name: Check Logs
+        if: failure()
+        working-directory: deploy/docker-compose/mysql
+        run: docker compose -f docker-compose.yaml -p rainbow-mysql logs
+      
+      - name: Stop Docker Compose (MySQL)
+        if: always()
+        working-directory: deploy/docker-compose/mysql
+        run: docker compose -f docker-compose.yaml -p rainbow-mysql down -v
+  
+  # Kubernetes Standalone Deployment Test
+  kubernetes-standalone:
+    name: Kubernetes (Standalone)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Minikube
+        uses: medyagh/setup-minikube@latest
+        with:
+          driver: docker
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build API image (load to minikube)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: rainbow-bridge-api:k8s
+          target: api
+          build-args: |
+            GO_VERSION=1.24
+            BASE_PATH=${{ env.BASE_PATH }}
+      
+      - name: Build Frontend image (load to minikube)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: rainbow-bridge-frontend:k8s
+          target: frontend
+          build-args: |
+            GO_VERSION=1.24
+            BASE_PATH=${{ env.BASE_PATH }}
+      
+      - name: Load images to Minikube
+        run: |
+          eval $(minikube docker-env)
+          docker tag rainbow-bridge-api:test rainbow-bridge-api:k8s
+          docker tag rainbow-bridge-frontend:test rainbow-bridge-frontend:k8s
+      
+      - name: Deploy to Kubernetes
+        run: |
+          cd deploy/kubernetes/standalone
+          kubectl apply -f configmap.yaml
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
+      
+      - name: Wait for pods to be ready
+        run: |
+          kubectl wait --for=condition=ready pod -l app=rainbow-bridge-api --timeout=120s
+          kubectl wait --for=condition=ready pod -l app=rainbow-bridge-frontend --timeout=120s
+          kubectl get pods
+      
+      - name: Port Forward
+        run: |
+          kubectl port-forward svc/rainbow-bridge-service 8080:80 &
+          sleep 5
+      
+      - name: Health Check
+        run: |
+          curl -f http://localhost:8080/rainbow-bridge/ping || exit 1
+      
+      - name: Verify API Endpoint
+        run: |
+          response=$(curl -s http://localhost:8080/rainbow-bridge/api/v1/version)
+          echo "Version response: $response"
+          if echo "$response" | grep -q "version"; then
+            echo "✓ Kubernetes deployment is working"
+          else
+            echo "✗ Kubernetes deployment failed"
+            exit 1
+          fi
+      
+      - name: Check Pod Logs
+        if: failure()
+        run: |
+          kubectl logs -l app=rainbow-bridge-api
+          kubectl logs -l app=rainbow-bridge-frontend
+      
+      - name: Cleanup Kubernetes
+        if: always()
+        run: |
+          kubectl delete -f deploy/kubernetes/standalone/ || true
+          minikube stop || true

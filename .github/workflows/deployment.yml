@@ -59,9 +59,8 @@ jobs:
       
       - name: Prepare SQLite Docker Compose
         run: |
-          cd deploy/docker-compose/sqlite
-          cp ../../config.yaml ./config.yaml
-          ls -la
+          cp deploy/docker-compose/config.yaml deploy/docker-compose/sqlite/config.yaml
+          ls -la deploy/docker-compose/sqlite/
       
       - name: Start Docker Compose (SQLite)
         working-directory: deploy/docker-compose/sqlite
@@ -137,8 +136,7 @@ jobs:
       
       - name: Prepare MySQL Docker Compose
         run: |
-          cd deploy/docker-compose/mysql
-          cp ../../config.yaml ./config.yaml
+          cp deploy/docker-compose/config.yaml deploy/docker-compose/mysql/config.yaml
       
       - name: Start Docker Compose (MySQL)
         working-directory: deploy/docker-compose/mysql

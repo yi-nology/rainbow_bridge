@@ -7,21 +7,24 @@
 ## 目录
 
 1. [项目概述](#项目概述)  
-2. [系统目标](#系统目标)  
-3. [架构总览](#架构总览)  
-4. [核心模块设计](#核心模块设计)  
-5. [数据模型](#数据模型)  
-6. [关键业务流程](#关键业务流程)  
-7. [接口与协议](#接口与协议)  
-8. [配置与环境](#配置与环境)  
-9. [构建与交付](#构建与交付)  
-10. [部署与运行](#部署与运行)  
-11. [安全与权限](#安全与权限)  
-12. [日志、监控与告警](#日志监控与告警)  
-13. [测试](#测试)  
-14. [AI 辅助开发](#ai-辅助开发)  
-15. [未来规划](#未来规划)  
-16. [License](#license)
+2. [快速开始](#快速开始)  
+3. [UI 配置流程](#ui-配置流程)  
+4. [平台对接指南](#平台对接指南)  
+5. [系统目标](#系统目标)  
+6. [架构总览](#架构总览)  
+7. [核心模块设计](#核心模块设计)  
+8. [数据模型](#数据模型)  
+9. [关键业务流程](#关键业务流程)  
+10. [接口与协议](#接口与协议)  
+11. [配置与环境](#配置与环境)  
+12. [构建与交付](#构建与交付)  
+13. [部署与运行](#部署与运行)  
+14. [安全与权限](#安全与权限)  
+15. [日志、监控与告警](#日志监控与告警)  
+16. [测试](#测试)  
+17. [AI 辅助开发](#ai-辅助开发)  
+18. [未来规划](#未来规划)  
+19. [License](#license)
 
 ---
 
@@ -62,6 +65,576 @@
 ![资源管理](docs/images/resources-page.png)
 
 *资源管理页面 - 上传、预览、导出静态资源，支持多种文件格式*  
+
+## 快速开始
+
+### 1. 安装与部署
+
+#### Docker 部署（推荐）
+
+```bash
+# 拉取最新镜像
+docker pull ghcr.io/yi-nology/rainbow_bridge-api:latest
+docker pull ghcr.io/yi-nology/rainbow_bridge-frontend:latest
+
+# 使用 docker-compose 一键部署
+cd deploy
+docker compose up -d
+
+# 访问管理控制台
+open http://localhost:8080/rainbow-bridge
+```
+
+#### 本地运行
+
+```bash
+# 克隆项目
+git clone https://github.com/yi-nology/rainbow_bridge.git
+cd rainbow_bridge
+
+# 启动服务（生产模式）
+./build.sh
+./output/bin/hertz_service --config config.yaml
+
+# 或开发模式（支持热更新）
+BUILD_MODE=dev ./build.sh
+./output/bin/hertz_service --config config.yaml
+```
+
+### 2. 初始配置
+
+首次启动后，系统会自动创建默认环境和渠道：
+- **环境**：`default`（默认环境）
+- **渠道**：`main`（主渠道）
+
+你可以通过管理界面或 API 创建更多环境和渠道。
+
+## UI 配置流程
+
+本节详细介绍如何通过管理界面完成配置管理的全流程。
+
+### 步骤 1：创建环境
+
+环境用于隔离不同部署场景的配置（如开发、测试、生产）。
+
+1. 访问 **环境管理** 页面 (`/environments`)
+2. 点击 "新建环境" 按钮
+3. 填写环境信息：
+   - **环境标识**：唯一标识符，如 `dev`、`prod`
+   - **环境名称**：友好显示名，如 "开发环境"
+   - **备注**：可选说明信息
+4. 点击 "确定" 保存
+
+![创建环境](docs/images/environments-page.png)
+
+**最佳实践**：
+- 为每个部署阶段创建独立环境（dev → test → staging → prod）
+- 使用清晰的命名规范（如 `dev`, `test`, `prod-us`, `prod-eu`）
+- 环境标识一旦创建不建议修改
+
+### 步骤 2：创建渠道
+
+渠道用于在同一环境下管理不同的功能分支或版本线。
+
+1. 在环境列表中找到目标环境
+2. 点击该环境的 "管理渠道" 按钮
+3. 点击 "新建渠道"
+4. 填写渠道信息：
+   - **渠道标识**：唯一标识符，如 `main`、`feature-x`
+   - **渠道名称**：友好显示名，如 "主渠道"
+   - **备注**：可选说明信息
+5. 点击 "确定" 保存
+
+**使用场景**：
+- `main`：生产发布渠道
+- `hotfix`：紧急修复渠道
+- `experiment`：实验性功能渠道
+- `feature-xxx`：特定功能开发渠道
+
+### 步骤 3：配置业务配置
+
+业务配置是平台的核心功能，支持 5 种数据类型。
+
+1. 访问 **配置管理** 页面 (`/config`)
+2. 选择目标 **环境** 和 **渠道**
+3. 点击 "新建配置" 按钮
+4. 填写配置信息：
+
+#### 3.1 键值对（Key-Value）类型
+
+适用于简单的开关、数值等配置：
+
+```
+配置类型：键值对
+配置内容：
+{
+  "max_retry_count": 3,
+  "enable_cache": true,
+  "timeout_ms": 5000
+}
+```
+
+#### 3.2 JSON 对象类型
+
+适用于复杂结构配置：
+
+```
+配置类型：JSON 对象
+配置内容：
+{
+  "api_endpoints": {
+    "user_service": "https://api.example.com/user",
+    "order_service": "https://api.example.com/order"
+  },
+  "feature_flags": {
+    "new_checkout": true,
+    "dark_mode": false
+  }
+}
+```
+
+#### 3.3 纯文本类型
+
+适用于文案、公告等：
+
+```
+配置类型：纯文本
+配置内容：
+欢迎使用虹桥计划配置管理平台！
+```
+
+#### 3.4 图片类型
+
+适用于 Banner、图标等资源：
+
+1. 先在 **资源管理** 页面上传图片
+2. 选择图片类型配置
+3. 从资源库中选择已上传的图片
+
+#### 3.5 色彩标签类型
+
+适用于主题色、状态色等：
+
+```
+配置类型：色彩标签
+配置内容：#1677FF（Ant Design 蓝色）
+```
+
+5. 点击 "确定" 保存配置
+
+![配置管理](docs/images/config-page.png)
+
+### 步骤 4：管理静态资源
+
+资源管理用于上传和管理图片、文件等静态资源。
+
+1. 访问 **资源管理** 页面 (`/resources`)
+2. 选择目标 **环境** 和 **渠道**
+3. 点击 "上传资源" 按钮
+4. 选择文件或拖拽到上传区域
+5. 填写资源信息：
+   - **所属业务**：资源归属的业务线
+   - **备注**：资源说明
+6. 上传完成后可预览、下载或删除
+
+**支持的文件类型**：
+- 图片：JPEG, PNG, GIF, WebP, SVG, BMP, ICO
+- 字体：TTF, OTF, WOFF, WOFF2
+- 文档：PDF, DOC, XLSX, PPTX
+- 压缩包：ZIP, RAR, 7Z
+- 音视频：MP3, MP4, WebM
+
+![资源管理](docs/images/resources-page.png)
+
+### 步骤 5：导出配置
+
+配置完成后，可以导出为静态包或 ZIP 文件。
+
+#### 5.1 导出静态站点
+
+1. 访问 **运行时配置** 页面
+2. 选择目标 **环境** 和 **渠道**
+3. 点击 "Export Static" 按钮
+4. 系统将生成包含以下内容的 zip 包：
+   - `config.json`：所有配置的 JSON 文件
+   - `assets/`：引用的静态资源目录
+   - `index.html`：可直接访问的静态页面
+
+#### 5.2 导出 ZIP 包
+
+1. 访问 **导入导出** 页面 (`/import-export`)
+2. 选择 **导出** 标签页
+3. 勾选要导出的环境和渠道
+4. 点击 "导出选中配置"
+5. 下载包含配置和资源的 ZIP 包
+
+### 步骤 6：配置迁移
+
+在不同环境或渠道间复制配置。
+
+1. 访问 **配置迁移** 页面 (`/migration`)
+2. 选择 **源环境/渠道**（配置来源）
+3. 选择 **目标环境/渠道**（配置去向）
+4. 系统自动比对差异：
+   - 🆕 新配置：目标不存在
+   - ⚠️ 冲突配置：内容不一致
+   - ✅ 相同配置：无需迁移
+5. 选择要迁移的配置项
+6. 设置是否覆盖冲突
+7. 点击 "执行迁移"
+
+**典型场景**：
+- 开发环境配置同步到测试环境
+- 生产环境 hotfix 配置回滚
+- 实验性功能配置合并到主渠道
+
+## 平台对接指南
+
+本节介绍如何在你的项目中集成虹桥计划配置平台。
+
+### 1. 前端项目对接
+
+#### 方式一：运行时 API 对接（推荐）
+
+适用于需要实时获取配置的场景。
+
+**步骤**：
+
+1. **安装依赖**（如需要）
+   ```bash
+   # 无特殊依赖，使用原生 fetch 即可
+   ```
+
+2. **配置 API 客户端**
+   ```javascript
+   // lib/config-client.js
+   const BASE_URL = 'http://localhost:8080/rainbow-bridge/api/v1';
+   
+   export async function getRuntimeConfig(environment, pipeline) {
+     const response = await fetch(`${BASE_URL}/runtime/config`, {
+       headers: {
+         'x-environment': environment,
+         'x-pipeline': pipeline
+       }
+     });
+     
+     if (!response.ok) {
+       throw new Error(`HTTP error! status: ${response.status}`);
+     }
+     
+     return await response.json();
+   }
+   ```
+
+3. **在应用中使用**
+   ```javascript
+   // app/page.js
+   import { getRuntimeConfig } from '@/lib/config-client';
+   
+   export default async function Page() {
+     const config = await getRuntimeConfig('prod', 'main');
+     
+     return (
+       <div>
+         <h1>{config.system_config.app_name}</h1>
+         <p>API 地址：{config.business_configs.api_base_url}</p>
+       </div>
+     );
+   }
+   ```
+
+4. **React Hook 封装**（可选）
+   ```javascript
+   // hooks/use-config.js
+   import { useEffect, useState } from 'react';
+   
+   export function useConfig(environment, pipeline) {
+     const [config, setConfig] = useState(null);
+     const [loading, setLoading] = useState(true);
+     const [error, setError] = useState(null);
+     
+     useEffect(() => {
+       async function loadConfig() {
+         try {
+           const data = await getRuntimeConfig(environment, pipeline);
+           setConfig(data);
+         } catch (err) {
+           setError(err);
+         } finally {
+           setLoading(false);
+         }
+       }
+       
+       loadConfig();
+     }, [environment, pipeline]);
+     
+     return { config, loading, error };
+   }
+   ```
+
+#### 方式二：静态包部署
+
+适用于配置变更不频繁的场景。
+
+**步骤**：
+
+1. **导出静态配置**
+   - 在管理界面导出 `static.zip`
+   - 解压到项目的 `public/config/` 目录
+
+2. **读取配置文件**
+   ```javascript
+   // lib/config.js
+   import configData from '../public/config/config.json';
+   
+   export const config = configData;
+   
+   export function getConfig(key, defaultValue = undefined) {
+     return key.split('.').reduce((obj, k) => obj?.[k], configData) ?? defaultValue;
+   }
+   ```
+
+3. **构建时注入**
+   ```bash
+   # 在 CI/CD 流程中，先调用 API 导出配置，再构建前端
+   curl -o static.zip http://platform/rainbow-bridge/api/v1/runtime/static?environment_key=prod&pipeline_key=main
+   unzip static.zip -d public/config/
+   npm run build
+   ```
+
+### 2. 后端项目对接
+
+#### Go 语言示例
+
+```go
+// config/client.go
+package config
+
+import (
+    "encoding/json"
+    "io/ioutil"
+    "net/http"
+)
+
+type RuntimeConfig struct {
+    SystemConfig   map[string]interface{} `json:"system_config"`
+    BusinessConfigs map[string]interface{} `json:"business_configs"`
+}
+
+func GetRuntimeConfig(baseURL, env, pipeline string) (*RuntimeConfig, error) {
+    req, err := http.NewRequest("GET", baseURL+"/api/v1/runtime/config", nil)
+    if err != nil {
+        return nil, err
+    }
+    
+    req.Header.Set("x-environment", env)
+    req.Header.Set("x-pipeline", pipeline)
+    
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        return nil, err
+    }
+    
+    var config RuntimeConfig
+    err = json.Unmarshal(body, &config)
+    return &config, err
+}
+
+// 使用示例
+func main() {
+    config, err := GetRuntimeConfig("http://localhost:8080/rainbow-bridge", "prod", "main")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    appName := config.SystemConfig["app_name"]
+    fmt.Println("App Name:", appName)
+}
+```
+
+#### Java/Spring Boot 示例
+
+```java
+// ConfigClient.java
+@Service
+public class ConfigClient {
+    
+    @Value("${rainbow.bridge.base-url}")
+    private String baseUrl;
+    
+    private final RestTemplate restTemplate;
+    
+    public ConfigClient(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+    
+    public Map<String, Object> getRuntimeConfig(String environment, String pipeline) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-environment", environment);
+        headers.set("x-pipeline", pipeline);
+        
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<Map> response = restTemplate.exchange(
+            baseUrl + "/api/v1/runtime/config",
+            HttpMethod.GET,
+            entity,
+            Map.class
+        );
+        
+        return response.getBody();
+    }
+}
+
+// 使用示例
+@RestController
+public class MyController {
+    
+    @Autowired
+    private ConfigClient configClient;
+    
+    @GetMapping("/api/info")
+    public ResponseEntity<?> getInfo() {
+        Map<String, Object> config = configClient.getRuntimeConfig("prod", "main");
+        return ResponseEntity.ok(config);
+    }
+}
+```
+
+### 3. 移动端对接
+
+#### iOS (Swift)
+
+```swift
+// ConfigClient.swift
+class ConfigClient {
+    static let shared = ConfigClient()
+    private let baseURL = "http://localhost:8080/rainbow-bridge/api/v1"
+    
+    func getRuntimeConfig(environment: String, pipeline: String, completion: @escaping (Result<Config, Error>) -> Void) {
+        var request = URLRequest(url: URL(string: "\(baseURL)/runtime/config")!)
+        request.setValue(environment, forHTTPHeaderField: "x-environment")
+        request.setValue(pipeline, forHTTPHeaderField: "x-pipeline")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                completion(.failure(error ?? URLError(.badServerResponse)))
+                return
+            }
+            
+            do {
+                let config = try JSONDecoder().decode(Config.self, from: data)
+                completion(.success(config))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+}
+
+struct Config: Codable {
+    let systemConfig: [String: Any]
+    let businessConfigs: [String: Any]
+}
+```
+
+#### Android (Kotlin)
+
+```kotlin
+// ConfigClient.kt
+class ConfigClient(private val apiService: ConfigApiService) {
+    
+    suspend fun getRuntimeConfig(environment: String, pipeline: String): Config {
+        val call = apiService.getRuntimeConfig(environment, pipeline)
+        val response = call.execute()
+        
+        if (response.isSuccessful) {
+            return response.body() ?: throw Exception("Empty response")
+        } else {
+            throw Exception("HTTP error: ${response.code()}")
+        }
+    }
+}
+
+interface ConfigApiService {
+    @GET("api/v1/runtime/config")
+    fun getRuntimeConfig(
+        @Header("x-environment") environment: String,
+        @Header("x-pipeline") pipeline: String
+    ): Call<Config>
+}
+```
+
+### 4. API 接口参考
+
+完整 API 文档请参考 [接口与协议](#接口与协议) 章节。
+
+**核心接口**：
+
+| 接口 | 方法 | 说明 | 示例 |
+|------|------|------|------|
+| `/api/v1/runtime/config` | GET | 获取运行时配置 | `curl -H "x-env: prod" /api/v1/runtime/config` |
+| `/api/v1/config/list` | GET | 获取配置列表 | `?environment_key=prod&pipeline_key=main` |
+| `/api/v1/asset/list` | GET | 获取资源列表 | `?environment_key=prod&pipeline_key=main` |
+| `/api/v1/asset/upload` | POST | 上传资源 | Multipart/form-data |
+| `/api/v1/runtime/static` | GET | 导出静态包 | `?environment_key=prod&pipeline_key=main` |
+
+### 5. 环境变量配置
+
+不同环境的推荐配置：
+
+```bash
+# 开发环境 (.env.development)
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/rainbow-bridge
+NEXT_PUBLIC_ENVIRONMENT=dev
+NEXT_PUBLIC_PIPELINE=main
+
+# 测试环境 (.env.test)
+NEXT_PUBLIC_API_BASE_URL=https://test-platform.example.com/rainbow-bridge
+NEXT_PUBLIC_ENVIRONMENT=test
+NEXT_PUBLIC_PIPELINE=main
+
+# 生产环境 (.env.production)
+NEXT_PUBLIC_API_BASE_URL=https://platform.example.com/rainbow-bridge
+NEXT_PUBLIC_ENVIRONMENT=prod
+NEXT_PUBLIC_PIPELINE=main
+```
+
+### 6. 最佳实践
+
+#### 配置组织
+
+- ✅ 按功能模块分组配置（如 `api.*`, `ui.*`, `feature.*`）
+- ✅ 使用有意义的配置名称（如 `api_base_url` 而非 `url1`）
+- ✅ 为配置添加详细备注说明用途
+- ❌ 避免配置过多层级（建议不超过 3 层）
+
+#### 环境管理
+
+- ✅ 保持环境间配置一致性（使用配置迁移功能）
+- ✅ 定期清理废弃的环境和渠道
+- ✅ 为重要配置开启审计日志
+- ❌ 避免在生产环境直接修改配置（应通过迁移流程）
+
+#### 资源管理
+
+- ✅ 使用语义化的文件名
+- ✅ 按业务分类组织资源
+- ✅ 定期清理未使用的资源
+- ❌ 避免上传超大文件（建议 < 10MB）
+
+#### 性能优化
+
+- ✅ 使用浏览器缓存运行时配置
+- ✅ 对配置数据实施 CDN 加速
+- ✅ 批量获取配置减少请求次数
+- ❌ 避免频繁轮询配置接口
 
 ## 系统目标
 

@@ -14,7 +14,7 @@ on:
         value: ${{ jobs.docker-frontend.outputs.frontend_image_tags }}
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}-frontend
+  IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge-frontend
 
 jobs:
   docker-frontend:

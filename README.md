@@ -1,8 +1,8 @@
 # 虹桥计划（Rainbow Bridge）技术设计文档
 
 > **版本信息**  
-> 版本：v2.1.0+  
-> 最后更新：2026-01-29
+> 版本：v3.1.3+  
+> 最后更新：2026-03-07
 
 ## 目录
 
@@ -39,9 +39,29 @@
 
 ### 界面预览
 
-![项目主页](docs/images/home-screenshot.png)
+#### 项目首页
 
-*虹桥计划主页 - 展示项目简介、前端对接方式和运行时配置演示*  
+![项目首页](docs/images/home-screenshot-new.png)
+
+*虹桥计划主页 - 展示项目简介、前端对接方式和运行时配置演示*
+
+#### 环境管理
+
+![环境管理](docs/images/environments-page.png)
+
+*环境管理页面 - 支持创建、编辑、删除环境和渠道，按维度隔离配置*
+
+#### 配置管理
+
+![配置管理](docs/images/config-page.png)
+
+*配置管理页面 - 支持 5 种数据类型的配置增删改查，实时预览配置内容*
+
+#### 资源管理
+
+![资源管理](docs/images/resources-page.png)
+
+*资源管理页面 - 上传、预览、导出静态资源，支持多种文件格式*  
 
 ## 系统目标
 
@@ -463,14 +483,36 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 #### 后端构建
 
-- 普通构建：
-  ```bash
-  go build -o output/local/hertz_service .
-  ```
+项目支持两种构建模式，适应不同场景需求：
 
-- 交叉编译脚本：
-  - `script/build_cross.sh`：一次性编译多个 OS/ARCH；  
-  - `script/build_linux_amd64.sh`：专用于 Linux amd64，可在 macOS 上通过 `zig` 或 cross gcc 构建 CGO 版本（用于 SQLite）。
+**生产模式（默认）** - 静态文件嵌入到二进制，适合 Docker 部署和发布：
+```bash
+# 普通构建
+go build -o output/local/hertz_service .
+
+# 或使用构建脚本
+./build.sh
+```
+
+**开发模式** - 从文件系统动态加载静态文件，支持热更新：
+```bash
+# 使用 BUILD_MODE 环境变量
+BUILD_MODE=dev ./build.sh
+
+# 或直接使用 go build
+go build -tags=dev -o output/local/hertz_service .
+```
+
+**交叉编译脚本**：
+- `script/build_cross.sh`：一次性编译多个 OS/ARCH；  
+- `script/build_linux_amd64.sh`：专用于 Linux amd64，可在 macOS 上通过 `zig` 或 cross gcc 构建 CGO 版本（用于 SQLite）。
+
+**构建模式对比**：
+
+| 模式 | 命令 | 静态文件来源 | 适用场景 |
+|------|------|-------------|----------|
+| 生产模式 | `./build.sh` | 嵌入到二进制 | Docker 部署、Release 发布 |
+| 开发模式 | `BUILD_MODE=dev ./build.sh` | 文件系统 (`react/out`) | 本地开发、前端调试 |
 
 #### 前端构建
 
@@ -493,11 +535,23 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 ### 2. GitHub Actions
 
-`.github/workflows/release.yml` 在推送 `v*` 标签时执行：
+`.github/workflows/release.yml` 在推送 `v*` 标签时执行，采用模块化设计：
 
-1. **多平台编译**：Linux/Windows/macOS × amd64/arm64，产物打包为 `tar.gz` 或 `zip`；  
-2. **发布 Release**：聚合上述产物并上传到 GitHub Release；  
+**可复用 Workflow**：
+- `build-binaries.yml` - 多平台二进制构建（Linux/Windows/macOS × amd64/arm64）
+- `build-docker-api.yml` - Docker API 镜像构建
+- `build-docker-frontend.yml` - Docker 前端镜像构建
+
+**主流程**：
+1. **并行构建**：三个 workflow 可同时运行，加快构建速度；  
+2. **发布 Release**：聚合二进制产物并上传到 GitHub Release；  
 3. **Docker 多架构构建**：借助 Buildx + QEMU，通过 GHCR 推送 `linux/amd64` 与 `linux/arm64` 镜像，支持 `latest` 及 tag 对应版本。
+
+**优势**：
+- ✅ 模块化设计，每个 action 职责单一
+- ✅ 可复用，其他 workflow 可通过 `workflow_call` 单独调用
+- ✅ 并行执行，提升 CI 效率
+- ✅ 灵活配置，支持独立触发
 
 ### 3. Docker 支持
 

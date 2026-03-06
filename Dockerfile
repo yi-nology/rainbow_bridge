@@ -1,9 +1,9 @@
-# syntax=docker/dockerfile:1.6
+# syntax=docker/dockerfile:1
 
 ##
 ## Build configuration
 ##
-ARG GO_VERSION=1.23
+ARG GO_VERSION=1.24
 # BASE_PATH: 统一的路径前缀，同时影响前后端
 # 留空表示部署在根路径，设置如 "rainbow-bridge" 则部署在子路径
 ARG BASE_PATH=rainbow-bridge

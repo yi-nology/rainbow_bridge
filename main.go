@@ -121,8 +121,15 @@ func main() {
 func setupStaticFileServer(h *server.Hertz, basePath string) {
 	webFS, err := static.WebFS()
 	if err != nil {
-		log.Printf("Warning: failed to load embedded web files: %v", err)
+		log.Printf("Warning: failed to load web files: %v", err)
 		return
+	}
+
+	useEmbed := static.UseEmbedFS()
+	if useEmbed {
+		log.Printf("Serving static files from embedded filesystem")
+	} else {
+		log.Printf("Serving static files from filesystem (dev mode)")
 	}
 
 	staticHandler := func(c context.Context, ctx *app.RequestContext) {
@@ -143,7 +150,7 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 			path = "/index.html"
 		}
 
-		// embed.FS requires clean paths without leading "./" or "/"
+		// Clean path without leading "/"
 		fsPath := strings.TrimPrefix(path, "/")
 		content, err := fs.ReadFile(webFS, fsPath)
 		if err != nil {
@@ -151,30 +158,7 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 			return
 		}
 
-		contentType := "application/octet-stream"
-		switch filepath.Ext(path) {
-		case ".html":
-			contentType = "text/html; charset=utf-8"
-		case ".css":
-			contentType = "text/css; charset=utf-8"
-		case ".js":
-			contentType = "application/javascript; charset=utf-8"
-		case ".json":
-			contentType = "application/json; charset=utf-8"
-		case ".png":
-			contentType = "image/png"
-		case ".jpg", ".jpeg":
-			contentType = "image/jpeg"
-		case ".svg":
-			contentType = "image/svg+xml"
-		case ".ico":
-			contentType = "image/x-icon"
-		case ".woff", ".woff2":
-			contentType = "font/woff2"
-		case ".ttf":
-			contentType = "font/ttf"
-		}
-
+		contentType := getContentType(path)
 		ctx.Data(200, contentType, content)
 	}
 
@@ -190,5 +174,32 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 		})
 	} else {
 		h.NoRoute(staticHandler)
+	}
+}
+
+func getContentType(path string) string {
+	switch filepath.Ext(path) {
+	case ".html":
+		return "text/html; charset=utf-8"
+	case ".css":
+		return "text/css; charset=utf-8"
+	case ".js":
+		return "application/javascript; charset=utf-8"
+	case ".json":
+		return "application/json; charset=utf-8"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".svg":
+		return "image/svg+xml"
+	case ".ico":
+		return "image/x-icon"
+	case ".woff", ".woff2":
+		return "font/woff2"
+	case ".ttf":
+		return "font/ttf"
+	default:
+		return "application/octet-stream"
 	}
 }

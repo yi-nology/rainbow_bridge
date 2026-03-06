@@ -214,12 +214,6 @@ jobs:
             GO_VERSION=1.24
             BASE_PATH=${{ env.BASE_PATH }}
       
-      - name: Load images to Minikube
-        run: |
-          eval $(minikube docker-env)
-          docker tag rainbow-bridge-api:test rainbow-bridge-api:k8s
-          docker tag rainbow-bridge-frontend:test rainbow-bridge-frontend:k8s
-      
       - name: Deploy to Kubernetes
         run: |
           cd deploy/kubernetes/standalone

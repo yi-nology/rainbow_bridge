@@ -9,21 +9,18 @@ permissions:
   contents: write
   packages: write
 
-env:
-  BASE_PATH: "rainbow-bridge"
-
 jobs:
   # Call reusable workflow for building binaries
   build-binaries:
     uses: ./.github/workflows/build-binaries.yml
     with:
-      base_path: ${{ env.BASE_PATH }}
+      base_path: "rainbow-bridge"
 
   # Call reusable workflow for building Docker API image
   build-docker-api:
     uses: ./.github/workflows/build-docker-api.yml
     with:
-      base_path: ${{ env.BASE_PATH }}
+      base_path: "rainbow-bridge"
       version: ${{ github.ref_name }}
       git_commit: ${{ github.sha }}
       build_time: ${{ github.event.head_commit.timestamp }}
@@ -32,7 +29,7 @@ jobs:
   build-docker-frontend:
     uses: ./.github/workflows/build-docker-frontend.yml
     with:
-      base_path: ${{ env.BASE_PATH }}
+      base_path: "rainbow-bridge"
 
   # Create GitHub Release with binary artifacts
   release:

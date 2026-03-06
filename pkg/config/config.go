@@ -78,11 +78,18 @@ type PostgresConfig struct {
 }
 
 // Load reads a YAML configuration file from the provided path.
-// It searches in the current working directory first, then next to the binary executable.
+// If the path is absolute, it reads directly from that path.
+// If the path is relative, it searches in the current working directory first,
+// then next to the binary executable.
 func Load(name string) (*Config, error) {
 	cfg := defaultConfig()
 
-	configPath := findConfigFile(name)
+	var configPath string
+	if filepath.IsAbs(name) {
+		configPath = name
+	} else {
+		configPath = findConfigFile(name)
+	}
 	if configPath == "" {
 		log.Printf("Warning: config file %q not found, using defaults", name)
 		return cfg, nil

@@ -49,7 +49,7 @@ services:
     expose:
       - "8080"
     volumes:
-      - ./config.postgres.yaml:/etc/rainbow_bridge/config.yaml:ro
+      - ./config.yaml:/etc/rainbow_bridge/config.yaml:ro
       - rainbow_bridge_uploads:/var/lib/rainbow_bridge/uploads
     depends_on:
       postgres:

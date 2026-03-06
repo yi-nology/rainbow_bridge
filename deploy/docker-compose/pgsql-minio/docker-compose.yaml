@@ -80,7 +80,7 @@ services:
     expose:
       - "8080"
     volumes:
-      - ./config.minio.yaml:/etc/rainbow_bridge/config.yaml:ro
+      - ./config.yaml:/etc/rainbow_bridge/config.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy

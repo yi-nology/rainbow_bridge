@@ -97,10 +97,13 @@ jobs:
           export NEXT_PUBLIC_BASE_PATH="/rainbow-bridge"
           npm run build
           cd ..
+
+      - name: Copy Frontend to Static Directory
+        run: |
           rm -rf pkg/static/web/*
           mkdir -p pkg/static/web
           cp -r react/out/* pkg/static/web/
-      
+
       - name: Build Backend
         run: |
           go build -ldflags "-X main.BasePath=/rainbow-bridge" -o rainbow_bridge .
@@ -158,6 +161,11 @@ jobs:
           cp config.yaml.demo config.yaml
           mkdir -p data
       
+      - name: Prepare Static Files
+        run: |
+          mkdir -p pkg/static/web
+          touch pkg/static/web/.placeholder
+
       - name: Build and Start Server
         run: |
           go build -ldflags "-X main.BasePath=/rainbow-bridge" -o rainbow_bridge .

@@ -58,6 +58,9 @@ RUN go mod download
 
 COPY . .
 
+# 确保 embed 目录存在（CI checkout 后可能为空，go:embed 会报错）
+RUN mkdir -p pkg/static/web && touch pkg/static/web/.placeholder
+
 RUN go build \
     -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'" \
     -o /out/hertz_service .

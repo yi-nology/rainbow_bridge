@@ -69,9 +69,13 @@ jobs:
           fi
           npm run build
           cd ..
+
+      - name: Copy frontend to static directory
+        run: |
           rm -rf pkg/static/web/*
           mkdir -p pkg/static/web
           cp -r react/out/* pkg/static/web/
+          echo "Static files prepared for embedding"
 
       - name: Set up Go
         uses: actions/setup-go@v5

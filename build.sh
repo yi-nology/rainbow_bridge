@@ -4,12 +4,20 @@ RUN_NAME=hertz_service
 # Get BASE_PATH from environment or use default
 BASE_PATH="${BASE_PATH:-rainbow-bridge}"
 
+# Get build mode from environment: "dev" for development, empty for production
+# dev mode: serve static files from filesystem (for hot reload during development)
+# production mode: embed static files into binary (for Docker deployment)
+BUILD_MODE="${BUILD_MODE:-}"
+
 # Get version information
 VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
 
 echo "Building with BASE_PATH: ${BASE_PATH}"
+if [ -n "$BUILD_MODE" ]; then
+    echo "Build mode: ${BUILD_MODE}"
+fi
 
 # Build flags for version injection
 LDFLAGS="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'"
@@ -18,5 +26,14 @@ mkdir -p output/bin
 cp script/* output 2>/dev/null
 chmod +x output/bootstrap.sh
 
+# Determine build tags
+BUILD_TAGS=""
+if [ "$BUILD_MODE" = "dev" ]; then
+    BUILD_TAGS="-tags=dev"
+    echo "Building ${RUN_NAME} in DEV mode (filesystem static files)"
+else
+    echo "Building ${RUN_NAME} in PRODUCTION mode (embedded static files)"
+fi
+
 echo "Building ${RUN_NAME} version ${VERSION} (${GIT_COMMIT}) at ${BUILD_TIME}"
-go build -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME}
+go build ${BUILD_TAGS} -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME}

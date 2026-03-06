@@ -44,7 +44,8 @@ ARG BASE_PATH=rainbow-bridge
 
 ENV CGO_ENABLED=0 \
     GOOS=${TARGETOS:-linux} \
-    GOARCH=${TARGETARCH:-amd64}
+    GOARCH=${TARGETARCH:-amd64} \
+    GOPROXY=https://goproxy.cn,direct
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates && \

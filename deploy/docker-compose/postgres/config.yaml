@@ -7,7 +7,6 @@ database:
     dsn: "host=postgres user=rainbow_bridge password=rainbow_bridge_pass dbname=rainbow_bridge port=5432 sslmode=disable TimeZone=Asia/Shanghai"
 
 upload:
-  path: "/var/lib/rainbow_bridge/uploads"
   max_size: 10485760  # 10MB
 
 redis:
@@ -15,7 +14,3 @@ redis:
   address: "redis:6379"
   password: ""
   db: 0
-
-log:
-  level: "info"
-  output: "stdout"

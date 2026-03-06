@@ -10,123 +10,33 @@ permissions:
   packages: write
 
 env:
-  GO_VERSION: "1.24.x"
-  RUN_NAME: hertz_service
-  # BASE_PATH: 前后端统一的路径前缀，编译时注入
-  # 留空表示部署在根路径，设置如 "rainbow-bridge" 则部署在子路径
   BASE_PATH: "rainbow-bridge"
 
 jobs:
+  # Call reusable workflow for building binaries
   build-binaries:
-    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            archive: tar.gz
-            bin_ext: ""
-          - goos: linux
-            goarch: arm64
-            archive: tar.gz
-            bin_ext: ""
-          - goos: windows
-            goarch: amd64
-            archive: zip
-            bin_ext: ".exe"
-          - goos: darwin
-            goarch: amd64
-            archive: tar.gz
-            bin_ext: ""
-          - goos: darwin
-            goarch: arm64
-            archive: tar.gz
-            bin_ext: ""
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    uses: ./.github/workflows/build-binaries.yml
+    with:
+      base_path: ${{ env.BASE_PATH }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: react/package-lock.json
+  # Call reusable workflow for building Docker API image
+  build-docker-api:
+    uses: ./.github/workflows/build-docker-api.yml
+    with:
+      base_path: ${{ env.BASE_PATH }}
+      version: ${{ github.ref_name }}
+      git_commit: ${{ github.sha }}
+      build_time: ${{ github.event.head_commit.timestamp }}
 
-      - name: Build frontend
-        env:
-          BASE_PATH: ${{ env.BASE_PATH }}
-        run: |
-          cd react
-          npm ci
-          # 设置 NEXT_PUBLIC_BASE_PATH 环境变量供 Next.js 使用
-          if [ -n "$BASE_PATH" ]; then
-            export NEXT_PUBLIC_BASE_PATH="/${BASE_PATH}"
-          else
-            export NEXT_PUBLIC_BASE_PATH=""
-          fi
-          npm run build
-          cd ..
+  # Call reusable workflow for building Docker Frontend image
+  build-docker-frontend:
+    uses: ./.github/workflows/build-docker-frontend.yml
+    with:
+      base_path: ${{ env.BASE_PATH }}
 
-      - name: Copy frontend to static directory
-        run: |
-          rm -rf pkg/static/web/*
-          mkdir -p pkg/static/web
-          cp -r react/out/* pkg/static/web/
-          echo "Static files prepared for embedding"
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Configure environment
-        run: |
-          echo "GOOS=${{ matrix.goos }}" >> "$GITHUB_ENV"
-          echo "GOARCH=${{ matrix.goarch }}" >> "$GITHUB_ENV"
-          # 提取版本信息
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
-          echo "GIT_COMMIT=${{ github.sha }}" >> "$GITHUB_ENV"
-          echo "BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
-
-      - name: Go build
-        env:
-          CGO_ENABLED: 0
-        run: |
-          NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          OUTPUT_DIR="./dist/${NAME}"
-          mkdir -p "$OUTPUT_DIR"
-          # 注入版本信息和 BASE_PATH
-          go build \
-            -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.BasePath=${{ env.BASE_PATH }}'" \
-            -o "$OUTPUT_DIR/${{ env.RUN_NAME }}${{ matrix.bin_ext }}" .
-          cp config.yaml "$OUTPUT_DIR/config.yaml"
-          # 复制部署文件
-          cp -r deploy "$OUTPUT_DIR/deploy"
-          # 复制前端构建产物，便于用户独立部署前端（如 nginx）
-          cp -r pkg/static/web "$OUTPUT_DIR/web"
-
-      - name: Package artifact
-        run: |
-          cd dist
-          NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.archive }}" = "zip" ]; then
-            zip -rq "${NAME}.zip" "${NAME}"
-          else
-            tar czf "${NAME}.tar.gz" "${NAME}"
-          fi
-          rm -rf "${NAME}"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: "${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          path: dist/*
-
+  # Create GitHub Release with binary artifacts
   release:
-    name: Create Release
+    name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: build-binaries
     steps:
@@ -139,75 +49,3 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/**/*.{tar.gz,zip}
-
-  docker:
-    name: Publish Docker Images
-    runs-on: ubuntu-latest
-    needs: build-binaries
-    env:
-      IMAGE_NAME: ghcr.io/${{ github.repository }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (API)
-        id: meta-api
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}-api
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest
-
-      - name: Extract metadata (Frontend)
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}-frontend
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest
-
-      - name: Build and push API image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          provenance: false
-          platforms: linux/amd64,linux/arm64
-          target: api
-          tags: ${{ steps.meta-api.outputs.tags }}
-          labels: ${{ steps.meta-api.outputs.labels }}
-          build-args: |
-            GO_VERSION=1.24
-            BASE_PATH=${{ env.BASE_PATH }}
-            VERSION=${{ github.ref_name }}
-            GIT_COMMIT=${{ github.sha }}
-            BUILD_TIME=${{ github.event.head_commit.timestamp }}
-
-      - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          provenance: false
-          platforms: linux/amd64,linux/arm64
-          target: frontend
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          build-args: |
-            GO_VERSION=1.24
-            BASE_PATH=${{ env.BASE_PATH }}

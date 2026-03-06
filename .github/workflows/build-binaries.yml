@@ -1,0 +1,126 @@
+name: Build Binaries
+
+on:
+  workflow_call:
+    inputs:
+      base_path:
+        description: 'Base path for deployment'
+        required: false
+        default: 'rainbow-bridge'
+        type: string
+    outputs:
+      artifact_name_prefix:
+        description: 'Prefix for uploaded artifacts'
+        value: ${{ jobs.build-binaries.outputs.artifact_name_prefix }}
+
+env:
+  RUN_NAME: hertz_service
+
+jobs:
+  build-binaries:
+    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive: tar.gz
+            bin_ext: ""
+          - goos: linux
+            goarch: arm64
+            archive: tar.gz
+            bin_ext: ""
+          - goos: windows
+            goarch: amd64
+            archive: zip
+            bin_ext: ".exe"
+          - goos: darwin
+            goarch: amd64
+            archive: tar.gz
+            bin_ext: ""
+          - goos: darwin
+            goarch: arm64
+            archive: tar.gz
+            bin_ext: ""
+    
+    outputs:
+      artifact_name_prefix: ${{ env.RUN_NAME }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: react/package-lock.json
+
+      - name: Build frontend
+        env:
+          BASE_PATH: ${{ inputs.base_path }}
+        run: |
+          cd react
+          npm ci
+          if [ -n "$BASE_PATH" ]; then
+            export NEXT_PUBLIC_BASE_PATH="/${BASE_PATH}"
+          else
+            export NEXT_PUBLIC_BASE_PATH=""
+          fi
+          npm run build
+          cd ..
+
+      - name: Copy frontend to static directory
+        run: |
+          rm -rf pkg/static/web/*
+          mkdir -p pkg/static/web
+          cp -r react/out/* pkg/static/web/
+          echo "Static files prepared for embedding"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Configure environment
+        run: |
+          echo "GOOS=${{ matrix.goos }}" >> "$GITHUB_ENV"
+          echo "GOARCH=${{ matrix.goarch }}" >> "$GITHUB_ENV"
+          echo "VERSION=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          echo "GIT_COMMIT=${{ github.sha }}" >> "$GITHUB_ENV"
+          echo "BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+      - name: Go build
+        env:
+          CGO_ENABLED: 0
+          BASE_PATH: ${{ inputs.base_path }}
+        run: |
+          NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          OUTPUT_DIR="./dist/${NAME}"
+          mkdir -p "$OUTPUT_DIR"
+          go build \
+            -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.BasePath=${{ env.BASE_PATH }}'" \
+            -o "$OUTPUT_DIR/${{ env.RUN_NAME }}${{ matrix.bin_ext }}" .
+          cp config.yaml "$OUTPUT_DIR/config.yaml"
+          cp -r deploy "$OUTPUT_DIR/deploy"
+          cp -r pkg/static/web "$OUTPUT_DIR/web"
+
+      - name: Package artifact
+        run: |
+          cd dist
+          NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -rq "${NAME}.zip" "${NAME}"
+          else
+            tar czf "${NAME}.tar.gz" "${NAME}"
+          fi
+          rm -rf "${NAME}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          path: dist/*

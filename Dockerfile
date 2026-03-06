@@ -79,13 +79,14 @@ WORKDIR /app
 COPY --from=go-builder /out/hertz_service /app/hertz_service
 COPY config.yaml /app/config.yaml
 
-RUN mkdir -p /app/data/uploads && chown -R rainbow:rainbow /app
+RUN mkdir -p /app/data/uploads /var/lib/rainbow_bridge && chown -R rainbow:rainbow /app /var/lib/rainbow_bridge
 
 USER rainbow
 
 EXPOSE 8080
 
-ENTRYPOINT ["/app/hertz_service", "--config", "/app/config.yaml"]
+ENTRYPOINT ["/app/hertz_service"]
+CMD ["--config", "/app/config.yaml"]
 
 ##
 ## Frontend runtime stage (target: frontend)

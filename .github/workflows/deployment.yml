@@ -74,13 +74,15 @@ jobs:
           docker ps -a
           echo "Checking container logs..."
           docker compose -f deploy/docker-compose/sqlite/docker-compose.yaml -p rainbow-sqlite logs --tail=20
+          echo "Checking port mappings..."
+          docker port rainbow-sqlite-rainbow-bridge-frontend || true
       
       - name: Health Check
         run: |
-          echo "Attempting health check..."
+          echo "Attempting health check on port 80..."
           for i in {1..5}; do
             echo "Attempt $i..."
-            if curl -f http://localhost:8080/rainbow-bridge/ping; then
+            if curl -f http://localhost:80/rainbow-bridge/ping; then
               echo "✓ Health check passed!"
               exit 0
             fi
@@ -88,7 +90,10 @@ jobs:
             sleep 10
           done
           echo "✗ Health check failed after all attempts"
-          docker compose -f deploy/docker-compose/sqlite/docker-compose.yaml -p rainbow-sqlite logs
+          echo "=== Frontend container logs ==="
+          docker compose -f deploy/docker-compose/sqlite/docker-compose.yaml -p rainbow-sqlite logs rainbow-bridge-frontend
+          echo "=== API container logs ==="
+          docker compose -f deploy/docker-compose/sqlite/docker-compose.yaml -p rainbow-sqlite logs rainbow-bridge-api
           exit 1
       
       - name: Verify API Endpoint
@@ -168,10 +173,10 @@ jobs:
       
       - name: Health Check (MySQL)
         run: |
-          echo "Attempting MySQL health check..."
+          echo "Attempting MySQL health check on port 80..."
           for i in {1..5}; do
             echo "Attempt $i..."
-            if curl -f http://localhost:8080/rainbow-bridge/ping; then
+            if curl -f http://localhost:80/rainbow-bridge/ping; then
               echo "✓ MySQL health check passed!"
               exit 0
             fi
@@ -179,7 +184,10 @@ jobs:
             sleep 10
           done
           echo "✗ MySQL health check failed after all attempts"
-          docker compose -f deploy/docker-compose/mysql/docker-compose.yaml -p rainbow-mysql logs
+          echo "=== Frontend container logs ==="
+          docker compose -f deploy/docker-compose/mysql/docker-compose.yaml -p rainbow-mysql logs rainbow-bridge-frontend
+          echo "=== API container logs ==="
+          docker compose -f deploy/docker-compose/mysql/docker-compose.yaml -p rainbow-mysql logs rainbow-bridge-api
           exit 1
       
       - name: Verify API Endpoint

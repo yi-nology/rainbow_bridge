@@ -250,28 +250,30 @@ jobs:
           cd deploy/kubernetes/standalone
           # Create namespace first
           kubectl create namespace rainbow-test --dry-run=client -o yaml | kubectl apply -f -
+          # Set default namespace for subsequent kubectl commands
+          kubectl config set-context --current --namespace=rainbow-test
           # Replace placeholders and apply
           sed -e "s/__NAMESPACE__/rainbow-test/g" \
               -e "s|__PV_HOST_PATH__|/tmp/rainbow-bridge/rainbow-test|g" \
               -e "s|ghcr.io/yi-nology/rainbow_bridge-api:latest|rainbow-bridge-api:k8s|g" \
               -e "s|ghcr.io/yi-nology/rainbow_bridge-frontend:latest|rainbow-bridge-frontend:k8s|g" \
               rainbow-bridge.yaml | kubectl apply -f -
-      
+
       - name: Wait for pods to be ready
         run: |
           kubectl wait --for=condition=ready pod -l app=rainbow-bridge-api --timeout=120s
           kubectl wait --for=condition=ready pod -l app=rainbow-bridge-frontend --timeout=120s
           kubectl get pods
-      
+
       - name: Port Forward
         run: |
           kubectl port-forward svc/rainbow-bridge-frontend 8080:80 &
           sleep 5
-      
+
       - name: Health Check
         run: |
           curl -f http://localhost:8080/rainbow-bridge/ping || exit 1
-      
+
       - name: Verify API Endpoint
         run: |
           response=$(curl -s http://localhost:8080/rainbow-bridge/api/v1/version)
@@ -282,15 +284,16 @@ jobs:
             echo "✗ Kubernetes deployment failed"
             exit 1
           fi
-      
+
       - name: Check Pod Logs
         if: failure()
         run: |
           kubectl logs -l app=rainbow-bridge-api
           kubectl logs -l app=rainbow-bridge-frontend
-      
+
       - name: Cleanup Kubernetes
         if: always()
         run: |
-          kubectl delete -f deploy/kubernetes/standalone/ || true
+          kubectl delete namespace rainbow-test --ignore-not-found=true || true
+          kubectl delete storageclass rainbow-bridge-local-storage --ignore-not-found=true || true
           minikube stop || true

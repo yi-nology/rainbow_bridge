@@ -261,6 +261,8 @@ jobs:
           # Replace placeholders and apply
           sed -e "s/__NAMESPACE__/rainbow-test/g" \
               -e "s|__PV_HOST_PATH__|/tmp/rainbow-bridge/rainbow-test|g" \
+              -e "s|ghcr.io/yi-nology/rainbow_bridge-api:latest|rainbow-bridge-api:k8s|g" \
+              -e "s|ghcr.io/yi-nology/rainbow_bridge-frontend:latest|rainbow-bridge-frontend:k8s|g" \
               rainbow-bridge.yaml | kubectl apply -f -
       
       - name: Wait for pods to be ready

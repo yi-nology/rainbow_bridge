@@ -72,6 +72,12 @@ export default defineUserConfig({
           ],
         },
         {
+          text: '部署配置',
+          children: [
+            '/guide/reverse-proxy',
+          ],
+        },
+        {
           text: '平台对接',
           children: [
             '/guide/integration/frontend',

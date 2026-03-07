@@ -104,21 +104,19 @@ curl http://localhost:8080/rainbow-bridge/api/v1/runtime/config \
 
 ### 深入学习
 
-- [UI配置流程](/guide/ui-config/environment) - 详细的环境和渠道管理
-- [配置管理](/guide/ui-config/config) - 5 种数据类型的完整说明
-- [资源管理](/guide/ui-config/assets) - 上传和管理静态资源
+- [安装部署](/guide/installation) - 详细的安装步骤
+- [UI配置流程](/guide/#ui-配置流程) - 环境和渠道管理概述
+- [配置管理](/guide/#ui-配置流程) - 5 种数据类型的完整说明
+- [资源管理](/guide/#ui-配置流程) - 上传和管理静态资源
 
 ### 平台对接
 
-- [前端对接](/guide/integration/frontend) - 在你的 React/Vue 项目中集成
-- [后端对接](/guide/integration/backend) - Go/Java/Node.js后端集成
-- [移动端对接](/guide/integration/mobile) - iOS/Android集成
+- [API 文档](/api/) - REST API 接口参考
 
 ### 高级功能
 
-- [导出配置](/guide/ui-config/export) - 导出为静态包或 ZIP
-- [配置迁移](/guide/ui-config/migration) - 多环境/渠道同步
-- [导入导出](/guide/import-export) - 批量操作
+- [导出配置](/guide/#ui-配置流程) - 导出为静态包或 ZIP
+- [配置迁移](/guide/#ui-配置流程) - 多环境/渠道同步
 
 ## 💡 最佳实践
 

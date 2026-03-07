@@ -60,34 +60,12 @@ export default defineUserConfig({
             '/guide/quick-start',
           ],
         },
-        {
-          text: 'UI配置流程',
-          children: [
-            '/guide/ui-config/environment',
-            '/guide/ui-config/pipeline',
-            '/guide/ui-config/config',
-            '/guide/ui-config/assets',
-            '/guide/ui-config/export',
-            '/guide/ui-config/migration',
-          ],
-        },
-        {
-          text: '平台对接',
-          children: [
-            '/guide/integration/frontend',
-            '/guide/integration/backend',
-            '/guide/integration/mobile',
-          ],
-        },
       ],
       '/status/': [
         {
           text: '工程可用状态',
           children: [
             '/status/',
-            '/status/build-status',
-            '/status/deployment-status',
-            '/status/test-coverage',
           ],
         },
       ],
@@ -96,9 +74,6 @@ export default defineUserConfig({
           text: '发版本信息',
           children: [
             '/release/',
-            '/release/version-history',
-            '/release/release-process',
-            '/release/changelog',
           ],
         },
       ],
@@ -107,12 +82,6 @@ export default defineUserConfig({
           text: 'API 接口',
           children: [
             '/api/',
-            '/api/environment',
-            '/api/pipeline',
-            '/api/config',
-            '/api/asset',
-            '/api/runtime',
-            '/api/transfer',
           ],
         },
       ],

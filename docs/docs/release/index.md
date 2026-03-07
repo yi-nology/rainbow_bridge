@@ -4,8 +4,8 @@
 
 ## 📦 当前版本
 
-**最新版本**：v3.1.3  
-**发布日期**：2026-03-07  
+**最新版本**：v3.5.1  
+**发布日期**：2026/03/07  
 **分支**：main  
 
 ### 版本特性
@@ -68,7 +68,7 @@
 遵循语义化版本规范（Semantic Versioning）：
 
 ```
-主版本号。次版本号。修订号
+主版本号.次版本号.修订号
 MAJOR.MINOR.PATCH
 ```
 
@@ -96,97 +96,237 @@ git push origin v3.2.0
 
 ## 📝 版本历史
 
+<!-- release-history-start -->
 ### v3.x 系列
 
-#### v3.1.3 (当前版本) - 2026-03-07
+#### v3.5.1 (最新版本) - 2026/03/07
 
-**新增功能**：
-- ✅ 完整的 VuePress 文档系统
-- ✅ GitHub Actions 自动集成发布文档
-- ✅ 工程可用状态实时展示
-- ✅ 详细的发版本流程文档
+**[下载此版本](https://github.com/yi-nology/rainbow_bridge/releases/tag/v3.5.1)**
 
-**改进**：
-- ✅ 完善 README 文档体系
-- ✅ 优化部署测试流程
-- ✅ 增强 UI配置指南
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.1/hertz_service-darwin-amd64.tar.gz) (17.69 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.1/hertz_service-darwin-arm64.tar.gz) (15.53 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.1/hertz_service-linux-amd64.tar.gz) (17.77 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.1/hertz_service-linux-arm64.tar.gz) (15.35 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.1/hertz_service-windows-amd64.zip) (17.92 MB)
 
-**技术栈**：
-- 后端：Go 1.22+ + Hertz
-- 前端：React 19 + Next.js 16
-- 数据库：SQLite/MySQL/PostgreSQL
-- 部署：Docker + Kubernetes
+---
 
-#### v3.1.0 - 2026-02-xx
+#### v3.5.0 - 2026/03/07
 
-**新增功能**：
-- ✅ 配置迁移功能（多环境/渠道同步）
-- ✅ 选择性导入导出
-- ✅ 导入预览和冲突检测
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.0/hertz_service-darwin-amd64.tar.gz) (17.68 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.0/hertz_service-darwin-arm64.tar.gz) (15.53 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.0/hertz_service-linux-amd64.tar.gz) (17.77 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.0/hertz_service-linux-arm64.tar.gz) (15.35 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.5.0/hertz_service-windows-amd64.zip) (17.92 MB)
 
-**改进**：
-- ✅ 优化配置比对算法
-- ✅ 增强资源引用处理
-- ✅ 改进错误提示
+---
 
-#### v3.0.0 - 2026-01-xx
+#### v3.1.3 - 2026/03/06
 
-**重大更新**：
-- ✅ 全新的 React 前端界面
-- ✅ 基于 Protobuf 的 API 设计
-- ✅ 完整的测试体系（单元测试 + E2E + 性能）
-- ✅ GitHub Actions CI/CD 流程
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.1.3/hertz_service-darwin-amd64.tar.gz) (17.68 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.1.3/hertz_service-darwin-arm64.tar.gz) (15.53 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.1.3/hertz_service-linux-amd64.tar.gz) (17.77 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.1.3/hertz_service-linux-arm64.tar.gz) (15.35 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.1.3/hertz_service-windows-amd64.zip) (17.92 MB)
 
-**破坏性变更**：
-- ⚠️ API 接口路径调整为 `/api/v1/*`
-- ⚠️ 配置文件格式更新
-- ⚠️ 数据库表结构变更
+---
+
+#### v3.0.7 - 2026/03/01
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.0.7/hertz_service-darwin-amd64.tar.gz) (17.68 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.0.7/hertz_service-darwin-arm64.tar.gz) (15.43 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.0.7/hertz_service-linux-amd64.tar.gz) (17.07 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.0.7/hertz_service-linux-arm64.tar.gz) (14.54 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v3.0.7/hertz_service-windows-amd64.zip) (17.22 MB)
+
+---
 
 ### v2.x 系列
 
-#### v2.5.0 - 2025-12-xx
+#### v2.7.0 - 2026/02/16
 
-**最后稳定版**：
-- ✅ 基础配置管理功能
-- ✅ 简单的资源上传
-- ✅ 单环境支持
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.7.0/hertz_service-darwin-amd64.tar.gz) (13.64 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.7.0/hertz_service-darwin-arm64.tar.gz) (11.55 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.7.0/hertz_service-linux-amd64.tar.gz) (13.17 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.7.0/hertz_service-linux-arm64.tar.gz) (10.87 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.7.0/hertz_service-windows-amd64.zip) (13.09 MB)
 
-## 🔄 变更日志
+---
 
-### 最近变更（v3.1.2 → v3.1.3）
+#### v2.6.0 - 2026/02/11
 
-**新增**：
-```markdown
-- docs: 创建 VuePress 文档系统
-  - 使用指南模块
-  - 工程状态模块
-  - 发版本信息模块
-  - API 文档模块
-  
-- ci: 添加文档自动发布 workflow
-  - 自动构建 VuePress 站点
-  - 自动部署到 GitHub Pages
-  - 自动更新索引
-```
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.6.0/hertz_service-darwin-amd64.tar.gz) (13.61 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.6.0/hertz_service-darwin-arm64.tar.gz) (11.52 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.6.0/hertz_service-linux-amd64.tar.gz) (13.14 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.6.0/hertz_service-linux-arm64.tar.gz) (10.84 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.6.0/hertz_service-windows-amd64.zip) (13.04 MB)
 
-**改进**：
-```markdown
-- docs(README): 完善部署测试状态章节
-  - 添加动态状态表格
-  - 增加本地测试指南
-  - 补充故障排查说明
-```
+---
 
-**修复**：
-```markdown
-- fix: 修复配置迁移时的资源引用问题
-- fix: 修复前端 basePath 配置问题
-```
+#### v2.5.0 - 2026/02/10
 
-### 完整 Changelog
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.5.0/hertz_service-darwin-amd64.tar.gz) (13.61 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.5.0/hertz_service-darwin-arm64.tar.gz) (11.52 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.5.0/hertz_service-linux-amd64.tar.gz) (13.14 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.5.0/hertz_service-linux-arm64.tar.gz) (10.84 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.5.0/hertz_service-windows-amd64.zip) (13.04 MB)
 
-查看完整的变更日志请访问：
-[GitHub Releases](https://github.com/yi-nology/rainbow_bridge/releases)
+---
+
+#### v2.4.2 - 2026/02/10
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.2/hertz_service-darwin-amd64.tar.gz) (13.61 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.2/hertz_service-darwin-arm64.tar.gz) (11.52 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.2/hertz_service-linux-amd64.tar.gz) (13.14 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.2/hertz_service-linux-arm64.tar.gz) (10.84 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.2/hertz_service-windows-amd64.zip) (13.04 MB)
+
+---
+
+#### v2.4.1 - 2026/01/30
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.1/hertz_service-darwin-amd64.tar.gz) (13.61 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.1/hertz_service-darwin-arm64.tar.gz) (11.52 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.1/hertz_service-linux-amd64.tar.gz) (13.14 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.1/hertz_service-linux-arm64.tar.gz) (10.84 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.1/hertz_service-windows-amd64.zip) (13.04 MB)
+
+---
+
+#### v2.4.0 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.0/hertz_service-darwin-amd64.tar.gz) (13.61 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.0/hertz_service-darwin-arm64.tar.gz) (11.52 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.0/hertz_service-linux-amd64.tar.gz) (13.14 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.0/hertz_service-linux-arm64.tar.gz) (10.84 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.4.0/hertz_service-windows-amd64.zip) (13.04 MB)
+
+---
+
+#### v2.3.0 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.3.0/hertz_service-darwin-amd64.tar.gz) (13.60 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.3.0/hertz_service-darwin-arm64.tar.gz) (11.51 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.3.0/hertz_service-linux-amd64.tar.gz) (13.14 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.3.0/hertz_service-linux-arm64.tar.gz) (10.83 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.3.0/hertz_service-windows-amd64.zip) (13.03 MB)
+
+---
+
+#### v2.2.0 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.2.0/hertz_service-darwin-amd64.tar.gz) (13.60 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.2.0/hertz_service-darwin-arm64.tar.gz) (11.51 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.2.0/hertz_service-linux-amd64.tar.gz) (13.13 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.2.0/hertz_service-linux-arm64.tar.gz) (10.83 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.2.0/hertz_service-windows-amd64.zip) (13.02 MB)
+
+---
+
+#### v2.1.1 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.1/hertz_service-darwin-amd64.tar.gz) (13.59 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.1/hertz_service-darwin-arm64.tar.gz) (11.49 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.1/hertz_service-linux-amd64.tar.gz) (13.12 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.1/hertz_service-linux-arm64.tar.gz) (10.80 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.1/hertz_service-windows-amd64.zip) (13.01 MB)
+
+---
+
+#### v2.1.0 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.0/hertz_service-darwin-amd64.tar.gz) (13.59 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.0/hertz_service-darwin-arm64.tar.gz) (11.49 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.0/hertz_service-linux-amd64.tar.gz) (13.12 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.0/hertz_service-linux-arm64.tar.gz) (10.80 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.1.0/hertz_service-windows-amd64.zip) (13.01 MB)
+
+---
+
+#### v2.0.3 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.3/hertz_service-darwin-amd64.tar.gz) (13.42 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.3/hertz_service-darwin-arm64.tar.gz) (11.32 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.3/hertz_service-linux-amd64.tar.gz) (12.96 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.3/hertz_service-linux-arm64.tar.gz) (10.65 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.3/hertz_service-windows-amd64.zip) (12.85 MB)
+
+---
+
+#### v2.0.2 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.2/hertz_service-darwin-amd64.tar.gz) (13.42 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.2/hertz_service-darwin-arm64.tar.gz) (11.32 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.2/hertz_service-linux-amd64.tar.gz) (12.96 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.2/hertz_service-linux-arm64.tar.gz) (10.65 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.2/hertz_service-windows-amd64.zip) (12.85 MB)
+
+---
+
+#### v2.0.1 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.1/hertz_service-darwin-amd64.tar.gz) (13.42 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.1/hertz_service-darwin-arm64.tar.gz) (11.32 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.1/hertz_service-linux-amd64.tar.gz) (12.96 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.1/hertz_service-linux-arm64.tar.gz) (10.65 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.1/hertz_service-windows-amd64.zip) (12.85 MB)
+
+---
+
+#### v2.0.0 - 2026/01/29
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.0/hertz_service-darwin-amd64.tar.gz) (13.42 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.0/hertz_service-darwin-arm64.tar.gz) (11.32 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.0/hertz_service-linux-amd64.tar.gz) (12.96 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.0/hertz_service-linux-arm64.tar.gz) (10.65 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v2.0.0/hertz_service-windows-amd64.zip) (12.85 MB)
+
+---
+
+### v1.x 系列
+
+#### v1.1.6 - 2026/01/27
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.6/hertz_service-darwin-amd64.tar.gz) (12.93 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.6/hertz_service-darwin-arm64.tar.gz) (10.81 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.6/hertz_service-linux-amd64.tar.gz) (12.46 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.6/hertz_service-linux-arm64.tar.gz) (10.15 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.6/hertz_service-windows-amd64.zip) (12.35 MB)
+
+---
+
+#### v1.1.5 - 2026/01/27
+
+**资产文件**：
+- [hertz_service-darwin-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.5/hertz_service-darwin-amd64.tar.gz) (12.92 MB)
+- [hertz_service-darwin-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.5/hertz_service-darwin-arm64.tar.gz) (10.81 MB)
+- [hertz_service-linux-amd64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.5/hertz_service-linux-amd64.tar.gz) (12.46 MB)
+- [hertz_service-linux-arm64.tar.gz](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.5/hertz_service-linux-arm64.tar.gz) (10.15 MB)
+- [hertz_service-windows-amd64.zip](https://github.com/yi-nology/rainbow_bridge/releases/download/v1.1.5/hertz_service-windows-amd64.zip) (12.35 MB)
+
+---
+
+
+<!-- release-history-end -->
 
 ## 📋 发布检查清单
 
@@ -296,15 +436,22 @@ jobs:
 ### 下载统计
 
 <!-- download-stats-start -->
-| 版本 | 下载量 | 发布日期 |
-|------|--------|---------|
-| v3.1.3 | - | 2026-03-07 |
-| v3.1.2 | 156 | 2026-02-28 |
-| v3.1.1 | 243 | 2026-02-15 |
-| v3.1.0 | 512 | 2026-01-30 |
+| 版本 | 下载量 | 发布日期 | 类型 |
+|------|--------|---------|------|
+| [v3.5.1](https://github.com/yi-nology/rainbow_bridge/releases/tag/v3.5.1) | 2 | 2026/03/07 | 正式版 |
+| [v3.5.0](https://github.com/yi-nology/rainbow_bridge/releases/tag/v3.5.0) | 4 | 2026/03/07 | 正式版 |
+| [v3.1.3](https://github.com/yi-nology/rainbow_bridge/releases/tag/v3.1.3) | 0 | 2026/03/06 | 正式版 |
+| [v3.0.7](https://github.com/yi-nology/rainbow_bridge/releases/tag/v3.0.7) | 8 | 2026/03/01 | 正式版 |
+| [v2.7.0](https://github.com/yi-nology/rainbow_bridge/releases/tag/v2.7.0) | 5 | 2026/02/16 | 正式版 |
+| [v2.6.0](https://github.com/yi-nology/rainbow_bridge/releases/tag/v2.6.0) | 0 | 2026/02/11 | 正式版 |
+| [v2.5.0](https://github.com/yi-nology/rainbow_bridge/releases/tag/v2.5.0) | 1 | 2026/02/10 | 正式版 |
+| [v2.4.2](https://github.com/yi-nology/rainbow_bridge/releases/tag/v2.4.2) | 0 | 2026/02/10 | 正式版 |
+| [v2.4.1](https://github.com/yi-nology/rainbow_bridge/releases/tag/v2.4.1) | 5 | 2026/01/30 | 正式版 |
+| [v2.4.0](https://github.com/yi-nology/rainbow_bridge/releases/tag/v2.4.0) | 0 | 2026/01/29 | 正式版 |
+
 <!-- download-stats-end -->
 
-*数据统计来自 GitHub Releases*
+*数据统计来自 GitHub Releases，自动更新于 2026/3/7 15:38:49*
 
 ## 🔗 相关链接
 

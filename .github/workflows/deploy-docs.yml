@@ -48,6 +48,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Generate release page
+        run: node scripts/generate-release.js
+      
       - name: Build VuePress site
         run: npm run docs:build
         env:

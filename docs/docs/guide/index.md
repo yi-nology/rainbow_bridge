@@ -18,6 +18,10 @@
 - [导出配置](./ui-config/export) - 导出为静态包或 ZIP
 - [配置迁移](./ui-config/migration) - 多环境/渠道同步
 
+### 部署配置
+
+- [反向代理配置](./reverse-proxy) - Nginx/Apache/Caddy 配置说明
+
 ### 平台对接
 
 - [平台对接指南](./integration/frontend) - 集成到你的项目

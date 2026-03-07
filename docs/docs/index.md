@@ -76,10 +76,10 @@ footer: Apache-2.0 Licensed | Copyright © 2026 yi-nology
 
 ## 🔗 快速链接
 
-- [📖 使用指南](/guide/) - 详细的安装和配置教程
-- [📊 工程状态](/status/) - 构建、部署和测试状态
-- [📦 发版本信息](/release/) - 版本历史和发布流程
-- [🔌 API 文档](/api/) - 完整的 API 接口参考
+- [📖 使用指南](./guide/) - 详细的安装和配置教程
+- [📊 工程状态](./status/) - 构建、部署和测试状态
+- [📦 发版本信息](./release/) - 版本历史和发布流程
+- [🔌 API 文档](./api/) - 完整的 API 接口参考
 - [📄 GitHub 仓库](https://github.com/yi-nology/rainbow_bridge) - 源代码和 Issue 追踪
 
 ## 📦 快速开始
@@ -96,7 +96,7 @@ docker compose up -d
 open http://localhost:8080/rainbow-bridge
 ```
 
-详细部署指南请查看 [快速开始](/guide/quick-start)。
+详细部署指南请查看 [快速开始](./guide/quick-start)。
 
 ## 📄 开源协议
 

@@ -255,7 +255,6 @@ ${generateVersionHistory(releases)}
 - [ ] 版本号符合语义化规范
 - [ ] 向后兼容性验证
 - [ ] Docker 镜像本地测试通过
-- [ ] Kubernetes 部署验证通过
 
 ### 发布后验证
 

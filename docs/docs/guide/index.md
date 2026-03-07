@@ -21,7 +21,6 @@
 ### 平台对接
 
 - [平台对接指南](/guide/integration/frontend) - 集成到你的项目
->
 
 ## 🎯 学习路径
 
@@ -29,7 +28,7 @@
 1. 阅读 [项目简介](/) 了解核心概念
 2. 按照 [安装部署](/guide/installation) 完成环境搭建
 3. 通过 [快速开始](/guide/quick-start) 体验基本功能
-4. 学习 [UI配置流程](/guide/ui-config/environment) 掌握配置管理
+4. 学习 [环境管理](/guide/ui-config/environment) 掌握配置管理
 
 ### 开发者
 1. 查看 [API 文档](/api/) 集成到你的项目

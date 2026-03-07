@@ -10,17 +10,20 @@
 - [快速开始](/guide/quick-start) - 5 分钟快速体验
 
 ### UI配置流程
-- [环境管理](/guide/ui-config/environment) - 创建和管理环境
-- [渠道管理](/guide/ui-config/pipeline) - 创建和管理渠道
-- [配置管理](/guide/ui-config/config) - 5 种数据类型的配置方法
-- [资源管理](/guide/ui-config/assets) - 上传和管理静态资源
-- [导出配置](/guide/ui-config/export) - 导出为静态包或 ZIP
-- [配置迁移](/guide/ui-config/migration) - 多环境/渠道同步
+
+> **注意**：以下详细文档正在编写中，当前可查看概览说明
+>
+- [环境管理](/guide/#ui-配置流程) - 创建和管理环境
+- [渠道管理](/guide/#ui-配置流程) - 创建和管理渠道
+- [配置管理](/guide/#ui-配置流程) - 5 种数据类型的配置方法
+- [资源管理](/guide/#ui-配置流程) - 上传和管理静态资源
+- [导出配置](/guide/#ui-配置流程) - 导出为静态包或 ZIP
+- [配置迁移](/guide/#ui-配置流程) - 多环境/渠道同步
 
 ### 平台对接
-- [前端对接](/guide/integration/frontend) - React/Vue等前端框架集成
-- [后端对接](/guide/integration/backend) - Go/Java/Node.js后端集成
-- [移动端对接](/guide/integration/mobile) - iOS/Android集成
+
+> **注意**：详细对接指南正在编写中，当前可参考 [API 文档](/api/)
+>
 
 ## 🎯 学习路径
 

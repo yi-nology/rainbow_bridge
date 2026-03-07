@@ -98,7 +98,7 @@ jobs:
       
       - name: Verify API Endpoint
         run: |
-          response=$(curl -s http://localhost:8080/rainbow-bridge/api/v1/version)
+          response=$(curl -s http://localhost:80/rainbow-bridge/api/v1/version)
           echo "Version response: $response"
           if echo "$response" | grep -q "version"; then
             echo "✓ API endpoint is working"
@@ -192,7 +192,7 @@ jobs:
       
       - name: Verify API Endpoint
         run: |
-          response=$(curl -s http://localhost:8080/rainbow-bridge/api/v1/version)
+          response=$(curl -s http://localhost:80/rainbow-bridge/api/v1/version)
           echo "Version response: $response"
           if echo "$response" | grep -q "version"; then
             echo "✓ MySQL deployment is working"
@@ -256,9 +256,12 @@ jobs:
       - name: Deploy to Kubernetes
         run: |
           cd deploy/kubernetes/standalone
-          kubectl apply -f configmap.yaml
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+          # Create namespace first
+          kubectl create namespace rainbow-test --dry-run=client -o yaml | kubectl apply -f -
+          # Replace placeholders and apply
+          sed -e "s/__NAMESPACE__/rainbow-test/g" \
+              -e "s|__PV_HOST_PATH__|/tmp/rainbow-bridge/rainbow-test|g" \
+              rainbow-bridge.yaml | kubectl apply -f -
       
       - name: Wait for pods to be ready
         run: |
@@ -268,7 +271,7 @@ jobs:
       
       - name: Port Forward
         run: |
-          kubectl port-forward svc/rainbow-bridge-service 8080:80 &
+          kubectl port-forward svc/rainbow-bridge-frontend 8080:80 &
           sleep 5
       
       - name: Health Check

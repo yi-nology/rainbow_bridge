@@ -3,11 +3,11 @@ version: "3.9"
 services:
   redis:
     image: redis:7-alpine
-    container_name: rainbow-bridge-redis
+    container_name: rainbow-test-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - redis_test_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -16,8 +16,8 @@ services:
     environment:
       TZ: Asia/Shanghai
 
-  rainbow-bridge-api:
-    image: rainbow_bridge-api:test
+  rainbow-test-api:
+    image: rainbow-bridge-api:test
     restart: unless-stopped
     command:
       - "--config"
@@ -28,7 +28,7 @@ services:
       - "8080"
     volumes:
       - ./config.yaml:/etc/rainbow_bridge/config.yaml:ro
-      - rainbow_bridge_data:/var/lib/rainbow_bridge
+      - rainbow_test_data:/var/lib/rainbow_bridge
     depends_on:
       redis:
         condition: service_healthy
@@ -39,23 +39,8 @@ services:
       retries: 3
       start_period: 40s
 
-  rainbow-bridge-frontend:
-    image: rainbow_bridge-frontend:test
-    container_name: rainbow-bridge-frontend
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      rainbow-bridge-api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/rainbow-bridge/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
 volumes:
-  redis_data:
+  redis_test_data:
     driver: local
-  rainbow_bridge_data:
+  rainbow_test_data:
     driver: local

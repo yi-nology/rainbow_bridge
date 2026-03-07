@@ -259,8 +259,8 @@ jobs:
 
       - name: Wait for pods to be ready
         run: |
-          kubectl wait -n rainbow-test --for=condition=ready pod -l app=rainbow-bridge-api --timeout=120s
-          kubectl wait -n rainbow-test --for=condition=ready pod -l app=rainbow-bridge-frontend --timeout=120s
+          kubectl wait -n rainbow-test --for=condition=ready pod -l 'app=rainbow-bridge,!component' --timeout=120s
+          kubectl wait -n rainbow-test --for=condition=ready pod -l 'app=rainbow-bridge,component=frontend' --timeout=120s
           kubectl get pods -n rainbow-test
 
       - name: Port Forward
@@ -286,8 +286,8 @@ jobs:
       - name: Check Pod Logs
         if: failure()
         run: |
-          kubectl logs -n rainbow-test -l app=rainbow-bridge-api
-          kubectl logs -n rainbow-test -l app=rainbow-bridge-frontend
+          kubectl logs -n rainbow-test -l 'app=rainbow-bridge,!component'
+          kubectl logs -n rainbow-test -l 'app=rainbow-bridge,component=frontend'
 
       - name: Cleanup Kubernetes
         if: always()

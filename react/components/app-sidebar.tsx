@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Settings, Github, Database, Layers, ArrowRightLeft, Info, ExternalLink,Import } from "lucide-react"
+import { LayoutDashboard, Settings, Github, Database, Layers, ArrowRightLeft, Info, ExternalLink, Import, BookOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useVersion, useLatestRelease } from "@/hooks/use-version"
 import { Badge } from "@/components/ui/badge"
@@ -145,8 +145,18 @@ export function AppSidebar() {
         )}
       </div>
 
-      {/* GitHub 链接 */}
-      <div className="p-4 border-t border-sidebar-border">
+      {/* 使用文档和 GitHub 链接 */}
+      <div className="p-4 border-t border-sidebar-border space-y-1">
+        <a
+          href="https://yi-nology.github.io/rainbow_bridge/guide/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <BookOpen className="w-4 h-4" />
+          使用文档
+          <ExternalLink className="w-3 h-3 ml-auto opacity-50" />
+        </a>
         <a
           href="https://github.com/yi-nology/rainbow_bridge"
           target="_blank"
@@ -155,6 +165,7 @@ export function AppSidebar() {
         >
           <Github className="w-4 h-4" />
           GitHub
+          <ExternalLink className="w-3 h-3 ml-auto opacity-50" />
         </a>
       </div>
     </aside>

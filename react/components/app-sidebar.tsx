@@ -56,7 +56,7 @@ export function AppSidebar() {
     <aside className="w-64 min-h-screen border-r border-border bg-sidebar flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-3">
-          <img src="/icon.svg" alt="Rainbow Bridge Logo" className="w-10 h-10" />
+          <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || '/rainbow-bridge'}/icon.svg`} alt="Rainbow Bridge Logo" className="w-10 h-10" />
           <div>
             <h1 className="font-semibold text-sidebar-foreground">虹桥计划</h1>
             <p className="text-xs text-muted-foreground">Rainbow Bridge</p>

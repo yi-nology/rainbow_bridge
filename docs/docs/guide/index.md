@@ -5,39 +5,39 @@
 ## 📚 目录
 
 ### 快速开始
-- [简介](/) - 项目介绍和核心特性
-- [安装部署](/guide/installation) - 详细的安装步骤
-- [快速开始](/guide/quick-start) - 5 分钟快速体验
+- [简介](../) - 项目介绍和核心特性
+- [安装部署](./installation) - 详细的安装步骤
+- [快速开始](./quick-start) - 5 分钟快速体验
 
 ### UI配置流程
 
-- [环境管理](/guide/ui-config/environment) - 创建和管理环境
-- [渠道管理](/guide/ui-config/channel) - 创建和管理渠道
-- [配置管理](/guide/ui-config/config) - 5 种数据类型的配置方法
-- [资源管理](/guide/ui-config/resource) - 上传和管理静态资源
-- [导出配置](/guide/ui-config/export) - 导出为静态包或 ZIP
-- [配置迁移](/guide/ui-config/migration) - 多环境/渠道同步
+- [环境管理](./ui-config/environment) - 创建和管理环境
+- [渠道管理](./ui-config/channel) - 创建和管理渠道
+- [配置管理](./ui-config/config) - 5 种数据类型的配置方法
+- [资源管理](./ui-config/resource) - 上传和管理静态资源
+- [导出配置](./ui-config/export) - 导出为静态包或 ZIP
+- [配置迁移](./ui-config/migration) - 多环境/渠道同步
 
 ### 平台对接
 
-- [平台对接指南](/guide/integration/frontend) - 集成到你的项目
+- [平台对接指南](./integration/frontend) - 集成到你的项目
 
 ## 🎯 学习路径
 
 ### 新手入门
-1. 阅读 [项目简介](/) 了解核心概念
-2. 按照 [安装部署](/guide/installation) 完成环境搭建
-3. 通过 [快速开始](/guide/quick-start) 体验基本功能
-4. 学习 [环境管理](/guide/ui-config/environment) 掌握配置管理
+1. 阅读 [项目简介](../) 了解核心概念
+2. 按照 [安装部署](./installation) 完成环境搭建
+3. 通过 [快速开始](./quick-start) 体验基本功能
+4. 学习 [环境管理](./ui-config/environment) 掌握配置管理
 
 ### 开发者
-1. 查看 [API 文档](/api/) 集成到你的项目
-2. 参考 [工程状态](/status/) 了解构建和测试情况
+1. 查看 [API 文档](../../api/) 集成到你的项目
+2. 参考 [工程状态](../../status/) 了解构建和测试情况
 
 ### 运维人员
-1. 查看 [部署测试状态](/status/#部署测试状态) 验证部署方式
-2. 参考 [发版本流程](/release/#发版本流程) 了解发布规范
-3. 查看 [版本历史](/release/#版本历史) 了解版本变更
+1. 查看 [部署测试状态](../../status/index.html#部署测试状态) 验证部署方式
+2. 参考 [发版本流程](../../release/index.html#发版本流程) 了解发布规范
+3. 查看 [版本历史](../../release/index.html#版本历史) 了解版本变更
 
 ## 💡 最佳实践
 

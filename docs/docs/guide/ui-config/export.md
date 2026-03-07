@@ -288,5 +288,5 @@ A: 可以选择：
 
 ## 下一步
 
-- [配置迁移](/guide/ui-config/migration) - 在环境间迁移配置
-- [平台对接](/guide/integration/frontend) - 集成到你的项目
+- [配置迁移](./migration) - 在环境间迁移配置
+- [平台对接](../integration/frontend) - 集成到你的项目

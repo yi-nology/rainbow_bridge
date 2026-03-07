@@ -555,6 +555,6 @@ A: 建议实现多层降级：
 
 ## 相关文档
 
-- [API 文档](/api/) - 完整的 API 接口参考
-- [环境管理](/guide/ui-config/environment) - 环境概念详解
-- [渠道管理](/guide/ui-config/channel) - 渠道概念详解
+- [API 文档](../../api/) - 完整的 API 接口参考
+- [环境管理](../ui-config/environment) - 环境概念详解
+- [渠道管理](../ui-config/channel) - 渠道概念详解

@@ -299,8 +299,8 @@ docker compose logs db
 
 完成安装后，请继续学习：
 
-- [快速开始](/guide/quick-start) - 体验基本功能
-- [环境管理](/guide/ui-config/environment) - 学习环境管理
-- [渠道管理](/guide/ui-config/channel) - 学习渠道管理
-- [配置管理](/guide/ui-config/config) - 学习配置管理
-- [平台对接](/guide/integration/frontend) - 集成到你的项目
+- [快速开始](./quick-start) - 体验基本功能
+- [环境管理](./ui-config/environment) - 学习环境管理
+- [渠道管理](./ui-config/channel) - 学习渠道管理
+- [配置管理](./ui-config/config) - 学习配置管理
+- [平台对接](./integration/frontend) - 集成到你的项目

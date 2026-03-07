@@ -96,8 +96,8 @@ docker compose up -d
 open http://localhost:8080/rainbow-bridge
 ```
 
-详细部署指南请查看 [快速开始](./guide/quick-start)。
+详细部署指南请查看 [快速开始](./guide/quick-start.html)。
 
 ## 📄 开源协议
 
-本项目遵循 [Apache License 2.0](LICENSE)。
+本项目遵循 [Apache License 2.0](https://github.com/yi-nology/rainbow_bridge/blob/main/LICENSE)。

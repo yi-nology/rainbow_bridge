@@ -1,6 +1,7 @@
 import { defineUserConfig } from 'vuepress'
 import { defaultTheme } from '@vuepress/theme-default'
 import { searchPlugin } from '@vuepress/plugin-search'
+import { viteBundler } from '@vuepress/bundler-vite'
 
 export default defineUserConfig({
   lang: 'zh-CN',
@@ -8,6 +9,8 @@ export default defineUserConfig({
   description: '虹桥计划（Rainbow Bridge）技术文档 - 静态资源与配置管理中台',
   
   base: '/rainbow_bridge/',
+  
+  bundler: viteBundler(),
   
   head: [
     ['link', { rel: 'icon', href: '/icon.svg' }],

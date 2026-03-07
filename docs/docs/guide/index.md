@@ -11,18 +11,16 @@
 
 ### UI配置流程
 
-> **注意**：以下详细文档正在编写中，当前可查看概览说明
->
-- [环境管理](/guide/#ui-配置流程) - 创建和管理环境
-- [渠道管理](/guide/#ui-配置流程) - 创建和管理渠道
-- [配置管理](/guide/#ui-配置流程) - 5 种数据类型的配置方法
-- [资源管理](/guide/#ui-配置流程) - 上传和管理静态资源
-- [导出配置](/guide/#ui-配置流程) - 导出为静态包或 ZIP
-- [配置迁移](/guide/#ui-配置流程) - 多环境/渠道同步
+- [环境管理](/guide/ui-config/environment) - 创建和管理环境
+- [渠道管理](/guide/ui-config/channel) - 创建和管理渠道
+- [配置管理](/guide/ui-config/config) - 5 种数据类型的配置方法
+- [资源管理](/guide/ui-config/resource) - 上传和管理静态资源
+- [导出配置](/guide/ui-config/export) - 导出为静态包或 ZIP
+- [配置迁移](/guide/ui-config/migration) - 多环境/渠道同步
 
 ### 平台对接
 
-> **注意**：详细对接指南正在编写中，当前可参考 [API 文档](/api/)
+- [平台对接指南](/guide/integration/frontend) - 集成到你的项目
 >
 
 ## 🎯 学习路径
@@ -34,14 +32,13 @@
 4. 学习 [UI配置流程](/guide/ui-config/environment) 掌握配置管理
 
 ### 开发者
-1. 查看 [平台对接指南](/guide/integration/frontend) 集成到你的项目
-2. 参考 [API 文档](/api/) 了解接口详情
-3. 阅读 [工程状态](/status/) 了解构建和测试情况
+1. 查看 [API 文档](/api/) 集成到你的项目
+2. 参考 [工程状态](/status/) 了解构建和测试情况
 
 ### 运维人员
-1. 查看 [部署测试状态](/status/deployment-status) 验证部署方式
-2. 参考 [发版本流程](/release/release-process) 了解发布规范
-3. 查看 [版本历史](/release/version-history) 了解版本变更
+1. 查看 [部署测试状态](/status/#部署测试状态) 验证部署方式
+2. 参考 [发版本流程](/release/#发版本流程) 了解发布规范
+3. 查看 [版本历史](/release/#版本历史) 了解版本变更
 
 ## 💡 最佳实践
 

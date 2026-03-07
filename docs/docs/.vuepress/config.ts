@@ -60,6 +60,23 @@ export default defineUserConfig({
             '/guide/quick-start',
           ],
         },
+        {
+          text: 'UI配置流程',
+          children: [
+            '/guide/ui-config/environment',
+            '/guide/ui-config/channel',
+            '/guide/ui-config/config',
+            '/guide/ui-config/resource',
+            '/guide/ui-config/export',
+            '/guide/ui-config/migration',
+          ],
+        },
+        {
+          text: '平台对接',
+          children: [
+            '/guide/integration/frontend',
+          ],
+        },
       ],
       '/status/': [
         {

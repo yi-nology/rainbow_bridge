@@ -6,7 +6,7 @@
 
 ## 🎯 前置准备
 
-确保你已经完成了 [安装部署](/guide/installation)。如果还没有，请先完成部署。
+确保你已经完成了 [安装部署](./installation)。如果还没有，请先完成部署。
 
 ## 🚀 5 分钟快速体验
 
@@ -106,21 +106,21 @@ curl http://localhost:8080/rainbow-bridge/api/v1/runtime/config \
 
 ### 深入学习
 
-- [安装部署](/guide/installation) - 详细的安装步骤
-- [环境管理](/guide/ui-config/environment) - 创建和管理环境
-- [渠道管理](/guide/ui-config/channel) - 创建和管理渠道
-- [配置管理](/guide/ui-config/config) - 5 种数据类型的完整说明
-- [资源管理](/guide/ui-config/resource) - 上传和管理静态资源
+- [安装部署](./installation) - 详细的安装步骤
+- [环境管理](./ui-config/environment) - 创建和管理环境
+- [渠道管理](./ui-config/channel) - 创建和管理渠道
+- [配置管理](./ui-config/config) - 5 种数据类型的完整说明
+- [资源管理](./ui-config/resource) - 上传和管理静态资源
 
 ### 平台对接
 
-- [API 文档](/api/) - REST API 接口参考
-- [平台对接指南](/guide/integration/frontend) - 集成到你的项目
+- [API 文档](../api/) - REST API 接口参考
+- [平台对接指南](./integration/frontend) - 集成到你的项目
 
 ### 高级功能
 
-- [导出配置](/guide/ui-config/export) - 导出为静态包或 ZIP
-- [配置迁移](/guide/ui-config/migration) - 多环境/渠道同步
+- [导出配置](./ui-config/export) - 导出为静态包或 ZIP
+- [配置迁移](./ui-config/migration) - 多环境/渠道同步
 
 ## 💡 最佳实践
 
@@ -185,9 +185,9 @@ feature_new_checkout  # 新功能开关
 
 ## 🔗 相关资源
 
-- [完整安装指南](/guide/installation)
-- [API 接口文档](/api/)
-- [工程状态](/status/)
+- [完整安装指南](./installation)
+- [API 接口文档](../api/)
+- [工程状态](../status/)
 - [GitHub Issues](https://github.com/yi-nology/rainbow_bridge/issues)
 
 祝你使用愉快！🌈

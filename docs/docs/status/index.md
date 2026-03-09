@@ -22,8 +22,6 @@
 |---------|--------|------|---------|------|
 | Docker Compose | SQLite | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/deployment.yml) |
 | Docker Compose | MySQL | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/deployment.yml) |
-| Kubernetes | Standalone | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/deployment.yml) |
-| Kubernetes | PGSQL+MinIO | 🟡 待完善 | - | [Issue](https://github.com/yi-nology/rainbow_bridge/issues) |
 <!-- deployment-status-end -->
 
 ### 测试覆盖状态
@@ -190,27 +188,6 @@ docker compose logs api | grep -i error
 # 应无严重错误
 ```
 
-### Kubernetes 验证
-
-**验证清单**：
-```bash
-# 1. Pod 状态检查
-kubectl get pods -l app=rainbow-bridge
-# 应显示 READY 1/1
-
-# 2. Service 检查
-kubectl get svc rainbow-bridge-service
-# 应显示正确的端口映射
-
-# 3. 日志检查
-kubectl logs -l app=rainbow-bridge-api
-# 应无 panic 或严重错误
-
-# 4. 功能测试
-kubectl port-forward svc/rainbow-bridge-service 8080:80
-curl http://localhost:8080/rainbow-bridge/ping
-```
-
 ## 📈 质量指标
 
 ### 代码质量
@@ -232,7 +209,7 @@ curl http://localhost:8080/rainbow-bridge/ping
 
 - ✅ 自动构建（GitHub Actions）
 - ✅ 自动测试（单元测试 + E2E）
-- ✅ 自动部署（Docker + K8s）
+- ✅ 自动部署（Docker）
 - ✅ 自动发布（Release workflow）
 - ⏳ 自动文档更新（待实现）
 

@@ -540,3 +540,39 @@ docker compose up -d
 ## 💬 支持
 
 如有问题，请提交 [Issue](https://github.com/yi-nology/rainbow_bridge/issues)。
+
+---
+
+## 🔄 反向代理场景
+
+如果你的 rainbow-bridge 前面还有一层 nginx 或其他反向代理（例如在 k8s ingress 场景），请注意：
+
+### 必须传递正确的 Host 头
+
+最前端反向代理必须保留原始 Host 和端口：
+
+```nginx
+# 最前端 nginx 配置示例 (端口 32376)
+server {
+    listen 32376;
+    
+    location /rainbow-bridge/ {
+        proxy_pass http://rainbow-bridge-frontend:80/rainbow-bridge/;
+        
+        # 关键：保留原始 Host 和端口
+        proxy_set_header Host $host:$server_port;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host:$server_port;
+        proxy_set_header X-Forwarded-Port $server_port;
+    }
+}
+```
+
+### 已修复的问题
+
+以下场景已验证可用：
+- ✅ 单层反向代理 (nginx:32376 -> app:80)
+- ✅ 多层反向代理 (ingress:32376 -> nginx:80 -> app:8080)
+- ✅ k8s 集群内部访问

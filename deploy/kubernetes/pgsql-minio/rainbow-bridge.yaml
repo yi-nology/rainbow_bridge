@@ -609,7 +609,7 @@ data:
 
         location /rainbow-bridge/api/ {
             proxy_pass http://rainbow-bridge:8080;
-            proxy_set_header Host $host;
+            proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
@@ -620,7 +620,7 @@ data:
 
         location /rainbow-bridge/ping {
             proxy_pass http://rainbow-bridge:8080;
-            proxy_set_header Host $host;
+            proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
@@ -636,7 +636,7 @@ data:
         }
 
         location / {
-            return 302 /rainbow-bridge/;
+            return 302 $scheme://$http_host/rainbow-bridge/;
         }
     }
 

@@ -10,28 +10,32 @@ permissions:
   packages: write
 
 jobs:
-  # Call reusable workflow for building binaries
   build-binaries:
     uses: ./.github/workflows/build-binaries.yml
     with:
-      base_path: "rainbow-bridge"
+      base_path: ""
 
-  # Call reusable workflow for building Docker API image
   build-docker-api:
     uses: ./.github/workflows/build-docker-api.yml
     with:
-      base_path: "rainbow-bridge"
+      base_path: ""
       version: ${{ github.ref_name }}
       git_commit: ${{ github.sha }}
       build_time: ${{ github.event.head_commit.timestamp }}
 
-  # Call reusable workflow for building Docker Frontend image
+  build-docker-app:
+    uses: ./.github/workflows/build-docker-app.yml
+    with:
+      base_path: ""
+      version: ${{ github.ref_name }}
+      git_commit: ${{ github.sha }}
+      build_time: ${{ github.event.head_commit.timestamp }}
+
   build-docker-frontend:
     uses: ./.github/workflows/build-docker-frontend.yml
     with:
-      base_path: "rainbow-bridge"
+      base_path: ""
 
-  # Create GitHub Release with binary artifacts
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
@@ -42,7 +46,11 @@ jobs:
         with:
           path: dist
 
+      - name: List all artifacts
+        run: find dist -type f
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**/*.{tar.gz,zip}
+          files: |
+            dist/**/*.{tar.gz,zip}

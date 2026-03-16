@@ -61,5 +61,5 @@ jobs:
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
-            GO_VERSION=1.24
+            GO_VERSION=1.25
             BASE_PATH=${{ inputs.base_path }}

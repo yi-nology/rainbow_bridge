@@ -1,0 +1,57 @@
+name: Build Frontend
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_path:
+        description: 'Base path for the application (e.g., /rainbow-bridge/)'
+        required: false
+        default: '/rainbow-bridge/'
+        type: string
+
+jobs:
+  build-frontend:
+    name: Build Frontend Archive
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: vue/package-lock.json
+
+      - name: Build Vue frontend
+        env:
+          BASE_PATH: ${{ inputs.base_path }}
+        run: |
+          mkdir -p pkg/static/web
+          cd vue
+          npm ci
+          if [ -n "$BASE_PATH" ]; then
+            export VITE_BASE_PATH="${BASE_PATH}"
+          else
+            export VITE_BASE_PATH="/rainbow-bridge/"
+          fi
+          npm run build
+          cd ..
+
+      - name: Create frontend archive
+        run: |
+          cd pkg/static/web
+          ls -la
+          mkdir -p ../../dist
+          tar czf ../../dist/frontend.tar.gz .
+          zip -rq ../../dist/frontend.zip .
+          cd ../..
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 7

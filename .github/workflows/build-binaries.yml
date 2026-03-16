@@ -167,12 +167,10 @@ jobs:
 
       - name: Create frontend archive
         run: |
-          mkdir -p dist
-          ls -la pkg/static/web/
           cd pkg/static/web
+          ls -la
+          mkdir -p ../../dist
           tar czf ../../dist/frontend.tar.gz .
-          cd ../..
-          cd pkg/static/web
           zip -rq ../../dist/frontend.zip .
           cd ../..
 

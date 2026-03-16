@@ -6,7 +6,7 @@ on:
       base_path:
         description: 'Base path for deployment'
         required: false
-        default: 'rainbow-bridge'
+        default: ''
         type: string
     outputs:
       artifact_name_prefix:
@@ -14,7 +14,7 @@ on:
         value: ${{ jobs.build-binaries.outputs.artifact_name_prefix }}
 
 env:
-  RUN_NAME: hertz_service
+  RUN_NAME: rainbow_bridge
 
 jobs:
   build-binaries:
@@ -57,18 +57,18 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: react/package-lock.json
+          cache-dependency-path: vue/package-lock.json
 
-      - name: Build frontend
+      - name: Build Vue frontend
         env:
           BASE_PATH: ${{ inputs.base_path }}
         run: |
-          cd react
+          cd vue
           npm ci
           if [ -n "$BASE_PATH" ]; then
-            export NEXT_PUBLIC_BASE_PATH="/${BASE_PATH}"
+            export VITE_BASE_PATH="/${BASE_PATH}/"
           else
-            export NEXT_PUBLIC_BASE_PATH=""
+            export VITE_BASE_PATH="/"
           fi
           npm run build
           cd ..
@@ -77,7 +77,7 @@ jobs:
         run: |
           rm -rf pkg/static/web/*
           mkdir -p pkg/static/web
-          cp -r react/out/* pkg/static/web/
+          cp -r vue/dist/* pkg/static/web/
           echo "Static files prepared for embedding"
 
       - name: Set up Go
@@ -93,34 +93,94 @@ jobs:
           echo "GIT_COMMIT=${{ github.sha }}" >> "$GITHUB_ENV"
           echo "BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
 
-      - name: Go build
+      - name: Build server binary (API only)
+        env:
+          CGO_ENABLED: 0
+        run: |
+          NAME="${{ env.RUN_NAME }}-server-${{ matrix.goos }}-${{ matrix.goarch }}"
+          OUTPUT_DIR="./dist/${NAME}"
+          mkdir -p "$OUTPUT_DIR"
+          go build \
+            -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}'" \
+            -o "$OUTPUT_DIR/server${{ matrix.bin_ext }}" ./cmd/server
+          cp config.yaml "$OUTPUT_DIR/config.yaml"
+          cp -r deploy "$OUTPUT_DIR/deploy"
+
+      - name: Build app binary (with frontend)
         env:
           CGO_ENABLED: 0
           BASE_PATH: ${{ inputs.base_path }}
         run: |
-          NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          NAME="${{ env.RUN_NAME }}-app-${{ matrix.goos }}-${{ matrix.goarch }}"
           OUTPUT_DIR="./dist/${NAME}"
           mkdir -p "$OUTPUT_DIR"
           go build \
             -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.BasePath=${{ env.BASE_PATH }}'" \
-            -o "$OUTPUT_DIR/${{ env.RUN_NAME }}${{ matrix.bin_ext }}" .
+            -o "$OUTPUT_DIR/app${{ matrix.bin_ext }}" ./cmd/app
           cp config.yaml "$OUTPUT_DIR/config.yaml"
           cp -r deploy "$OUTPUT_DIR/deploy"
           cp -r pkg/static/web "$OUTPUT_DIR/web"
 
-      - name: Package artifact
+      - name: Package artifacts
         run: |
           cd dist
-          NAME="${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.archive }}" = "zip" ]; then
-            zip -rq "${NAME}.zip" "${NAME}"
-          else
-            tar czf "${NAME}.tar.gz" "${NAME}"
-          fi
-          rm -rf "${NAME}"
+          for dir in */; do
+            NAME="${dir%/}"
+            if [ "${{ matrix.archive }}" = "zip" ]; then
+              zip -rq "${NAME}.zip" "${NAME}"
+            else
+              tar czf "${NAME}.tar.gz" "${NAME}"
+            fi
+            rm -rf "${NAME}"
+          done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: "${{ env.RUN_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          path: dist/*
+
+  build-frontend-archive:
+    name: Build Frontend Archive
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: vue/package-lock.json
+
+      - name: Build Vue frontend
+        env:
+          BASE_PATH: ${{ inputs.base_path }}
+        run: |
+          cd vue
+          npm ci
+          if [ -n "$BASE_PATH" ]; then
+            export VITE_BASE_PATH="/${BASE_PATH}/"
+          else
+            export VITE_BASE_PATH="/"
+          fi
+          npm run build
+          cd ..
+
+      - name: Create frontend archive
+        run: |
+          mkdir -p dist
+          cd vue/dist
+          tar czf ../../dist/frontend.tar.gz .
+          cd ../..
+          cd vue/dist
+          zip -rq ../../dist/frontend.zip .
+          cd ../..
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-archive
           path: dist/*

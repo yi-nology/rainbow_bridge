@@ -1,0 +1,272 @@
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
+import AppSidebar from '@/components/AppSidebar.vue'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Plus, Trash2, GitBranch, ChevronRight, Loader2 } from 'lucide-vue-next'
+import { useEnvironmentStore } from '@/stores/environment'
+import type { Environment } from '@/lib/types'
+
+const environmentStore = useEnvironmentStore()
+
+const selectedEnv = ref<Environment | null>(null)
+const isEnvDialogOpen = ref(false)
+const isPipelineDialogOpen = ref(false)
+const envFormData = ref({ key: '', name: '' })
+const pipelineFormData = ref({ key: '', name: '' })
+
+const displayPipelines = computed(() => selectedEnv.value?.pipelines || [])
+
+onMounted(() => {
+  environmentStore.fetchOverview()
+})
+
+watch(() => environmentStore.environments, (envs) => {
+  if (selectedEnv.value && envs.length > 0) {
+    const updated = envs.find((e) => e.key === selectedEnv.value?.key)
+    if (updated) {
+      selectedEnv.value = updated
+    } else {
+      selectedEnv.value = null
+    }
+  }
+})
+
+const handleAddEnv = async () => {
+  if (!envFormData.value.key || !envFormData.value.name) return
+  await environmentStore.createEnvironment(envFormData.value)
+  envFormData.value = { key: '', name: '' }
+  isEnvDialogOpen.value = false
+}
+
+const handleDeleteEnv = async (key: string) => {
+  await environmentStore.deleteEnvironment(key)
+  if (selectedEnv.value?.key === key) selectedEnv.value = null
+}
+
+const handleAddPipeline = async () => {
+  if (!selectedEnv.value || !pipelineFormData.value.key || !pipelineFormData.value.name) return
+  await environmentStore.createPipeline(selectedEnv.value.key, pipelineFormData.value)
+  pipelineFormData.value = { key: '', name: '' }
+  isPipelineDialogOpen.value = false
+}
+
+const handleDeletePipeline = async (pipelineKey: string) => {
+  if (!selectedEnv.value) return
+  await environmentStore.deletePipeline(selectedEnv.value.key, pipelineKey)
+}
+</script>
+
+<template>
+  <div class="flex min-h-screen">
+    <AppSidebar />
+    <main class="flex-1 p-8 overflow-auto">
+      <div class="max-w-5xl mx-auto space-y-6">
+        <div class="mb-8">
+          <h1 class="text-2xl font-bold tracking-tight">环境管理</h1>
+          <p class="text-muted-foreground mt-1">
+            管理多环境配置和渠道
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <div class="flex items-center justify-between">
+                <CardTitle class="text-lg">环境列表</CardTitle>
+                <Dialog v-model:open="isEnvDialogOpen">
+                  <DialogTrigger as-child>
+                    <Button size="sm">
+                      <Plus class="w-4 h-4 mr-2" />
+                      新增环境
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>新增环境</DialogTitle>
+                      <DialogDescription>添加一个新的部署环境</DialogDescription>
+                    </DialogHeader>
+                    <div class="space-y-4">
+                      <div class="space-y-2">
+                        <Label for="env-key">环境标识</Label>
+                        <Input
+                          id="env-key"
+                          placeholder="例如: dev, test, prod"
+                          v-model="envFormData.key"
+                        />
+                      </div>
+                      <div class="space-y-2">
+                        <Label for="env-name">环境名称</Label>
+                        <Input
+                          id="env-name"
+                          placeholder="例如: 开发环境"
+                          v-model="envFormData.name"
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" @click="isEnvDialogOpen = false">
+                          取消
+                        </Button>
+                        <Button
+                          @click="handleAddEnv"
+                          :disabled="environmentStore.loading"
+                        >
+                          <Loader2 v-if="environmentStore.loading" class="w-4 h-4 mr-2 animate-spin" />
+                          保存
+                        </Button>
+                      </DialogFooter>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div v-if="environmentStore.loading" class="flex items-center justify-center py-8">
+                <Loader2 class="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+              <div v-else-if="environmentStore.error" class="text-center py-8 text-destructive">
+                加载失败，请刷新重试
+              </div>
+              <div v-else class="space-y-2">
+                <div
+                  v-for="env in environmentStore.environments"
+                  :key="env.key"
+                  :class="[
+                    'flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors',
+                    selectedEnv?.key === env.key
+                      ? 'border-primary bg-accent'
+                      : 'hover:bg-accent/50'
+                  ]"
+                  @click="selectedEnv = env"
+                >
+                  <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-md bg-primary/10">
+                      <GitBranch class="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p class="font-medium text-sm">{{ env.name }}</p>
+                      <p class="text-xs text-muted-foreground font-mono">
+                        {{ env.key }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <Badge variant="secondary" class="text-xs">
+                      {{ env.pipelines.length }} 渠道
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8"
+                      :disabled="environmentStore.loading"
+                      @click.stop="handleDeleteEnv(env.key)"
+                    >
+                      <Loader2 v-if="environmentStore.loading" class="w-4 h-4 animate-spin" />
+                      <Trash2 v-else class="w-4 h-4 text-destructive" />
+                    </Button>
+                    <ChevronRight class="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </div>
+                <p v-if="environmentStore.environments.length === 0" class="text-center py-8 text-muted-foreground">
+                  暂无环境，请添加
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div class="flex items-center justify-between">
+                <CardTitle class="text-lg">
+                  {{ selectedEnv ? `${selectedEnv.name} - 渠道管理` : '渠道管理' }}
+                </CardTitle>
+                <Dialog v-if="selectedEnv" v-model:open="isPipelineDialogOpen">
+                  <DialogTrigger as-child>
+                    <Button size="sm">
+                      <Plus class="w-4 h-4 mr-2" />
+                      新增渠道
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>新增渠道</DialogTitle>
+                      <DialogDescription>
+                        为 {{ selectedEnv.name }} 添加渠道
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div class="space-y-4">
+                      <div class="space-y-2">
+                        <Label for="pipeline-key">渠道标识</Label>
+                        <Input
+                          id="pipeline-key"
+                          placeholder="例如: default, gray"
+                          v-model="pipelineFormData.key"
+                        />
+                      </div>
+                      <div class="space-y-2">
+                        <Label for="pipeline-name">渠道名称</Label>
+                        <Input
+                          id="pipeline-name"
+                          placeholder="例如: 默认渠道"
+                          v-model="pipelineFormData.name"
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" @click="isPipelineDialogOpen = false">
+                          取消
+                        </Button>
+                        <Button
+                          @click="handleAddPipeline"
+                          :disabled="environmentStore.loading"
+                        >
+                          <Loader2 v-if="environmentStore.loading" class="w-4 h-4 mr-2 animate-spin" />
+                          保存
+                        </Button>
+                      </DialogFooter>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div v-if="selectedEnv" class="space-y-2">
+                <div
+                  v-for="pipeline in displayPipelines"
+                  :key="pipeline.key"
+                  class="flex items-center justify-between p-3 rounded-lg border"
+                >
+                  <div>
+                    <p class="font-medium text-sm">{{ pipeline.name }}</p>
+                    <p class="text-xs text-muted-foreground font-mono">
+                      {{ pipeline.key }}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    :disabled="environmentStore.loading"
+                    @click="handleDeletePipeline(pipeline.key)"
+                  >
+                    <Loader2 v-if="environmentStore.loading" class="w-4 h-4 animate-spin" />
+                    <Trash2 v-else class="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+                <p v-if="displayPipelines.length === 0" class="text-center py-8 text-muted-foreground">
+                  暂无渠道，请添加
+                </p>
+              </div>
+              <p v-else class="text-center py-8 text-muted-foreground">
+                请先选择一个环境
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </main>
+  </div>
+</template>

@@ -6,7 +6,7 @@ on:
       base_path:
         description: 'Base path for deployment'
         required: false
-        default: 'rainbow-bridge'
+        default: ''
         type: string
     outputs:
       frontend_image_tags:

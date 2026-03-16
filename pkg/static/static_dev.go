@@ -10,19 +10,19 @@ import (
 )
 
 // WebFS 在开发模式下从文件系统加载静态文件
-// 优先从 react/out 目录加载（Next.js 构建输出）
+// 优先从 vue/dist 目录加载（Vite 构建输出）
 // 如果不存在，则尝试从 pkg/static/web 加载
 func WebFS() (fs.FS, error) {
 	// 尝试多个可能的路径
 	possiblePaths := []string{
-		"react/out",      // 开发时 Next.js 输出目录
+		"vue/dist",       // 开发时 Vite 输出目录
 		"pkg/static/web", // 嵌入目录
 		"web",            // 备选目录
 	}
 
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {
-			return os.DirFS(filepath.Join(path)), nil
+			return os.DirFS(path), nil
 		}
 	}
 

@@ -39,6 +39,7 @@ dumped_hertz_remote_config.json
 rainbow_bridge
 rainbow_bridge.exe
 rainbow_bridge_*
+/bin/
 
 # Database and uploads
 data/resource.db
@@ -73,3 +74,11 @@ coverage.out
 # Performance test reports
 /tests/performance/reports/
 /tests/performance/node_modules/
+
+# Vue frontend
+/vue/node_modules/
+/vue/dist/
+/vue/.nuxt/
+/vue/.output/
+/vue/.DS_Store
+/vue/*.log

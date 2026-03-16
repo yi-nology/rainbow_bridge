@@ -23,14 +23,6 @@ jobs:
       git_commit: ${{ github.sha }}
       build_time: ${{ github.event.head_commit.timestamp }}
 
-  build-docker-app:
-    uses: ./.github/workflows/build-docker-app.yml
-    with:
-      base_path: ""
-      version: ${{ github.ref_name }}
-      git_commit: ${{ github.sha }}
-      build_time: ${{ github.event.head_commit.timestamp }}
-
   build-docker-frontend:
     uses: ./.github/workflows/build-docker-frontend.yml
     with:

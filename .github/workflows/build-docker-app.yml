@@ -1,4 +1,4 @@
-name: Build Docker Frontend
+name: Build Docker App
 
 on:
   workflow_call:
@@ -8,21 +8,33 @@ on:
         required: false
         default: ''
         type: string
+      version:
+        description: 'Version tag'
+        required: true
+        type: string
+      git_commit:
+        description: 'Git commit SHA'
+        required: true
+        type: string
+      build_time:
+        description: 'Build timestamp'
+        required: true
+        type: string
     outputs:
-      frontend_image_tags:
-        description: 'Tags for Frontend Docker image'
-        value: ${{ jobs.docker-frontend.outputs.frontend_image_tags }}
+      app_image_tags:
+        description: 'Tags for App Docker image'
+        value: ${{ jobs.docker-app.outputs.app_image_tags }}
 
 env:
-  IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge-frontend
+  IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge-app
 
 jobs:
-  docker-frontend:
-    name: Build and Push Frontend Image
+  docker-app:
+    name: Build and Push App Image
     runs-on: ubuntu-latest
     
     outputs:
-      frontend_image_tags: ${{ steps.meta-frontend.outputs.tags }}
+      app_image_tags: ${{ steps.meta-app.outputs.tags }}
     
     steps:
       - name: Checkout
@@ -41,8 +53,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (Frontend)
-        id: meta-frontend
+      - name: Extract metadata (App)
+        id: meta-app
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
@@ -50,16 +62,19 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest
 
-      - name: Build and push Frontend image
+      - name: Build and push App image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           provenance: false
           platforms: linux/amd64,linux/arm64
-          target: frontend
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
+          target: app
+          tags: ${{ steps.meta-app.outputs.tags }}
+          labels: ${{ steps.meta-app.outputs.labels }}
           build-args: |
             GO_VERSION=1.24
             BASE_PATH=${{ inputs.base_path }}
+            VERSION=${{ inputs.version }}
+            GIT_COMMIT=${{ inputs.git_commit }}
+            BUILD_TIME=${{ inputs.build_time }}

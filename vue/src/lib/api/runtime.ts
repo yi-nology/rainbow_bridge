@@ -1,4 +1,4 @@
-import { get } from './client'
+import { get, getBasePath } from './client'
 import type {
   ApiEnvironmentOverview,
   RuntimeConfigData,
@@ -9,6 +9,15 @@ interface RuntimeConfigResponse {
   msg: string
   error?: string
   data?: RuntimeConfigData
+}
+
+function buildApiUrl(path: string): string {
+  const basePath = getBasePath()
+  const normalizedBasePath = basePath.replace(/\/$/, '')
+  if (normalizedBasePath && path.startsWith('/api/')) {
+    return `${normalizedBasePath}${path}`
+  }
+  return path
 }
 
 export const runtimeApi = {
@@ -24,7 +33,7 @@ export const runtimeApi = {
     environmentKey: string,
     pipelineKey: string
   ): Promise<RuntimeConfigData | null> => {
-    const response = await fetch('/api/v1/runtime/config', {
+    const response = await fetch(buildApiUrl('/api/v1/runtime/config'), {
       method: 'GET',
       headers: {
         'x-environment': environmentKey,
@@ -45,7 +54,7 @@ export const runtimeApi = {
     pipelineKey: string
   ): Promise<Blob> => {
     const response = await fetch(
-      `/api/v1/runtime/static?environment_key=${environmentKey}&pipeline_key=${pipelineKey}`
+      buildApiUrl(`/api/v1/runtime/static?environment_key=${environmentKey}&pipeline_key=${pipelineKey}`)
     )
 
     if (!response.ok) {

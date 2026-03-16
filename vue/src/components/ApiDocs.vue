@@ -49,7 +49,7 @@ const copyPath = async (path: string, index: number) => {
       <div class="flex items-center justify-between">
         <CardTitle class="text-lg">前端对接</CardTitle>
         <a
-          href="/api/v1/runtime/overview"
+          href="https://yi-nology.github.io/rainbow_bridge/api/"
           target="_blank"
           class="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
         >

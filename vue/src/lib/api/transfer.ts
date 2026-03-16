@@ -1,8 +1,17 @@
-import { get, post, upload } from './client'
+import { get, post, upload, getBasePath } from './client'
 import type {
   ApiResourceConfig,
   ImportSummary,
 } from './types'
+
+function buildApiUrl(path: string): string {
+  const basePath = getBasePath()
+  const normalizedBasePath = basePath.replace(/\/$/, '')
+  if (normalizedBasePath && path.startsWith('/api/')) {
+    return `${normalizedBasePath}${path}`
+  }
+  return path
+}
 
 export interface ImportJsonData {
   configs: ApiResourceConfig[]
@@ -159,7 +168,7 @@ export const transferApi = {
   },
 
   exportSelective: async (params: ExportSelectiveParams): Promise<Blob> => {
-    const response = await fetch('/api/v1/transfer/export', {
+    const response = await fetch(buildApiUrl('/api/v1/transfer/export'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

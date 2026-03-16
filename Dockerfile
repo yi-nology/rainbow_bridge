@@ -24,7 +24,7 @@ RUN if [ -n "$BASE_PATH" ]; then \
     else \
       export VITE_BASE_PATH="/"; \
     fi && \
-    npm run build
+    npm run build -- --outDir dist
 
 ##
 ## Go build stage

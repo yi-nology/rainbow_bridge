@@ -14,10 +14,9 @@ on:
       - 'Dockerfile'
 
 env:
-  BASE_PATH: "rainbow-bridge"
+  BASE_PATH: ""
 
 jobs:
-  # Docker Compose SQLite Deployment Test
   docker-compose-sqlite:
     name: Docker Compose (SQLite)
     runs-on: ubuntu-latest
@@ -82,7 +81,7 @@ jobs:
           echo "Attempting health check on port 80..."
           for i in {1..5}; do
             echo "Attempt $i..."
-            if curl -f http://localhost:80/rainbow-bridge/ping; then
+            if curl -f http://localhost:80/ping; then
               echo "✓ Health check passed!"
               exit 0
             fi
@@ -98,7 +97,7 @@ jobs:
       
       - name: Verify API Endpoint
         run: |
-          response=$(curl -s http://localhost:80/rainbow-bridge/api/v1/version)
+          response=$(curl -s http://localhost:80/api/v1/version)
           echo "Version response: $response"
           if echo "$response" | grep -q "version"; then
             echo "✓ API endpoint is working"
@@ -117,7 +116,6 @@ jobs:
         working-directory: deploy/docker-compose/sqlite
         run: docker compose -f docker-compose.yaml -p rainbow-sqlite down -v
   
-  # Docker Compose MySQL Deployment Test
   docker-compose-mysql:
     name: Docker Compose (MySQL)
     runs-on: ubuntu-latest
@@ -176,7 +174,7 @@ jobs:
           echo "Attempting MySQL health check on port 80..."
           for i in {1..5}; do
             echo "Attempt $i..."
-            if curl -f http://localhost:80/rainbow-bridge/ping; then
+            if curl -f http://localhost:80/ping; then
               echo "✓ MySQL health check passed!"
               exit 0
             fi
@@ -192,7 +190,7 @@ jobs:
       
       - name: Verify API Endpoint
         run: |
-          response=$(curl -s http://localhost:80/rainbow-bridge/api/v1/version)
+          response=$(curl -s http://localhost:80/api/v1/version)
           echo "Version response: $response"
           if echo "$response" | grep -q "version"; then
             echo "✓ MySQL deployment is working"
@@ -210,4 +208,3 @@ jobs:
         if: always()
         working-directory: deploy/docker-compose/mysql
         run: docker compose -f docker-compose.yaml -p rainbow-mysql down -v
-  

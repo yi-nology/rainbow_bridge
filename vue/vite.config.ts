@@ -8,6 +8,9 @@ const agent = new http.Agent({
   family: 6,
 })
 
+const basePath = process.env.BASE_PATH || '/rainbow-bridge/'
+const normalizedBasePath = basePath.replace(/\/$/, '')
+
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
@@ -15,7 +18,7 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
-  base: process.env.BASE_PATH || '/rainbow-bridge/',
+  base: basePath,
   build: {
     outDir: '../pkg/static/web',
     emptyOutDir: true,
@@ -24,9 +27,10 @@ export default defineConfig({
     port: 3000,
     host: true,
     proxy: {
-      '/api': {
+      [`${normalizedBasePath}/api`]: {
         target: 'http://[::1]:8080',
         changeOrigin: true,
+        rewrite: (path) => path.replace(normalizedBasePath, ''),
         secure: false,
         agent,
       },

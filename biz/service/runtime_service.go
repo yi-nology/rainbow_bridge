@@ -55,7 +55,7 @@ func (s *Service) GetRuntimeOverview(ctx context.Context) (*runtime.RuntimeOverv
 		Code: 200,
 		Msg:  "OK",
 		Data: &runtime.RuntimeOverviewData{
-			Total: int32(len(envOverviews)),
+			Total: int32(len(envOverviews)), // #nosec G115 -- count will not exceed int32
 			List:  envOverviews,
 		},
 	}, nil

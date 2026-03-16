@@ -603,7 +603,7 @@ func (s *Service) MigrateConfigs(ctx context.Context, req *transfer.MigrateReque
 
 	// 4. 执行迁移
 	summary := &transfer.MigrateSummary{
-		Total: int32(len(sourceConfigs)),
+		Total: int32(len(sourceConfigs)), // #nosec G115 -- count will not exceed int32
 		Items: make([]*transfer.MigrateResultItem, 0),
 	}
 
@@ -793,7 +793,7 @@ func (s *Service) GetExportTree(ctx context.Context) (*transfer.ExportTreeData, 
 				PipelineName: pipe.GetPipelineName(),
 				Description:  pipe.GetDescription(),
 				IsActive:     pipe.GetIsActive(),
-				ConfigCount:  int32(len(configs)),
+				ConfigCount:  int32(len(configs)), // #nosec G115 -- count will not exceed int32
 				Configs:      make([]*transfer.ExportTreeConfig, 0),
 			}
 
@@ -1221,7 +1221,7 @@ func (s *Service) ImportConfigsPreview(ctx context.Context, data []byte, filenam
 		assetBytes, _ := json.Marshal(assetData)
 		var assets []map[string]any
 		if err := json.Unmarshal(assetBytes, &assets); err == nil {
-			preview.Summary.TotalAssets = int32(len(assets))
+			preview.Summary.TotalAssets = int32(len(assets)) // #nosec G115 -- count will not exceed int32
 		}
 	}
 

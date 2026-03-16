@@ -16,28 +16,13 @@ const apiEndpoints = [
   },
   {
     method: 'GET',
-    path: '/api/v1/environment/list',
-    description: '获取环境列表',
+    path: '/api/v1/runtime/config',
+    description: '获取运行时配置',
   },
   {
     method: 'POST',
-    path: '/api/v1/environment/create',
-    description: '创建环境',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/config/list',
-    description: '获取配置列表',
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/config/create',
-    description: '创建配置',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/asset/list',
-    description: '获取资源列表',
+    path: '/api/v1/runtime/static',
+    description: '实时获取运行时状态',
   },
 ]
 
@@ -62,7 +47,7 @@ const copyPath = async (path: string, index: number) => {
   <Card>
     <CardHeader>
       <div class="flex items-center justify-between">
-        <CardTitle class="text-lg">API 端点</CardTitle>
+        <CardTitle class="text-lg">前端对接</CardTitle>
         <a
           href="/api/v1/runtime/overview"
           target="_blank"

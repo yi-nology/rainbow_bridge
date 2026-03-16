@@ -3,7 +3,7 @@
 ##
 ## Build configuration
 ##
-ARG GO_VERSION=1.24
+ARG GO_VERSION=1.25
 
 ##
 ## Vue frontend build stage

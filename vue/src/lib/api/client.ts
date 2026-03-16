@@ -63,10 +63,17 @@ export async function request<T>(
   }
 ): Promise<ApiResponse<T>> {
   const apiBaseUrl = getApiBaseUrl()
+  const basePath = getBasePath()
+  const normalizedBasePath = basePath.replace(/\/$/, '')
   const baseUrl = apiBaseUrl || ''
   const showErrorToast = options?.showErrorToast !== false
 
-  const url = new URL(`${baseUrl}${path}`, window.location.origin)
+  let fullPath = path
+  if (!apiBaseUrl && normalizedBasePath && path.startsWith('/api/')) {
+    fullPath = `${normalizedBasePath}${path}`
+  }
+
+  const url = new URL(`${baseUrl}${fullPath}`, window.location.origin)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...options?.headers,
@@ -135,10 +142,17 @@ export async function upload<T>(
   }
 ): Promise<ApiResponse<T>> {
   const apiBaseUrl = getApiBaseUrl()
+  const basePath = getBasePath()
+  const normalizedBasePath = basePath.replace(/\/$/, '')
   const baseUrl = apiBaseUrl || ''
   const showErrorToast = options?.showErrorToast !== false
 
-  const url = new URL(`${baseUrl}${path}`, window.location.origin)
+  let fullPath = path
+  if (!apiBaseUrl && normalizedBasePath && path.startsWith('/api/')) {
+    fullPath = `${normalizedBasePath}${path}`
+  }
+
+  const url = new URL(`${baseUrl}${fullPath}`, window.location.origin)
 
   try {
     const response = await fetch(url.toString(), {

@@ -1,0 +1,24 @@
+[Unit]
+Description=Rainbow Bridge - Resource Configuration Platform
+Documentation=https://github.com/yi-nology/rainbow_bridge
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/rainbow-bridge
+ExecStart=/opt/rainbow-bridge/bin/hertz_service -config /opt/rainbow-bridge/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65535
+LimitNPROC=65535
+
+StandardOutput=append:/opt/rainbow-bridge/logs/rainbow-bridge.log
+StandardError=append:/opt/rainbow-bridge/logs/rainbow-bridge.log
+
+Environment=GIN_MODE=release
+
+[Install]
+WantedBy=multi-user.target

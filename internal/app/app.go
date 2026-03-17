@@ -26,9 +26,10 @@ type BuildConfig struct {
 }
 
 type Application struct {
-	H      *server.Hertz
-	Svc    *service.Service
-	Config *appconfig.Config
+	H        *server.Hertz
+	Svc      *service.Service
+	Config   *appconfig.Config
+	BasePath string
 }
 
 func Initialize(cfgPath string, buildCfg BuildConfig) (*Application, error) {
@@ -90,8 +91,9 @@ func Initialize(cfgPath string, buildCfg BuildConfig) (*Application, error) {
 	h.Use(middleware.Auth())
 
 	return &Application{
-		H:      h,
-		Svc:    svc,
-		Config: cfg,
+		H:        h,
+		Svc:      svc,
+		Config:   cfg,
+		BasePath: basePath,
 	}, nil
 }

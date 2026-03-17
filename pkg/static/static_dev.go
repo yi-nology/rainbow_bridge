@@ -6,7 +6,6 @@ package static
 import (
 	"io/fs"
 	"os"
-	"path/filepath"
 )
 
 // WebFS 在开发模式下从文件系统加载静态文件

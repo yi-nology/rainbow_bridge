@@ -19,6 +19,7 @@ var (
 	Version   = "dev"
 	GitCommit = "unknown"
 	BuildTime = "unknown"
+	BasePath  = ""
 )
 
 func main() {
@@ -29,6 +30,7 @@ func main() {
 		Version:   Version,
 		GitCommit: GitCommit,
 		BuildTime: BuildTime,
+		BasePath:  BasePath,
 	})
 	if err != nil {
 		log.Fatalf("initialize app: %v", err)
@@ -36,7 +38,7 @@ func main() {
 
 	bizrouter.GeneratedRegister(application.H)
 
-	setupStaticFileServer(application.H, "")
+	setupStaticFileServer(application.H, application.BasePath)
 
 	log.Printf("Full application listening at %s (with frontend)", application.Config.Server.Address)
 	application.H.Spin()
@@ -111,10 +113,15 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 		"/favicon.ico",
 		"/vite.svg",
 		"/robots.txt",
+		"/icon.svg",
+		"/apple-icon.png",
+		"/icon-dark-32x32.png",
+		"/icon-light-32x32.png",
 	}
 
 	for _, sp := range staticPaths {
 		h.GET(sp, staticHandler)
+		h.HEAD(sp, staticHandler)
 	}
 }
 

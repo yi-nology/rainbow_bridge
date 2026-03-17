@@ -36,8 +36,6 @@ build-app: build-frontend ## 构建完整应用 (带前端)
 build-frontend: ## 构建 Vue 前端
 	@echo "Building Vue frontend..."
 	cd vue && npm ci && npm run build
-	mkdir -p pkg/static/web
-	cp -r vue/dist/* pkg/static/web/
 
 test: ## 运行测试
 	@echo "Running tests..."

@@ -52,6 +52,7 @@ const hasNewVersion = computed(() => {
 })
 
 const basePath = import.meta.env.BASE_URL || '/rainbow-bridge/'
+const normalizedBasePath = basePath.endsWith('/') ? basePath : `${basePath}/`
 
 onMounted(() => {
   versionStore.init()
@@ -62,7 +63,7 @@ onMounted(() => {
   <aside class="w-64 min-h-screen border-r border-border bg-sidebar flex flex-col">
     <div class="p-6 border-b border-sidebar-border">
       <router-link to="/" class="flex items-center gap-3">
-        <img :src="`${basePath}icon.svg`" alt="Rainbow Bridge Logo" class="w-10 h-10" />
+        <img :src="`${normalizedBasePath}icon.svg`" alt="Rainbow Bridge Logo" class="w-10 h-10" />
         <div>
           <h1 class="font-semibold text-sidebar-foreground">虹桥计划</h1>
           <p class="text-xs text-muted-foreground">Rainbow Bridge</p>

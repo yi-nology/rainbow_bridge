@@ -9,20 +9,11 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	hconfig "github.com/cloudwego/hertz/pkg/common/config"
-	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
-	versionhandler "github.com/yi-nology/rainbow_bridge/biz/handler/version"
-	"github.com/yi-nology/rainbow_bridge/biz/middleware"
-	bizrouter "github.com/yi-nology/rainbow_bridge/biz/router"
-	"github.com/yi-nology/rainbow_bridge/biz/service"
-	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
-	"github.com/yi-nology/rainbow_bridge/pkg/database"
-	"github.com/yi-nology/rainbow_bridge/pkg/lock"
-	appredis "github.com/yi-nology/rainbow_bridge/pkg/redis"
+	asset "github.com/yi-nology/rainbow_bridge/biz/handler/asset"
+	appinit "github.com/yi-nology/rainbow_bridge/pkg/app"
 	"github.com/yi-nology/rainbow_bridge/pkg/static"
 )
 
@@ -38,84 +29,32 @@ var (
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "path to config file")
+	noFrontend := flag.Bool("no-frontend", false, "disable frontend static files")
 	flag.Parse()
 
-	cfg, err := appconfig.Load(*configPath)
+	application, err := appinit.Initialize(*configPath, appinit.BuildConfig{
+		Version:   Version,
+		GitCommit: GitCommit,
+		BuildTime: BuildTime,
+		BasePath:  BasePath,
+	})
 	if err != nil {
-		log.Fatalf("load config: %v", err)
+		log.Fatalf("initialize app: %v", err)
 	}
 
-	db, err := database.Open(cfg.Database)
-	if err != nil {
-		log.Fatalf("open database: %v", err)
-	}
-
-	if err := db.AutoMigrate(&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{}); err != nil {
-		log.Fatalf("auto migrate: %v", err)
-	}
-
-	// Migrate existing configs with default environment_key and pipeline_key
-	if err := service.MigrateConfigDefaults(db); err != nil {
-		log.Fatalf("migrate config defaults: %v", err)
-	}
-
-	if err := service.EnsureSystemDefaults(context.Background(), db); err != nil {
-		log.Fatalf("seed system defaults: %v", err)
-	}
-
-	// Initialize Redis distributed write lock (optional)
-	if cfg.Redis.Enabled {
-		redisClient, redisErr := appredis.NewClient(cfg.Redis)
-		if redisErr != nil {
-			log.Fatalf("connect redis: %v", redisErr)
-		}
-		defer redisClient.Close()
-		writeLock := lock.New(redisClient, "rainbow_bridge:write_lock", 30*time.Second, 60*time.Second)
-		middleware.InitWriteLock(writeLock)
-		log.Printf("Redis distributed write lock enabled (%s)", cfg.Redis.Address)
-	}
-
-	// Use build-time injected BasePath instead of config file
-	basePath := appconfig.NormalizeBasePath(BasePath)
-	opts := []hconfig.Option{server.WithHostPorts(cfg.Server.Address)}
-	if basePath != "" {
-		opts = append(opts, server.WithBasePath(basePath))
-	}
-	h := server.Default(opts...)
-
-	service := service.NewService(db, basePath)
-
-	// Set version information for version handler
-	versionhandler.AppVersion = Version
-	versionhandler.AppGitCommit = GitCommit
-	versionhandler.AppBuildTime = BuildTime
-	versionhandler.IsIntranet = cfg.Intranet.Enabled
-
-	// Initialize handlers with service
-	bizrouter.InitHandlers(service)
-
-	// Migrate to full asset paths
-	if err := service.MigrateToFullAssetPaths(context.Background()); err != nil {
-		log.Printf("Warning: failed to migrate asset paths: %v", err)
-	}
-
-	// Register middleware
-	h.Use(middleware.Recovery())
-	h.Use(middleware.Logging())
-	h.Use(middleware.CORS(&cfg.CORS))
-	h.Use(middleware.Auth())
-	// Register all routes
-	register(h)
-
-	// Serve embedded frontend static files
-	setupStaticFileServer(h, basePath)
-
-	if basePath != "" {
-		log.Printf("server listening at %s with base path %s", cfg.Server.Address, basePath)
+	// Serve embedded frontend static files if not disabled
+	if !*noFrontend {
+		setupStaticFileServer(application.H, application.BasePath)
+		log.Printf("Full application listening at %s (with frontend)", application.Config.Server.Address)
 	} else {
-		log.Printf("server listening at %s", cfg.Server.Address)
+		log.Printf("API server listening at %s (no frontend)", application.Config.Server.Address)
 	}
-	h.Spin()
+
+	if application.BasePath != "" {
+		log.Printf("Server base path: %s", application.BasePath)
+	}
+
+	application.H.Spin()
 }
 
 func setupStaticFileServer(h *server.Hertz, basePath string) {
@@ -135,9 +74,24 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 	staticHandler := func(c context.Context, ctx *app.RequestContext) {
 		path := string(ctx.URI().Path())
 
+		// 尝试去除 /rainbow-bridge/ 前缀（如果存在）
+		if strings.HasPrefix(path, "/rainbow-bridge") {
+			path = strings.TrimPrefix(path, "/rainbow-bridge")
+		}
+
+		// 去除 basePath 前缀（如果存在）
 		if basePath != "" {
 			path = strings.TrimPrefix(path, basePath)
 		}
+
+		// 处理资产文件路径，例如 /api/v1/asset/file/{file_id}/{file_name}
+		if strings.HasPrefix(path, "/api/v1/asset/file/") {
+			// 调用资产处理函数
+			asset.GetFile(c, ctx)
+			return
+		}
+
+		// 处理路径
 		if path == "" || path == "/" {
 			path = "/index.html"
 		}
@@ -162,19 +116,57 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 		ctx.Data(200, contentType, content)
 	}
 
-	if basePath != "" {
-		h.NoRoute(func(c context.Context, ctx *app.RequestContext) {
-			reqPath := string(ctx.URI().Path())
-			if strings.HasPrefix(reqPath, basePath+"/") ||
-				reqPath == basePath {
-				staticHandler(c, ctx)
-			} else {
-				ctx.Status(404)
+	// 处理所有GET请求，优先尝试静态文件
+	h.GET("/*filepath", staticHandler)
+	h.HEAD("/*filepath", staticHandler)
+
+	// 处理404请求
+	noRoute := func(c context.Context, ctx *app.RequestContext) {
+		path := string(ctx.URI().Path())
+
+		// 尝试去除 /rainbow-bridge/ 前缀（如果存在）
+		if strings.HasPrefix(path, "/rainbow-bridge") {
+			path = strings.TrimPrefix(path, "/rainbow-bridge")
+		}
+
+		// 去除 basePath 前缀（如果存在）
+		if basePath != "" {
+			path = strings.TrimPrefix(path, basePath)
+		}
+
+		// 处理资产文件路径，例如 /api/v1/asset/file/{file_id}/{file_name}
+		if strings.HasPrefix(path, "/api/v1/asset/file/") {
+			// 提取 file_id
+			fileID := strings.TrimPrefix(path, "/api/v1/asset/file/")
+			if strings.Contains(fileID, "/") {
+				parts := strings.Split(fileID, "/")
+				if len(parts) > 0 {
+					fileID = parts[0]
+				}
 			}
-		})
-	} else {
-		h.NoRoute(staticHandler)
+			// 调用资产处理函数
+			asset.GetFile(c, ctx)
+			return
+		}
+
+		// 如果路径以 /api/ 开头，返回404
+		if strings.HasPrefix(path, "/api/") {
+			ctx.Status(404)
+			ctx.JSON(404, map[string]string{"error": "not found"})
+			return
+		}
+
+		// 否则返回index.html（用于SPA路由）
+		data, err := fs.ReadFile(webFS, "index.html")
+		if err != nil {
+			ctx.Status(404)
+			return
+		}
+
+		ctx.Data(200, "text/html; charset=utf-8", data)
 	}
+
+	h.NoRoute(noRoute)
 }
 
 func getContentType(path string) string {

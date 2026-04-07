@@ -77,6 +77,8 @@ type contextKey string
 
 const (
 	userIDKey        contextKey = "user_id"
+	usernameKey      contextKey = "username"
+	userRoleKey      contextKey = "user_role"
 	clientVersionKey contextKey = "client_version"
 )
 
@@ -120,6 +122,40 @@ func GetClientVersion(ctx context.Context) string {
 	}
 	if version, ok := v.(string); ok {
 		return version
+	}
+	return ""
+}
+
+// ContextWithUsername stores username into context.
+func ContextWithUsername(ctx context.Context, username string) context.Context {
+	return context.WithValue(ctx, usernameKey, username)
+}
+
+// GetUsername retrieves the username from context.
+func GetUsername(ctx context.Context) string {
+	v := ctx.Value(usernameKey)
+	if v == nil {
+		return ""
+	}
+	if username, ok := v.(string); ok {
+		return username
+	}
+	return ""
+}
+
+// ContextWithUserRole stores user role into context.
+func ContextWithUserRole(ctx context.Context, role string) context.Context {
+	return context.WithValue(ctx, userRoleKey, role)
+}
+
+// GetUserRole retrieves the user role from context.
+func GetUserRole(ctx context.Context) string {
+	v := ctx.Value(userRoleKey)
+	if v == nil {
+		return ""
+	}
+	if role, ok := v.(string); ok {
+		return role
 	}
 	return ""
 }

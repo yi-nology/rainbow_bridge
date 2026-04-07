@@ -119,7 +119,7 @@ func (s *Service) GetEnvironment(ctx context.Context, environmentKey string) (*e
 
 // ListEnvironments returns all environments with optional active filter.
 func (s *Service) ListEnvironments(ctx context.Context, isActive *bool) ([]*envpb.Environment, error) {
-	entities, err := s.logic.environmentDAO.List(ctx, s.logic.db, isActive)
+	entities, err := s.logic.environmentDAO.List(ctx, s.logic.db, isActive, 0, 0)
 	if err != nil {
 		return nil, err
 	}

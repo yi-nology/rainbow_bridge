@@ -1,45 +1,38 @@
-import { get, post } from './client'
-import type {
-  ApiPipeline,
-  ListData,
-} from './types'
+import { BaseApiService } from './base-api'
+import type { Pipeline } from './types'
 
-export const pipelineApi = {
-  list: async (environmentKey: string) => {
-    const resp = await get<ListData<ApiPipeline>>('/api/v1/pipeline/list', {
-      environment_key: environmentKey,
-    })
-    return { total: resp.data?.total || 0, list: resp.data?.list || [] }
-  },
+class PipelineApiService extends BaseApiService<Pipeline> {
+  protected baseUrl = '/api/v1/pipeline'
 
-  detail: async (environmentKey: string, pipelineKey: string) => {
-    const resp = await get<{ pipeline: ApiPipeline }>('/api/v1/pipeline/detail', {
-      environment_key: environmentKey,
-      pipeline_key: pipelineKey,
-    })
-    return { pipeline: resp.data?.pipeline || null }
-  },
+  protected getIdParamName(): string {
+    return 'pipeline_key'
+  }
 
-  create: async (pipeline: ApiPipeline) => {
-    const resp = await post<{ pipeline: ApiPipeline }>('/api/v1/pipeline/create', {
-      environment_key: pipeline.environment_key,
-      pipeline,
-    })
-    return { pipeline: resp.data?.pipeline || null }
-  },
+  // 重写list方法，因为需要环境key参数
+  async list(params?: Record<string, unknown>): Promise<{ total: number; list: Pipeline[] }> {
+    return super.list(params)
+  }
 
-  update: async (pipeline: ApiPipeline) => {
-    const resp = await post<{ pipeline: ApiPipeline }>('/api/v1/pipeline/update', {
-      environment_key: pipeline.environment_key,
-      pipeline,
-    })
-    return { pipeline: resp.data?.pipeline || null }
-  },
+  // 重写detail方法，因为需要环境key参数
+  async detail(id: string | number, params?: Record<string, unknown>): Promise<{ [key: string]: Pipeline | null }> {
+    return super.detail(id, params)
+  }
 
-  delete: async (environmentKey: string, pipelineKey: string) => {
-    await post<null>('/api/v1/pipeline/delete', {
-      environment_key: environmentKey,
-      pipeline_key: pipelineKey,
-    })
-  },
+  // 重写delete方法，因为需要环境key参数
+  async delete(id: string | number, params?: Record<string, unknown>): Promise<void> {
+    return super.delete(id, params)
+  }
+
+  // 重写create方法，因为需要环境key参数
+  async create(data: Pipeline): Promise<{ [key: string]: Pipeline | null }> {
+    return super.create(data)
+  }
+
+  // 重写update方法，因为需要环境key参数
+  async update(data: Pipeline): Promise<{ [key: string]: Pipeline | null }> {
+    return super.update(data)
+  }
 }
+
+export const pipelineApi = new PipelineApiService()
+

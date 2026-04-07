@@ -58,10 +58,16 @@ func (dao *PipelineDAO) GetByKey(ctx context.Context, db *gorm.DB, environmentKe
 }
 
 // List returns all pipelines for an environment with optional active filter.
-func (dao *PipelineDAO) List(ctx context.Context, db *gorm.DB, environmentKey string, isActive *bool) ([]model.Pipeline, error) {
+func (dao *PipelineDAO) List(ctx context.Context, db *gorm.DB, environmentKey string, isActive *bool, page, pageSize int) ([]model.Pipeline, error) {
 	tx := db.WithContext(ctx).Where("environment_key = ?", environmentKey)
 	if isActive != nil {
 		tx = tx.Where("is_active = ?", *isActive)
+	}
+
+	// 添加分页支持
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		tx = tx.Limit(pageSize).Offset(offset)
 	}
 
 	var entities []model.Pipeline

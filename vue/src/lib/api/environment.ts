@@ -1,41 +1,21 @@
-import { get, post } from './client'
-import type {
-  ApiEnvironment,
-  ListData,
-} from './types'
+import { BaseApiService } from './base-api'
+import type { Environment } from './types'
 
-export const environmentApi = {
-  list: async (isActive?: boolean) => {
-    const resp = await get<ListData<ApiEnvironment>>('/api/v1/environment/list', {
-      is_active: isActive,
-    })
-    return { total: resp.data?.total || 0, list: resp.data?.list || [] }
-  },
+class EnvironmentApiService extends BaseApiService<Environment> {
+  protected baseUrl = '/api/v1/environment'
 
-  detail: async (environmentKey: string) => {
-    const resp = await get<{ environment: ApiEnvironment }>('/api/v1/environment/detail', {
-      environment_key: environmentKey,
-    })
-    return { environment: resp.data?.environment || null }
-  },
+  protected getIdParamName(): string {
+    return 'environment_key'
+  }
 
-  create: async (environment: ApiEnvironment) => {
-    const resp = await post<{ environment: ApiEnvironment }>('/api/v1/environment/create', {
-      environment,
-    })
-    return { environment: resp.data?.environment || null }
-  },
+  protected getRequestKey(): string {
+    return 'environment'
+  }
 
-  update: async (environment: ApiEnvironment) => {
-    const resp = await post<{ environment: ApiEnvironment }>('/api/v1/environment/update', {
-      environment,
-    })
-    return { environment: resp.data?.environment || null }
-  },
-
-  delete: async (environmentKey: string) => {
-    await post<null>('/api/v1/environment/delete', {
-      environment_key: environmentKey,
-    })
-  },
+  protected getResponseKey(): string {
+    return 'environment'
+  }
 }
+
+export const environmentApi = new EnvironmentApiService()
+

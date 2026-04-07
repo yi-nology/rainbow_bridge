@@ -40,7 +40,7 @@ func (s *Service) DeleteConfig(ctx context.Context, environmentKey, pipelineKey,
 }
 
 func (s *Service) ListConfigs(ctx context.Context, environmentKey, pipelineKey, typ, minVer, maxVer string, isLatest bool) ([]*common.ResourceConfig, error) {
-	configs, err := s.logic.ListConfigs(ctx, environmentKey, pipelineKey, typ, minVer, maxVer, isLatest)
+	configs, err := s.logic.ListConfigs(ctx, environmentKey, pipelineKey, minVer, maxVer, typ, isLatest)
 	if err != nil {
 		return nil, err
 	}

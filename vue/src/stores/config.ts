@@ -15,8 +15,8 @@ export const useConfigStore = defineStore('config', () => {
     error.value = null
     try {
       const params: ListConfigParams = {
-        environment_key: environmentKey,
-        pipeline_key: pipelineKey,
+        environmentKey: environmentKey,
+        pipelineKey: pipelineKey,
       }
       if (type) {
         params.type = type
@@ -39,7 +39,7 @@ export const useConfigStore = defineStore('config', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await configApi.detail(environmentKey, pipelineKey, resourceKey)
+      const response = await configApi.detail(resourceKey, { environmentKey, pipelineKey })
       return response.config ? fromApiConfig(response.config) : null
     } catch (e) {
       error.value = e instanceof Error ? e.message : '获取配置详情失败'
@@ -69,7 +69,7 @@ export const useConfigStore = defineStore('config', () => {
         environmentId: environmentKey,
         pipelineId: pipelineKey,
       })
-      await configApi.create(apiConfig)
+      await configApi.create(apiConfig as any)
       await fetchConfigs(environmentKey, pipelineKey)
       toast.success('配置创建成功')
     } catch (e) {
@@ -100,7 +100,7 @@ export const useConfigStore = defineStore('config', () => {
         environmentId: environmentKey,
         pipelineId: pipelineKey,
       })
-      await configApi.update(apiConfig)
+      await configApi.update(apiConfig as any)
       await fetchConfigs(environmentKey, pipelineKey)
       toast.success('配置更新成功')
     } catch (e) {
@@ -112,7 +112,7 @@ export const useConfigStore = defineStore('config', () => {
 
   const deleteConfig = async (environmentKey: string, pipelineKey: string, resourceKey: string) => {
     try {
-      await configApi.delete(environmentKey, pipelineKey, resourceKey)
+      await configApi.delete(resourceKey, { environmentKey, pipelineKey })
       await fetchConfigs(environmentKey, pipelineKey)
       toast.success('配置删除成功')
     } catch (e) {

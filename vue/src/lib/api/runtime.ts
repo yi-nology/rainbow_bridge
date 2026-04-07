@@ -1,31 +1,19 @@
-import { get, getBasePath } from './client'
+import { apiClient } from './client'
+import { toCamelCase } from '../utils'
 import type {
   ApiEnvironmentOverview,
+  EnvironmentOverview,
   RuntimeConfigData,
 } from './types'
 
-interface RuntimeConfigResponse {
-  code: number
-  msg: string
-  error?: string
-  data?: RuntimeConfigData
-}
-
-function buildApiUrl(path: string): string {
-  const basePath = getBasePath()
-  const normalizedBasePath = basePath.replace(/\/$/, '')
-  if (normalizedBasePath && path.startsWith('/api/')) {
-    return `${normalizedBasePath}${path}`
-  }
-  return path
-}
-
 export const runtimeApi = {
   overview: async () => {
-    const resp = await get<{ total: number; list: ApiEnvironmentOverview[] }>('/api/v1/runtime/overview')
+    const resp = await apiClient.get<{ total: number; list: ApiEnvironmentOverview[] }>('/api/v1/runtime/overview')
+    const list = resp.data?.list || []
+    const camelCaseList = list.map(item => toCamelCase(item) as unknown as EnvironmentOverview)
     return {
       total: resp.data?.total || 0,
-      list: resp.data?.list || [],
+      list: camelCaseList,
     }
   },
 
@@ -33,19 +21,12 @@ export const runtimeApi = {
     environmentKey: string,
     pipelineKey: string
   ): Promise<RuntimeConfigData | null> => {
-    const response = await fetch(buildApiUrl('/api/v1/runtime/config'), {
-      method: 'GET',
+    const resp = await apiClient.get<RuntimeConfigData>('/api/v1/runtime/config', {
       headers: {
         'x-environment': environmentKey,
         'x-pipeline': pipelineKey,
       },
     })
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`)
-    }
-
-    const resp: RuntimeConfigResponse = await response.json()
     return resp.data || null
   },
 
@@ -54,7 +35,10 @@ export const runtimeApi = {
     pipelineKey: string
   ): Promise<Blob> => {
     const response = await fetch(
-      buildApiUrl(`/api/v1/runtime/static?environment_key=${environmentKey}&pipeline_key=${pipelineKey}`)
+      `/api/v1/runtime/static?environment_key=${environmentKey}&pipeline_key=${pipelineKey}`,
+      {
+        credentials: 'include',
+      }
     )
 
     if (!response.ok) {

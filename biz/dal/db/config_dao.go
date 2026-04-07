@@ -88,33 +88,42 @@ func (dao *ConfigDAO) GetByAlias(ctx context.Context, db *gorm.DB, environmentKe
 }
 
 // ListByEnvironmentAndPipeline returns the most recently updated configs per alias.
-func (dao *ConfigDAO) ListByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, _ string) ([]model.Config, error) {
+func (dao *ConfigDAO) ListByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, _ string, page, pageSize int) ([]model.Config, error) {
 	var entities []model.Config
-	if err := db.WithContext(ctx).
+	// 使用子查询获取每个alias的最新记录
+	subQuery := db.Model(&model.Config{}).
+		Select("MAX(id) as id").
 		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
-		Order("updated_at DESC").
-		Find(&entities).Error; err != nil {
-		return nil, err
+		Group("alias")
+
+	tx := db.WithContext(ctx).
+		Where("id IN (?) AND environment_key = ? AND pipeline_key = ?", subQuery, environmentKey, pipelineKey).
+		Order("updated_at DESC")
+
+	// 添加分页支持
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		tx = tx.Limit(pageSize).Offset(offset)
 	}
 
-	seen := make(map[string]struct{})
-	var filtered []model.Config
-	for _, cfg := range entities {
-		if _, ok := seen[cfg.Alias]; ok {
-			continue
-		}
-		seen[cfg.Alias] = struct{}{}
-		filtered = append(filtered, cfg)
+	if err := tx.Find(&entities).Error; err != nil {
+		return nil, err
 	}
-	return filtered, nil
+	return entities, nil
 }
 
 // ListByEnvironmentAndPipelineWithFilter retrieves configs optionally filtering by type.
-func (dao *ConfigDAO) ListByEnvironmentAndPipelineWithFilter(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, _ string, _ string, resourceType string) ([]model.Config, error) {
+func (dao *ConfigDAO) ListByEnvironmentAndPipelineWithFilter(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, _ string, _ string, resourceType string, page, pageSize int) ([]model.Config, error) {
 	tx := db.WithContext(ctx).Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey)
 
 	if resourceType != "" {
 		tx = tx.Where("type = ?", resourceType)
+	}
+
+	// 添加分页支持
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		tx = tx.Limit(pageSize).Offset(offset)
 	}
 
 	var entities []model.Config

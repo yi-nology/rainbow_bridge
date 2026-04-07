@@ -15,8 +15,8 @@ type Environment struct {
 	EnvironmentKey  string         `gorm:"column:environment_key;uniqueIndex:uk_environment_key" json:"environment_key,omitempty"`
 	EnvironmentName string         `gorm:"column:environment_name" json:"environment_name,omitempty"`
 	Description     string         `gorm:"column:description;type:varchar(512)" json:"description,omitempty"`
-	SortOrder       int            `gorm:"column:sort_order;default:0" json:"sort_order,omitempty"`
-	IsActive        bool           `gorm:"column:is_active;default:true" json:"is_active,omitempty"`
+	SortOrder       int            `gorm:"column:sort_order;default:0;index:idx_env_active_sort,priority:2" json:"sort_order,omitempty"`
+	IsActive        bool           `gorm:"column:is_active;default:true;index:idx_env_active_sort,priority:1" json:"is_active,omitempty"`
 }
 
 // TableName overrides gorm to use environment table.

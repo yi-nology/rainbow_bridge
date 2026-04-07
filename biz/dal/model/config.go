@@ -18,7 +18,7 @@ type Config struct {
 	Alias          string         `gorm:"column:alias;index:idx_config_alias" json:"alias,omitempty"`
 	Name           string         `gorm:"column:name" json:"name,omitempty"`
 	Content        string         `gorm:"column:content;type:text" json:"content,omitempty"`
-	Type           string         `gorm:"column:type" json:"type,omitempty"`
+	Type           string         `gorm:"column:type;index:idx_config_type" json:"type,omitempty"`
 	Remark         string         `gorm:"column:remark;type:varchar(512)" json:"remark,omitempty"`
 	IsPerm         bool           `gorm:"column:is_perm" json:"is_perm,omitempty"`
 }

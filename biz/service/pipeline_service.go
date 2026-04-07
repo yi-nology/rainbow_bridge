@@ -117,7 +117,7 @@ func (s *Service) ListPipelines(ctx context.Context, environmentKey string, isAc
 		return nil, errors.New("environment_key is required")
 	}
 
-	entities, err := s.logic.pipelineDAO.List(ctx, s.logic.db, environmentKey, isActive)
+	entities, err := s.logic.pipelineDAO.List(ctx, s.logic.db, environmentKey, isActive, 0, 0)
 	if err != nil {
 		return nil, err
 	}

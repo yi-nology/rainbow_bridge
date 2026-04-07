@@ -18,8 +18,20 @@ intranet:
 
 # Redis 分布式写锁配置
 # 启用后所有写操作(创建/更新/删除)通过 Redis 排他锁串行化
+# 同时启用 Redis 缓存，用于缓存常用配置数据
 redis:
-  enabled: false
+  enabled: true
   address: "localhost:6379"
   password: ""
   db: 0
+
+# 日志配置
+log:
+  level: "info"
+  output: "stdout"
+  file: "logs/rainbow-bridge.log"
+  max_size: 100
+  max_backups: 10
+  max_age: 30
+  compress: true
+  json: false

@@ -37,5 +37,5 @@ func (l *Logic) GetAsset(ctx context.Context, fileID string) (*model.Asset, erro
 }
 
 func (l *Logic) ListAssetsByEnvironmentAndPipeline(ctx context.Context, environmentKey, pipelineKey string) ([]model.Asset, error) {
-	return l.assetDAO.ListByEnvironmentAndPipeline(ctx, l.db, environmentKey, pipelineKey)
+	return l.assetDAO.ListByEnvironmentAndPipeline(ctx, l.db, environmentKey, pipelineKey, 0, 0)
 }

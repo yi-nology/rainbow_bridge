@@ -9,15 +9,24 @@ import (
 )
 
 // WebFS 在开发模式下从文件系统加载静态文件
-// 优先从 vue/dist 目录加载（Vite 构建输出）
+// 优先从环境变量 FRONTEND_DIR 指定的目录加载
+// 然后尝试从 vue/dist 目录加载（Vite 构建输出）
 // 如果不存在，则尝试从 pkg/static/web 加载
 func WebFS() (fs.FS, error) {
 	// 尝试多个可能的路径
-	possiblePaths := []string{
+	possiblePaths := []string{}
+	
+	// 优先从环境变量 FRONTEND_DIR 指定的目录加载
+	if frontendDir := os.Getenv("FRONTEND_DIR"); frontendDir != "" {
+		possiblePaths = append(possiblePaths, frontendDir)
+	}
+	
+	// 添加默认路径
+	possiblePaths = append(possiblePaths, 
 		"vue/dist",       // 开发时 Vite 输出目录
 		"pkg/static/web", // 嵌入目录
 		"web",            // 备选目录
-	}
+	)
 
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {

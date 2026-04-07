@@ -1,4 +1,4 @@
-import { get } from './client'
+import { apiClient } from './client'
 
 export interface VersionInfo {
   version: string
@@ -35,7 +35,7 @@ export interface GitHubReleaseResponse {
 
 export const versionApi = {
   getVersion: async (): Promise<VersionResponse> => {
-    const resp = await get<VersionResponse['data']>('/api/v1/version')
+    const resp = await apiClient.get<VersionResponse['data']>('/api/v1/version')
     return {
       code: resp.code,
       msg: resp.msg,
@@ -45,7 +45,7 @@ export const versionApi = {
   },
 
   getLatestRelease: async (): Promise<GitHubReleaseResponse> => {
-    const resp = await get<GitHubReleaseResponse['data']>('/api/v1/version/latest')
+    const resp = await apiClient.get<GitHubReleaseResponse['data']>('/api/v1/version/latest')
     return {
       code: resp.code,
       msg: resp.msg,

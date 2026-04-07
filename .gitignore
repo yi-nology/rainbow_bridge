@@ -82,3 +82,18 @@ coverage.out
 /vue/.output/
 /vue/.DS_Store
 /vue/*.log
+
+# Trae IDE files
+.trae/
+
+# Docker files
+Dockerfile.app
+
+# Verification reports
+VERIFICATION_REPORT_*.md
+
+# App directory
+app/
+
+# Test scripts
+test_*.sh

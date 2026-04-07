@@ -19,6 +19,36 @@ type Config struct {
 	Upload   UploadConfig   `yaml:"upload"`
 	Intranet IntranetConfig `yaml:"intranet"`
 	Redis    RedisConfig    `yaml:"redis"`
+	Storage  StorageConfig  `yaml:"storage"`
+	Log      LogConfig      `yaml:"log"`
+}
+
+// LogConfig defines logging configuration.
+type LogConfig struct {
+	Level      string `yaml:"level"`       // debug, info, warn, error
+	Output     string `yaml:"output"`      // stdout, file
+	File       string `yaml:"file"`        // log file path
+	MaxSize    int    `yaml:"max_size"`    // max file size in MB
+	MaxBackups int    `yaml:"max_backups"` // max number of backup files
+	MaxAge     int    `yaml:"max_age"`     // max age in days
+	Compress   bool   `yaml:"compress"`    // compress old logs
+	JSON       bool   `yaml:"json"`        // use JSON format
+}
+
+// StorageConfig defines storage backend configuration.
+type StorageConfig struct {
+	Type  string      `yaml:"type"` // local, minio
+	Minio MinioConfig `yaml:"minio"`
+}
+
+// MinioConfig contains MinIO specific connection details.
+type MinioConfig struct {
+	Endpoint  string `yaml:"endpoint"`
+	AccessKey string `yaml:"access_key"`
+	SecretKey string `yaml:"secret_key"`
+	UseSSL    bool   `yaml:"use_ssl"`
+	Bucket    string `yaml:"bucket"`
+	Region    string `yaml:"region"`
 }
 
 // RedisConfig defines Redis connection settings for distributed locking.
@@ -194,6 +224,27 @@ func defaultConfig() *Config {
 				"video/quicktime", // .mov
 			},
 		},
+		Storage: StorageConfig{
+			Type: "local",
+			Minio: MinioConfig{
+				Endpoint:  "localhost:9000",
+				AccessKey: "minioadmin",
+				SecretKey: "minioadmin123",
+				UseSSL:    false,
+				Bucket:    "rainbow-bridge",
+				Region:    "us-east-1",
+			},
+		},
+		Log: LogConfig{
+			Level:      "info",
+			Output:     "stdout",
+			File:       "logs/rainbow-bridge.log",
+			MaxSize:    100,
+			MaxBackups: 10,
+			MaxAge:     30,
+			Compress:   true,
+			JSON:       false,
+		},
 	}
 }
 
@@ -207,6 +258,42 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Database.SQLite.Path == "" {
 		cfg.Database.SQLite.Path = "data/resource.db"
+	}
+	if cfg.Storage.Type == "" {
+		cfg.Storage.Type = "local"
+	}
+	if cfg.Storage.Minio.Endpoint == "" {
+		cfg.Storage.Minio.Endpoint = "localhost:9000"
+	}
+	if cfg.Storage.Minio.AccessKey == "" {
+		cfg.Storage.Minio.AccessKey = "minioadmin"
+	}
+	if cfg.Storage.Minio.SecretKey == "" {
+		cfg.Storage.Minio.SecretKey = "minioadmin123"
+	}
+	if cfg.Storage.Minio.Bucket == "" {
+		cfg.Storage.Minio.Bucket = "rainbow-bridge"
+	}
+	if cfg.Storage.Minio.Region == "" {
+		cfg.Storage.Minio.Region = "us-east-1"
+	}
+	if cfg.Log.Level == "" {
+		cfg.Log.Level = "info"
+	}
+	if cfg.Log.Output == "" {
+		cfg.Log.Output = "stdout"
+	}
+	if cfg.Log.File == "" {
+		cfg.Log.File = "logs/rainbow-bridge.log"
+	}
+	if cfg.Log.MaxSize <= 0 {
+		cfg.Log.MaxSize = 100
+	}
+	if cfg.Log.MaxBackups <= 0 {
+		cfg.Log.MaxBackups = 10
+	}
+	if cfg.Log.MaxAge <= 0 {
+		cfg.Log.MaxAge = 30
 	}
 }
 

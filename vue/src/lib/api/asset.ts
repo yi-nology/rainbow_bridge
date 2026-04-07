@@ -1,21 +1,27 @@
-import { get, upload } from './client'
-import type { ListData, ApiFileAsset, UploadAssetResponse } from './types'
+import { BaseApiService } from './base-api'
+import { apiClient } from './client'
+import { toCamelCase } from '../utils'
+import type { FileAsset, UploadAssetResponse } from './types'
 
-export const assetApi = {
-  list: async (environmentKey: string, pipelineKey: string) => {
-    const resp = await get<ListData<ApiFileAsset>>('/api/v1/asset/list', {
-      environment_key: environmentKey,
-      pipeline_key: pipelineKey,
-    })
-    return { total: resp.data?.total || 0, list: resp.data?.list || [] }
-  },
+class AssetApiService extends BaseApiService<FileAsset> {
+  protected baseUrl = '/api/v1/asset'
 
-  upload: async (
+  protected getIdParamName(): string {
+    return 'file_id'
+  }
+
+  // 重写list方法，因为需要环境和管道key参数
+  async list(params: { environmentKey: string; pipelineKey: string }): Promise<{ total: number; list: FileAsset[] }> {
+    return super.list(params)
+  }
+
+  // 上传文件
+  async upload(
     file: File,
     environmentKey: string,
     pipelineKey: string,
     remark?: string
-  ) => {
+  ) {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('environment_key', environmentKey)
@@ -24,14 +30,20 @@ export const assetApi = {
       formData.append('remark', remark)
     }
 
-    const resp = await upload<UploadAssetResponse['data']>('/api/v1/asset/upload', formData)
+    const resp = await apiClient.upload<UploadAssetResponse['data']>('/api/v1/asset/upload', formData)
+    const asset = resp.data?.asset
+    const camelCaseAsset = asset ? toCamelCase(asset) as unknown as FileAsset : null
     return {
-      asset: resp.data?.asset || null,
+      asset: camelCaseAsset,
       reference: resp.data?.reference || '',
     }
-  },
+  }
 
-  getFileUrl: (fileId: string): string => {
+  // 获取文件URL
+  getFileUrl(fileId: string): string {
     return `/api/v1/asset/file/${fileId}`
-  },
+  }
 }
+
+export const assetApi = new AssetApiService()
+

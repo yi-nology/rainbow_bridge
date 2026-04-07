@@ -55,10 +55,16 @@ func (dao *EnvironmentDAO) GetByKey(ctx context.Context, db *gorm.DB, environmen
 }
 
 // List returns all environments with optional active filter.
-func (dao *EnvironmentDAO) List(ctx context.Context, db *gorm.DB, isActive *bool) ([]model.Environment, error) {
+func (dao *EnvironmentDAO) List(ctx context.Context, db *gorm.DB, isActive *bool, page, pageSize int) ([]model.Environment, error) {
 	tx := db.WithContext(ctx)
 	if isActive != nil {
 		tx = tx.Where("is_active = ?", *isActive)
+	}
+
+	// 添加分页支持
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		tx = tx.Limit(pageSize).Offset(offset)
 	}
 
 	var entities []model.Environment

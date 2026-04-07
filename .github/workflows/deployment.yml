@@ -44,18 +44,6 @@ jobs:
             GIT_COMMIT=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}
       
-      - name: Build Frontend image (local)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: false
-          load: true
-          tags: rainbow-bridge-frontend:test
-          target: frontend
-          build-args: |
-            GO_VERSION=1.25
-            BASE_PATH=${{ env.BASE_PATH }}
-      
       - name: Prepare SQLite Docker Compose
         run: |
           cp deploy/docker-compose/config.yaml deploy/docker-compose/sqlite/config.yaml
@@ -136,18 +124,6 @@ jobs:
           load: true
           tags: rainbow-bridge-api:test
           target: api
-          build-args: |
-            GO_VERSION=1.25
-            BASE_PATH=${{ env.BASE_PATH }}
-      
-      - name: Build Frontend image (local)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: false
-          load: true
-          tags: rainbow-bridge-frontend:test
-          target: frontend
           build-args: |
             GO_VERSION=1.25
             BASE_PATH=${{ env.BASE_PATH }}

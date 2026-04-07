@@ -1,61 +1,33 @@
-import { get, post } from './client'
-import type {
-  ApiResourceConfig,
-  ListData,
-} from './types'
+import { BaseApiService } from './base-api'
+import type { ResourceConfig } from './types'
 
 export interface ListConfigParams {
-  environment_key: string
-  pipeline_key: string
+  environmentKey: string
+  pipelineKey: string
   type?: string
-  min_version?: string
-  max_version?: string
-  is_latest?: boolean
+  minVersion?: string
+  maxVersion?: string
+  isLatest?: boolean
   [key: string]: string | boolean | undefined
 }
 
-export const configApi = {
-  list: async (params: ListConfigParams) => {
-    const resp = await get<ListData<ApiResourceConfig>>('/api/v1/config/list', params)
-    return { total: resp.data?.total || 0, list: resp.data?.list || [] }
-  },
+class ConfigApiService extends BaseApiService<ResourceConfig> {
+  protected baseUrl = '/api/v1/config'
 
-  detail: async (
-    environmentKey: string,
-    pipelineKey: string,
-    resourceKey: string
-  ) => {
-    const resp = await get<{ config: ApiResourceConfig }>('/api/v1/config/detail', {
-      environment_key: environmentKey,
-      pipeline_key: pipelineKey,
-      resource_key: resourceKey,
-    })
-    return { config: resp.data?.config || null }
-  },
+  protected getIdParamName(): string {
+    return 'resource_key'
+  }
 
-  create: async (config: ApiResourceConfig) => {
-    const resp = await post<{ config: ApiResourceConfig }>('/api/v1/config/create', {
-      config,
-    })
-    return { config: resp.data?.config || null }
-  },
+  // 重写detail方法，因为需要环境和管道key参数
+  async detail(id: string | number, params?: Record<string, unknown>): Promise<{ [key: string]: ResourceConfig | null }> {
+    return super.detail(id, params)
+  }
 
-  update: async (config: ApiResourceConfig) => {
-    const resp = await post<{ config: ApiResourceConfig }>('/api/v1/config/update', {
-      config,
-    })
-    return { config: resp.data?.config || null }
-  },
-
-  delete: async (
-    environmentKey: string,
-    pipelineKey: string,
-    resourceKey: string
-  ) => {
-    await post<null>('/api/v1/config/delete', {
-      environment_key: environmentKey,
-      pipeline_key: pipelineKey,
-      resource_key: resourceKey,
-    })
-  },
+  // 重写delete方法，因为需要环境和管道key参数
+  async delete(id: string | number, params?: Record<string, unknown>): Promise<void> {
+    return super.delete(id, params)
+  }
 }
+
+export const configApi = new ConfigApiService()
+

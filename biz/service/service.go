@@ -11,8 +11,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/biz/model/common"
+	"github.com/yi-nology/rainbow_bridge/pkg/config"
 
 	"gorm.io/gorm"
 )
@@ -48,14 +50,18 @@ type FileUploadInput struct {
 
 // Service orchestrates config and asset operations using Logic.
 type Service struct {
-	logic    *Logic
-	basePath string
+	logic       *Logic
+	basePath    string
+	config      *config.Config
+	redisClient *redis.Client
 }
 
-func NewService(db *gorm.DB, basePath string) *Service {
+func NewService(db *gorm.DB, redisClient *redis.Client, basePath string, cfg *config.Config) *Service {
 	return &Service{
-		logic:    NewLogic(db),
-		basePath: sanitizeServiceBasePath(basePath),
+		logic:       NewLogic(db, redisClient),
+		basePath:    sanitizeServiceBasePath(basePath),
+		config:      cfg,
+		redisClient: redisClient,
 	}
 }
 
@@ -114,7 +120,7 @@ func assetModelToPB(asset *model.Asset) *common.FileAsset {
 		FileName:       asset.FileName,
 		ContentType:    asset.ContentType,
 		FileSize:       asset.FileSize,
-		Url:            asset.URL,
+		Url:            "/api/v1/asset/file/" + asset.FileID,
 		Remark:         asset.Remark,
 	}
 }
@@ -131,18 +137,10 @@ func assetSliceToPB(assets []model.Asset) []*common.FileAsset {
 
 // MigrateToFullAssetPaths ensures all asset URLs and config contents use the full path with filename.
 func (s *Service) MigrateToFullAssetPaths(ctx context.Context) error {
-	// 1. Update all assets URL to include filename
+	// 1. Get all assets
 	var assets []model.Asset
 	if err := s.logic.db.Find(&assets).Error; err != nil {
 		return err
-	}
-	for i := range assets {
-		newURL := s.generateFileURL(&assets[i])
-		if assets[i].URL != newURL {
-			if err := s.logic.db.Model(&assets[i]).Update("url", newURL).Error; err != nil {
-				return err
-			}
-		}
 	}
 
 	// 2. Update all image type configs to use full path
@@ -296,7 +294,7 @@ func (s *Service) generateFileURL(asset *model.Asset) string {
 	if asset == nil {
 		return ""
 	}
-	return fmt.Sprintf("/api/v1/asset/file/%s/%s", asset.FileID, asset.FileName)
+	return fmt.Sprintf("%s/api/v1/asset/file/%s", s.basePath, asset.FileID)
 }
 
 func normalizeConfigTypeString(t string) string {

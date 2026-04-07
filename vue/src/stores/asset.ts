@@ -14,7 +14,7 @@ export const useAssetStore = defineStore('asset', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await assetApi.list(environmentKey, pipelineKey)
+      const response = await assetApi.list({ environmentKey, pipelineKey })
       assets.value = response.list.map(fromApiAsset)
     } catch (e) {
       error.value = e instanceof Error ? e.message : '获取资源列表失败'

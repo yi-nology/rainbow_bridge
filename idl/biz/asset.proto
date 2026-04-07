@@ -60,6 +60,6 @@ service AssetService {
 
   // GetFile retrieves a file by its ID.
   rpc GetFile(GetFileRequest) returns (common.OperateResponse) {
-    option (api.get) = "/api/v1/asset/file/{file_id}";
+    option (api.get) = "/api/v1/asset/file/{file_id}/{file_name=*}";
   }
 }

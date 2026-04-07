@@ -53,12 +53,19 @@ func (dao *AssetDAO) GetByFileID(ctx context.Context, db *gorm.DB, fileID string
 	return &asset, nil
 }
 
-func (dao *AssetDAO) ListByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string) ([]model.Asset, error) {
-	var assets []model.Asset
-	if err := db.WithContext(ctx).
+func (dao *AssetDAO) ListByEnvironmentAndPipeline(ctx context.Context, db *gorm.DB, environmentKey, pipelineKey string, page, pageSize int) ([]model.Asset, error) {
+	tx := db.WithContext(ctx).
 		Where("environment_key = ? AND pipeline_key = ?", environmentKey, pipelineKey).
-		Order("created_at DESC").
-		Find(&assets).Error; err != nil {
+		Order("created_at DESC")
+
+	// 添加分页支持
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		tx = tx.Limit(pageSize).Offset(offset)
+	}
+
+	var assets []model.Asset
+	if err := tx.Find(&assets).Error; err != nil {
 		return nil, err
 	}
 	return assets, nil

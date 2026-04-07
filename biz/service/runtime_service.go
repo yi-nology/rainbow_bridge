@@ -24,14 +24,14 @@ import (
 // GetRuntimeOverview returns all environments and their pipelines.
 func (s *Service) GetRuntimeOverview(ctx context.Context) (*runtime.RuntimeOverviewResponse, error) {
 	isActive := true
-	envs, err := s.logic.environmentDAO.List(ctx, s.logic.db, &isActive)
+	envs, err := s.logic.environmentDAO.List(ctx, s.logic.db, &isActive, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	var envOverviews []*runtime.EnvironmentOverview
 	for _, env := range envs {
-		pipelines, err := s.logic.pipelineDAO.List(ctx, s.logic.db, env.EnvironmentKey, &isActive)
+		pipelines, err := s.logic.pipelineDAO.List(ctx, s.logic.db, env.EnvironmentKey, &isActive, 0, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -178,16 +178,76 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 	buf := &bytes.Buffer{}
 	zipWriter := zip.NewWriter(buf)
 
-	// 将 RuntimeConfigData 写入 config.json (包装为统一响应格式)
-	responseData := &runtime.RuntimeConfigResponse{
+	// 自定义响应结构，处理 JSON 对象
+	type CustomResourceConfig struct {
+		ResourceKey    string      `json:"resource_key"`
+		Alias          string      `json:"alias"`
+		Name           string      `json:"name"`
+		EnvironmentKey string      `json:"environment_key"`
+		PipelineKey    string      `json:"pipeline_key"`
+		Content        interface{} `json:"content"`
+		Type           string      `json:"type"`
+		Remark         string      `json:"remark"`
+		IsPerm         bool        `json:"is_perm"`
+	}
+
+	type CustomRuntimeConfigData struct {
+		Configs      []CustomResourceConfig `json:"configs"`
+		Environment  *runtime.EnvironmentInfo `json:"environment"`
+	}
+
+	type CustomRuntimeConfigResponse struct {
+		Code    int32                    `json:"code"`
+		Msg     string                   `json:"msg"`
+		Data    CustomRuntimeConfigData  `json:"data"`
+	}
+
+	// 转换配置数据
+	customConfigs := make([]CustomResourceConfig, len(runtimeData.Configs))
+	for i, cfg := range runtimeData.Configs {
+		customConfig := CustomResourceConfig{
+			ResourceKey:    cfg.ResourceKey,
+			Alias:          cfg.Alias,
+			Name:           cfg.Name,
+			EnvironmentKey: cfg.EnvironmentKey,
+			PipelineKey:    cfg.PipelineKey,
+			Type:           cfg.Type,
+			Remark:         cfg.Remark,
+			IsPerm:         cfg.IsPerm,
+		}
+
+		// 对于 object 和 keyvalue 类型，解析为 JSON 对象
+		normalizedType := normalizeConfigTypeString(cfg.Type)
+		if normalizedType == "object" || normalizedType == "keyvalue" {
+			var content interface{}
+			if err := json.Unmarshal([]byte(cfg.Content), &content); err == nil {
+				customConfig.Content = content
+			} else {
+				customConfig.Content = cfg.Content
+			}
+		} else {
+			customConfig.Content = cfg.Content
+		}
+
+		customConfigs[i] = customConfig
+	}
+
+	// 构建自定义响应
+	customResponse := CustomRuntimeConfigResponse{
 		Code: 200,
 		Msg:  "OK",
-		Data: runtimeData,
+		Data: CustomRuntimeConfigData{
+			Configs:     customConfigs,
+			Environment: runtimeData.Environment,
+		},
 	}
-	configData, err := json.MarshalIndent(responseData, "", "  ")
+
+	// 序列化为 JSON
+	configData, err := json.MarshalIndent(customResponse, "", "  ")
 	if err != nil {
 		return nil, err
 	}
+
 	metaWriter, err := zipWriter.Create("config.json")
 	if err != nil {
 		return nil, err

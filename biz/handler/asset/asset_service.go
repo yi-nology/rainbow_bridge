@@ -194,6 +194,14 @@ func GetFile(ctx context.Context, c *app.RequestContext) {
 		fileID = c.Param("fileID")
 	}
 
+	// 处理带有文件名的路径，例如 /api/v1/asset/file/{file_id}/{file_name}
+	if strings.Contains(fileID, "/") {
+		parts := strings.Split(fileID, "/")
+		if len(parts) > 0 {
+			fileID = parts[0]
+		}
+	}
+
 	assetItem, path, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
 	if err != nil {
 		if errors.Is(err, service.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {

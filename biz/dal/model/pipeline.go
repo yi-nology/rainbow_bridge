@@ -16,8 +16,8 @@ type Pipeline struct {
 	PipelineKey    string         `gorm:"column:pipeline_key;uniqueIndex:uk_env_pipeline,priority:2" json:"pipeline_key,omitempty"`
 	PipelineName   string         `gorm:"column:pipeline_name" json:"pipeline_name,omitempty"`
 	Description    string         `gorm:"column:description;type:varchar(512)" json:"description,omitempty"`
-	SortOrder      int            `gorm:"column:sort_order;default:0" json:"sort_order,omitempty"`
-	IsActive       bool           `gorm:"column:is_active;default:true" json:"is_active,omitempty"`
+	SortOrder      int            `gorm:"column:sort_order;default:0;index:idx_pipeline_active_sort,priority:2" json:"sort_order,omitempty"`
+	IsActive       bool           `gorm:"column:is_active;default:true;index:idx_pipeline_active_sort,priority:1" json:"is_active,omitempty"`
 }
 
 // TableName overrides gorm to use pipeline table.

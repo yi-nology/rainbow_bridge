@@ -20,10 +20,8 @@ import {
 } from '@/components/ui/table'
 import { Copy, Check, RefreshCw, Download, Loader2 } from 'lucide-vue-next'
 import { useEnvironmentStore } from '@/stores/environment'
-import { configApi } from '@/lib/api/config'
 import { runtimeApi } from '@/lib/api/runtime'
-import { fromApiConfig } from '@/lib/api/transformers'
-import { CONFIG_TYPE_META, type ConfigItem } from '@/lib/types'
+import { CONFIG_TYPE_META, type ConfigItem, type ConfigType } from '@/lib/types'
 import { toast } from 'vue-sonner'
 
 const environmentStore = useEnvironmentStore()
@@ -51,11 +49,22 @@ const fetchConfigs = async () => {
   
   loading.value = true
   try {
-    const response = await configApi.list({
-      environment_key: selectedEnv.value,
-      pipeline_key: selectedPipeline.value,
-    })
-    configs.value = response.list.map(fromApiConfig)
+    const response = await runtimeApi.config(selectedEnv.value, selectedPipeline.value)
+    if (response?.configs) {
+      configs.value = response.configs.map(config => ({
+        id: config.resource_key,
+        name: config.name,
+        alias: config.alias,
+        type: config.type as ConfigType,
+        content: typeof config.content === 'object' ? JSON.stringify(config.content, null, 2) : config.content,
+        environmentId: config.environment_key,
+        pipelineId: config.pipeline_key,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }))
+    } else {
+      configs.value = []
+    }
   } catch (e) {
     console.error('获取配置列表失败:', e)
     toast.error('获取配置列表失败')

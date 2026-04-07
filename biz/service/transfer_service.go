@@ -148,10 +148,41 @@ func (s *Service) writeConfigArchive(ctx context.Context, configs []model.Config
 	}
 
 	// 构建完整的数据结构
+	// Convert configs to a format that handles JSON objects properly
+	configsData := make([]map[string]any, len(configs))
+	for i, cfg := range configs {
+		configMap := map[string]any{
+			"resource_key":    cfg.ResourceKey,
+			"alias":           cfg.Alias,
+			"name":            cfg.Name,
+			"environment_key": cfg.EnvironmentKey,
+			"pipeline_key":    cfg.PipelineKey,
+			"type":            cfg.Type,
+			"remark":          cfg.Remark,
+			"is_perm":         cfg.IsPerm,
+		}
+
+		// For object and keyvalue types, parse the content as JSON
+		normalizedType := strings.ToLower(strings.TrimSpace(cfg.Type))
+		switch normalizedType {
+		case "object", "keyvalue", "json", "config", "kv", "key-value", "键值对":
+			var content interface{}
+			if err := json.Unmarshal([]byte(cfg.Content), &content); err == nil {
+				configMap["content"] = content
+			} else {
+				configMap["content"] = cfg.Content
+			}
+		default:
+			configMap["content"] = cfg.Content
+		}
+
+		configsData[i] = configMap
+	}
+
 	archiveData := map[string]any{
 		"environments":     envList,
 		"pipelines":        pipelineList,
-		"business_configs": configSliceToPB(configs),
+		"business_configs": configsData,
 		"assets":           assetMetaList,
 	}
 
@@ -377,7 +408,7 @@ func (s *Service) ImportConfigsArchive(ctx context.Context, data []byte, targetE
 			Path:           relativePath,
 			Remark:         remark,
 		}
-		asset.URL = s.generateFileURL(asset)
+
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
 			if !errors.Is(err, ErrAssetNotFound) {
 				continue
@@ -719,7 +750,6 @@ func (s *Service) copyConfigAssets(ctx context.Context, cfg *model.Config, targe
 			ContentType:    oldAsset.ContentType,
 			Path:           newRelPath,
 		}
-		newAsset.URL = s.generateFileURL(newAsset)
 		if err := s.logic.CreateAsset(ctx, newAsset); err != nil {
 			return err
 		}
@@ -837,6 +867,11 @@ func (s *Service) ExportConfigsSelective(ctx context.Context, selections []*tran
 			// Export entire environment
 			pipelines, err := s.ListPipelines(ctx, sel.EnvironmentKey, nil)
 			if err != nil {
+				// Skip environment if pipelines cannot be retrieved
+				continue
+			}
+			if len(pipelines) == 0 {
+				// Skip environment if no pipelines exist
 				continue
 			}
 			for _, pipe := range pipelines {
@@ -1016,10 +1051,41 @@ func (s *Service) writeConfigTarGz(ctx context.Context, configs []model.Config) 
 	}
 
 	// Build complete data structure
+	// Convert configs to a format that handles JSON objects properly
+	configsData := make([]map[string]any, len(configs))
+	for i, cfg := range configs {
+		configMap := map[string]any{
+			"resource_key":    cfg.ResourceKey,
+			"alias":           cfg.Alias,
+			"name":            cfg.Name,
+			"environment_key": cfg.EnvironmentKey,
+			"pipeline_key":    cfg.PipelineKey,
+			"type":            cfg.Type,
+			"remark":          cfg.Remark,
+			"is_perm":         cfg.IsPerm,
+		}
+
+		// For object and keyvalue types, parse the content as JSON
+		normalizedType := strings.ToLower(strings.TrimSpace(cfg.Type))
+		switch normalizedType {
+		case "object", "keyvalue", "json", "config", "kv", "key-value", "键值对":
+			var content interface{}
+			if err := json.Unmarshal([]byte(cfg.Content), &content); err == nil {
+				configMap["content"] = content
+			} else {
+				configMap["content"] = cfg.Content
+			}
+		default:
+			configMap["content"] = cfg.Content
+		}
+
+		configsData[i] = configMap
+	}
+
 	archiveData := map[string]any{
 		"environments":     envList,
 		"pipelines":        pipelineList,
-		"business_configs": configSliceToPB(configs),
+		"business_configs": configsData,
 		"assets":           assetMetaList,
 	}
 
@@ -1559,7 +1625,7 @@ func (s *Service) importConfigsFromZip(ctx context.Context, data []byte, shouldI
 			Path:           relativePath,
 			Remark:         remark,
 		}
-		asset.URL = s.generateFileURL(asset)
+
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
 			if !errors.Is(err, ErrAssetNotFound) {
 				continue
@@ -1742,7 +1808,7 @@ func (s *Service) importConfigsFromTarGz(ctx context.Context, data []byte, shoul
 			Path:           relativePath,
 			Remark:         remark,
 		}
-		asset.URL = s.generateFileURL(asset)
+
 		if err := s.logic.UpdateAsset(ctx, asset); err != nil {
 			if !errors.Is(err, ErrAssetNotFound) {
 				continue

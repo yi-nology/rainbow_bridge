@@ -39,7 +39,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
     error.value = null
     try {
       const response = await environmentApi.list()
-      environments.value = response.list.map((env: ApiEnvironment) => fromApiEnvironment(env, []))
+      environments.value = response.list.map((env: any) => fromApiEnvironment(env, []))
     } catch (e) {
       error.value = e instanceof Error ? e.message : '获取环境列表失败'
       toast.error(error.value)
@@ -52,8 +52,8 @@ export const useEnvironmentStore = defineStore('environment', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await pipelineApi.list(environmentKey)
-      pipelines.value = response.list.map(fromApiPipeline)
+      const response = await pipelineApi.list({ environmentKey })
+      pipelines.value = response.list.map((item: any) => fromApiPipeline(item))
     } catch (e) {
       error.value = e instanceof Error ? e.message : '获取渠道列表失败'
       toast.error(error.value)
@@ -65,7 +65,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
   const createEnvironment = async (env: { key: string; name: string }) => {
     try {
       const apiEnv = toApiEnvironment(env)
-      await environmentApi.create(apiEnv)
+      await environmentApi.create(apiEnv as any)
       await fetchOverview()
       toast.success('环境创建成功')
     } catch (e) {
@@ -78,7 +78,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
   const updateEnvironment = async (env: { key: string; name: string }) => {
     try {
       const apiEnv = toApiEnvironment(env)
-      await environmentApi.update(apiEnv)
+      await environmentApi.update(apiEnv as any)
       await fetchOverview()
       toast.success('环境更新成功')
     } catch (e) {
@@ -103,7 +103,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
   const createPipeline = async (environmentKey: string, pipeline: { key: string; name: string }) => {
     try {
       const apiPipeline = toApiPipeline(pipeline, environmentKey)
-      await pipelineApi.create(apiPipeline)
+      await pipelineApi.create(apiPipeline as any)
       await fetchOverview()
       toast.success('渠道创建成功')
     } catch (e) {
@@ -116,7 +116,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
   const updatePipeline = async (environmentKey: string, pipeline: { key: string; name: string }) => {
     try {
       const apiPipeline = toApiPipeline(pipeline, environmentKey)
-      await pipelineApi.update(apiPipeline)
+      await pipelineApi.update(apiPipeline as any)
       await fetchOverview()
       toast.success('渠道更新成功')
     } catch (e) {
@@ -128,7 +128,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
 
   const deletePipeline = async (environmentKey: string, pipelineKey: string) => {
     try {
-      await pipelineApi.delete(environmentKey, pipelineKey)
+      await pipelineApi.delete(pipelineKey, { environmentKey })
       await fetchOverview()
       toast.success('渠道删除成功')
     } catch (e) {

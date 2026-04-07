@@ -58,11 +58,7 @@ RUN mkdir -p pkg/static/web && touch pkg/static/web/.placeholder
 
 RUN go build \
     -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'" \
-    -o /out/server ./cmd/server
-
-RUN go build \
-    -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'" \
-    -o /out/app ./cmd/app
+    -o /out/server .
 
 ##
 ## API runtime stage (target: api)
@@ -70,9 +66,9 @@ RUN go build \
 ##
 FROM debian:bookworm-slim AS api
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    wget && \
+RUN apt-get update && apt-get install -y --no-install-recommends 
+    ca-certificates 
+    wget && 
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --create-home --uid 10001 rainbow
@@ -89,7 +85,7 @@ USER rainbow
 EXPOSE 8080
 
 ENTRYPOINT ["/app/server"]
-CMD ["--config", "/app/config.yaml"]
+CMD ["--config", "/app/config.yaml", "--no-frontend"]
 
 ##
 ## App runtime stage (target: app)
@@ -99,16 +95,16 @@ FROM debian:bookworm-slim AS app
 
 ARG BASE_PATH
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    wget && \
+RUN apt-get update && apt-get install -y --no-install-recommends 
+    ca-certificates 
+    wget && 
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --create-home --uid 10001 rainbow
 
 WORKDIR /app
 
-COPY --from=go-builder /out/app /app/app
+COPY --from=go-builder /out/server /app/server
 COPY --from=frontend-builder /frontend/dist/ /app/web/
 COPY config.yaml /app/config.yaml
 
@@ -118,7 +114,7 @@ USER rainbow
 
 EXPOSE 8080
 
-ENTRYPOINT ["/app/app"]
+ENTRYPOINT ["/app/server"]
 CMD ["--config", "/app/config.yaml"]
 
 ##

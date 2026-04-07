@@ -34,11 +34,11 @@ export const useTransferStore = defineStore('transfer', () => {
     loading.value = true
     try {
       await transferApi.migrate({
-        source_environment_key: sourceEnvKey,
-        source_pipeline_key: sourcePipelineKey,
-        target_environment_key: targetEnvKey,
-        target_pipeline_key: targetPipelineKey,
-        resource_keys: resourceKeys,
+        sourceEnvironmentKey: sourceEnvKey,
+        sourcePipelineKey: sourcePipelineKey,
+        targetEnvironmentKey: targetEnvKey,
+        targetPipelineKey: targetPipelineKey,
+        resourceKeys: resourceKeys,
       })
       toast.success('配置迁移成功')
     } catch (e) {

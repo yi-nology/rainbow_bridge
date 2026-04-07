@@ -1,17 +1,9 @@
-import { get, post, upload, getBasePath } from './client'
+import { apiClient, getBasePath } from './client'
+import { toSnakeCase } from '../utils'
 import type {
   ApiResourceConfig,
   ImportSummary,
 } from './types'
-
-function buildApiUrl(path: string): string {
-  const basePath = getBasePath()
-  const normalizedBasePath = basePath.replace(/\/$/, '')
-  if (normalizedBasePath && path.startsWith('/api/')) {
-    return `${normalizedBasePath}${path}`
-  }
-  return path
-}
 
 export interface ImportJsonData {
   configs: ApiResourceConfig[]
@@ -21,12 +13,13 @@ export interface ImportJsonData {
 }
 
 export interface MigrateParams {
-  source_environment_key: string
-  source_pipeline_key: string
-  target_environment_key: string
-  target_pipeline_key: string
-  resource_keys?: string[]
+  sourceEnvironmentKey: string
+  sourcePipelineKey: string
+  targetEnvironmentKey: string
+  targetPipelineKey: string
+  resourceKeys?: string[]
   overwrite?: boolean
+  [key: string]: string | string[] | boolean | undefined
 }
 
 export interface MigrateResultItem {
@@ -145,7 +138,7 @@ export interface ImportPreviewResponse {
 
 export const transferApi = {
   importJson: async (data: ImportJsonData): Promise<ImportSummary | null> => {
-    const resp = await post<ImportSummary>('/api/v1/transfer/import', data as unknown as Record<string, unknown>)
+    const resp = await apiClient.post<ImportSummary>('/api/v1/transfer/import', data as unknown as Record<string, unknown>)
     return resp.data || null
   },
 
@@ -153,27 +146,36 @@ export const transferApi = {
     const formData = new FormData()
     formData.append('file', file)
 
-    const resp = await upload<ImportSummary>('/api/v1/transfer/import', formData)
+    const resp = await apiClient.upload<ImportSummary>('/api/v1/transfer/import', formData)
     return resp.data || null
   },
 
   migrate: async (params: MigrateParams): Promise<MigrateSummary | null> => {
-    const resp = await post<MigrateSummary>('/api/v1/transfer/migrate', params as unknown as Record<string, unknown>)
+    const snakeParams = toSnakeCase(params) as Record<string, unknown>
+    const resp = await apiClient.post<MigrateSummary>('/api/v1/transfer/migrate', snakeParams)
     return resp.data || null
   },
 
   getExportTree: async (): Promise<ExportTreeEnvironment[]> => {
-    const resp = await get<ExportTreeData>('/api/v1/transfer/export-tree')
+    const resp = await apiClient.get<ExportTreeData>('/api/v1/transfer/export-tree')
     return resp.data?.environments || []
   },
 
   exportSelective: async (params: ExportSelectiveParams): Promise<Blob> => {
-    const response = await fetch(buildApiUrl('/api/v1/transfer/export'), {
+    const basePath = getBasePath()
+    const normalizedBasePath = basePath.replace(/\/$/, '')
+    let fullPath = '/api/v1/transfer/export'
+    if (normalizedBasePath && fullPath.startsWith('/api/')) {
+      fullPath = `${normalizedBasePath}${fullPath}`
+    }
+    
+    const response = await fetch(fullPath, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(params),
+      credentials: 'include',
     })
 
     if (!response.ok) {
@@ -188,7 +190,7 @@ export const transferApi = {
     const formData = new FormData()
     formData.append('file', file)
 
-    const resp = await upload<ImportPreviewData>('/api/v1/transfer/import-preview', formData)
+    const resp = await apiClient.upload<ImportPreviewData>('/api/v1/transfer/import-preview', formData)
     return resp.data || null
   },
 
@@ -202,7 +204,7 @@ export const transferApi = {
     formData.append('selections', JSON.stringify(selections))
     formData.append('overwrite', String(overwrite))
 
-    const resp = await upload<ImportSummary>('/api/v1/transfer/import-selective', formData)
+    const resp = await apiClient.upload<ImportSummary>('/api/v1/transfer/import-selective', formData)
     return resp.data || null
   },
 }

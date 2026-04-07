@@ -5,6 +5,9 @@ import type {
   ApiResourceConfig,
   ApiEnvironmentOverview,
   ApiFileAsset,
+  FileAsset,
+  ResourceConfig,
+  EnvironmentOverview,
 } from './types'
 
 export function fromApiEnvironment(api: ApiEnvironment, pipelines: Pipeline[] = []): Environment {
@@ -56,23 +59,40 @@ function transformContentToBackend(_frontendType: string, content: string): stri
   return content
 }
 
-function transformContentFromBackend(backendType: string, content: string): { type: string; content: string } {
-  return { type: backendType, content }
+function transformContentFromBackend(backendType: string, content: string | object): { type: string; content: string } {
+  const contentStr = typeof content === 'object' ? JSON.stringify(content, null, 2) : content
+  return { type: backendType, content: contentStr }
 }
 
-export function fromApiConfig(api: ApiResourceConfig): ConfigItem {
-  const { type, content } = transformContentFromBackend(api.type, api.content)
-  
-  return {
-    id: api.resource_key,
-    name: api.name,
-    alias: api.alias,
-    type: type as ConfigItem['type'],
-    content,
-    environmentId: api.environment_key,
-    pipelineId: api.pipeline_key,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+export function fromApiConfig(api: ApiResourceConfig | ResourceConfig): ConfigItem {
+  if ('resource_key' in api) {
+    const { type, content } = transformContentFromBackend(api.type, api.content)
+    
+    return {
+      id: api.resource_key,
+      name: api.name,
+      alias: api.alias,
+      type: type as ConfigItem['type'],
+      content,
+      environmentId: api.environment_key,
+      pipelineId: api.pipeline_key,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+  } else {
+    const { type, content } = transformContentFromBackend(api.type, api.content)
+    
+    return {
+      id: api.resourceKey,
+      name: api.name,
+      alias: api.alias,
+      type: type as ConfigItem['type'],
+      content,
+      environmentId: api.environmentKey,
+      pipelineId: api.pipelineKey,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
   }
 }
 
@@ -101,16 +121,29 @@ export function toApiConfig(
   }
 }
 
-export function fromApiEnvironmentOverview(api: ApiEnvironmentOverview): Environment {
-  return {
-    id: api.environment_key,
-    key: api.environment_key,
-    name: api.environment_name,
-    pipelines: api.pipelines.map((p) => ({
-      id: p.pipeline_key,
-      key: p.pipeline_key,
-      name: p.pipeline_name,
-    })),
+export function fromApiEnvironmentOverview(api: ApiEnvironmentOverview | EnvironmentOverview): Environment {
+  if ('environment_key' in api) {
+    return {
+      id: api.environment_key,
+      key: api.environment_key,
+      name: api.environment_name,
+      pipelines: api.pipelines.map((p) => ({
+        id: p.pipeline_key,
+        key: p.pipeline_key,
+        name: p.pipeline_name,
+      })),
+    }
+  } else {
+    return {
+      id: api.environmentKey,
+      key: api.environmentKey,
+      name: api.environmentName,
+      pipelines: api.pipelines.map((p) => ({
+        id: p.pipelineKey,
+        key: p.pipelineKey,
+        name: p.pipelineName,
+      })),
+    }
   }
 }
 
@@ -125,15 +158,28 @@ export interface Asset {
   remark: string
 }
 
-export function fromApiAsset(api: ApiFileAsset): Asset {
-  return {
-    id: api.file_id,
-    name: api.file_name,
-    type: api.content_type,
-    size: api.file_size,
-    url: api.url,
-    environmentKey: api.environment_key,
-    pipelineKey: api.pipeline_key,
-    remark: api.remark,
+export function fromApiAsset(api: ApiFileAsset | FileAsset): Asset {
+  if ('file_id' in api) {
+    return {
+      id: api.file_id,
+      name: api.file_name,
+      type: api.content_type,
+      size: api.file_size,
+      url: api.url,
+      environmentKey: api.environment_key,
+      pipelineKey: api.pipeline_key,
+      remark: api.remark,
+    }
+  } else {
+    return {
+      id: api.fileId,
+      name: api.fileName,
+      type: api.contentType,
+      size: api.fileSize,
+      url: api.url,
+      environmentKey: api.environmentKey,
+      pipelineKey: api.pipelineKey,
+      remark: api.remark,
+    }
   }
 }

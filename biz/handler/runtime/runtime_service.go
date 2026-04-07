@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -56,7 +57,74 @@ func GetConfig(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(consts.StatusOK, resp)
+	// 自定义响应结构，处理 JSON 对象
+	type CustomResourceConfig struct {
+		ResourceKey    string      `json:"resource_key"`
+		Alias          string      `json:"alias"`
+		Name           string      `json:"name"`
+		EnvironmentKey string      `json:"environment_key"`
+		PipelineKey    string      `json:"pipeline_key"`
+		Content        interface{} `json:"content"`
+		Type           string      `json:"type"`
+		Remark         string      `json:"remark"`
+		IsPerm         bool        `json:"is_perm"`
+	}
+
+	type CustomRuntimeConfigData struct {
+		Configs      []CustomResourceConfig `json:"configs"`
+		Environment  *runtime.EnvironmentInfo `json:"environment"`
+	}
+
+	type CustomRuntimeConfigResponse struct {
+		Code    int32                    `json:"code"`
+		Msg     string                   `json:"msg"`
+		Error   string                   `json:"error"`
+		Data    CustomRuntimeConfigData  `json:"data"`
+	}
+
+	// 转换配置数据
+	customConfigs := make([]CustomResourceConfig, len(resp.Data.Configs))
+	for i, cfg := range resp.Data.Configs {
+		customConfig := CustomResourceConfig{
+			ResourceKey:    cfg.ResourceKey,
+			Alias:          cfg.Alias,
+			Name:           cfg.Name,
+			EnvironmentKey: cfg.EnvironmentKey,
+			PipelineKey:    cfg.PipelineKey,
+			Type:           cfg.Type,
+			Remark:         cfg.Remark,
+			IsPerm:         cfg.IsPerm,
+		}
+
+		// 对于 object 和 keyvalue 类型，解析为 JSON 对象
+		normalizedType := strings.ToLower(strings.TrimSpace(cfg.Type))
+		switch normalizedType {
+		case "object", "keyvalue", "json", "config", "kv", "key-value", "键值对":
+			var content interface{}
+			if err := json.Unmarshal([]byte(cfg.Content), &content); err == nil {
+				customConfig.Content = content
+			} else {
+				customConfig.Content = cfg.Content
+			}
+		default:
+			customConfig.Content = cfg.Content
+		}
+
+		customConfigs[i] = customConfig
+	}
+
+	// 构建自定义响应
+	customResponse := CustomRuntimeConfigResponse{
+		Code:   resp.Code,
+		Msg:    resp.Msg,
+		Error:  resp.Error,
+		Data: CustomRuntimeConfigData{
+			Configs:     customConfigs,
+			Environment: resp.Data.Environment,
+		},
+	}
+
+	c.JSON(consts.StatusOK, customResponse)
 }
 
 // ExportStatic .

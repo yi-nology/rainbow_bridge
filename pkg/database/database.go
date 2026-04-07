@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,8 +48,19 @@ func Open(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("unsupported database driver: %s", cfg.Driver)
 	}
 
+	// 配置自定义日志记录器，启用慢查询日志
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond, // 慢查询阈值
+			LogLevel:                  logger.Warn,            // 日志级别
+			IgnoreRecordNotFoundError: true,                   // 忽略记录未找到错误
+			Colorful:                  false,                  // 禁用彩色输出
+		},
+	)
+
 	db, err := gorm.Open(dialector, &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
+		Logger: newLogger,
 	})
 	if err != nil {
 		return nil, err
@@ -58,9 +70,10 @@ func Open(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxIdleConns(20)
 	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	sqlDB.SetConnMaxLifetime(1 * time.Hour)
+	sqlDB.SetConnMaxIdleTime(30 * time.Minute)
 
 	return db, nil
 }

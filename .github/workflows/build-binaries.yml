@@ -154,6 +154,8 @@ jobs:
 
       - name: Create frontend archive
         run: |
+          mkdir -p dist
+          cp -r pkg/static/web/* dist/
           cd dist
           ls -la
           tar czf frontend.tar.gz .

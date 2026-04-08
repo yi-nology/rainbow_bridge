@@ -5,22 +5,50 @@ metadata:
 data:
   config.yaml: |
     server:
-      port: 8080
-      host: 0.0.0.0
+      address: ":8080"
+      # 基础路径，如 /rainbow-bridge，留空表示部署在根路径
+      base_path: "/rainbow-bridge"
+
     database:
-      type: postgres
-      host: postgres
-      port: 5432
-      name: rainbow_bridge
-      user: rainbow_bridge
-      password: rainbow_bridge_pass
+      driver: "postgres"
+      sqlite:
+        path: "data/resource.db"
+      mysql:
+        dsn: "user:password@tcp(127.0.0.1:3306)/resource?charset=utf8mb4&parseTime=True&loc=Local"
+      postgres:
+        dsn: "host=postgres user=rainbow_bridge password=rainbow_bridge_pass dbname=rainbow_bridge port=5432 sslmode=disable TimeZone=UTC"
+
+    # 内网环境配置
+    intranet:
+      enabled: true  # 设置为 true 时,版本检查接口不请求 GitHub,直接返回内网环境说明
+
+    # Redis 分布式写锁配置
+    # 启用后所有写操作(创建/更新/删除)通过 Redis 排他锁串行化
+    # 同时启用 Redis 缓存，用于缓存常用配置数据
+    redis:
+      enabled: false
+      address: "localhost:6379"
+      password: ""
+      db: 0
+
+    # 存储配置
     storage:
-      type: minio
-      endpoint: minio:9000
-      access_key: minioadmin
-      secret_key: minioadmin123
-      bucket: rainbow-bridge
-    logging:
-      level: info
-    security:
-      jwt_secret: your-secret-key-here
+      type: "minio"
+      minio:
+        endpoint: "minio:9000"
+        access_key: "minioadmin"
+        secret_key: "minioadmin123"
+        use_ssl: false
+        bucket: "rainbow-bridge"
+        region: "us-east-1"
+
+    # 日志配置
+    log:
+      level: "info"
+      output: "stdout"
+      file: "logs/rainbow-bridge.log"
+      max_size: 100
+      max_backups: 10
+      max_age: 30
+      compress: true
+      json: false

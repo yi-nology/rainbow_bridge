@@ -103,6 +103,23 @@ deploy_minio() {
   kubectl rollout status deployment minio -n "$NAMESPACE"
 }
 
+# 初始化 MinIO
+init_minio() {
+  echo -e "${YELLOW}正在初始化 MinIO...${NC}"
+  
+  # 删除已存在的 Job（如果存在）
+  kubectl delete job minio-init -n "$NAMESPACE" --ignore-not-found=true
+  
+  # 创建 MinIO 初始化 Job
+  kubectl apply -f "$SCRIPT_DIR/minio-init-job.yaml" -n "$NAMESPACE"
+  
+  # 等待 Job 完成
+  echo -e "${YELLOW}正在等待 MinIO 初始化完成...${NC}"
+  kubectl wait --for=condition=complete --timeout=120s job/minio-init -n "$NAMESPACE"
+  
+  echo -e "${GREEN}✓ MinIO 初始化完成${NC}"
+}
+
 # 部署应用
 deploy_application() {
   echo -e "${BLUE}========================================${NC}"
@@ -117,6 +134,9 @@ deploy_application() {
 
   # 部署 MinIO
   deploy_minio
+
+  # 初始化 MinIO
+  init_minio
 
   # 创建配置映射
   echo -e "${YELLOW}正在创建配置映射...${NC}"
@@ -162,7 +182,7 @@ deploy_application() {
     echo -e "  ${BLUE}http://<节点IP>:$(kubectl get service rainbow-bridge -n "$NAMESPACE" -o jsonpath='{.spec.ports[0].nodePort}')${NC}"
   else
     echo -e "\n${GREEN}访问地址:${NC}"
-    echo -e "  ${BLUE}http://localhost:8080${NC} (需要端口转发)"
+    echo -e "  ${BLUE}http://localhost:8080/rainbow-bridge${NC} (需要端口转发)"
     echo -e "  ${YELLOW}执行以下命令进行端口转发:${NC}"
     echo -e "  ${BLUE}kubectl port-forward service/rainbow-bridge 8080:8080 -n $NAMESPACE${NC}"
   fi

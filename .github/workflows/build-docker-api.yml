@@ -77,3 +77,4 @@ jobs:
             VERSION=${{ inputs.version }}
             GIT_COMMIT=${{ inputs.git_commit }}
             BUILD_TIME=${{ inputs.build_time }}
+            BASE_PATH=${{ inputs.base_path }}

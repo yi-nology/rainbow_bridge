@@ -14,21 +14,6 @@ updates:
       prefix: "chore(deps)"
     open-pull-requests-limit: 10
 
-  # React 前端依赖
-  - package-ecosystem: "npm"
-    directory: "/react"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "frontend"
-    commit-message:
-      prefix: "chore(deps-frontend)"
-    open-pull-requests-limit: 10
-
   # Docs 依赖
   - package-ecosystem: "npm"
     directory: "/docs"

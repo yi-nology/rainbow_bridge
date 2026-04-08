@@ -24,7 +24,7 @@ RUN if [ -n "$BASE_PATH" ]; then \
     else \
       export VITE_BASE_PATH="/"; \
     fi && \
-    npm run build -- --outDir dist
+    npm run build
 
 ##
 ## Go build stage
@@ -54,7 +54,7 @@ RUN go mod download
 
 COPY . .
 
-RUN mkdir -p pkg/static/web && touch pkg/static/web/.placeholder
+RUN mkdir -p pkg/static/web && cp -r /frontend/dist/* pkg/static/web/
 
 RUN go build \
     -ldflags="-X 'main.Version=${VERSION}' -X 'main.GitCommit=${GIT_COMMIT}' -X 'main.BuildTime=${BUILD_TIME}' -X 'main.BasePath=${BASE_PATH}'" \
@@ -66,9 +66,9 @@ RUN go build \
 ##
 FROM debian:bookworm-slim AS api
 
-RUN apt-get update && apt-get install -y --no-install-recommends 
-    ca-certificates 
-    wget && 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    wget && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --create-home --uid 10001 rainbow
@@ -95,9 +95,9 @@ FROM debian:bookworm-slim AS app
 
 ARG BASE_PATH
 
-RUN apt-get update && apt-get install -y --no-install-recommends 
-    ca-certificates 
-    wget && 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    wget && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --create-home --uid 10001 rainbow
@@ -139,7 +139,11 @@ RUN if [ -n "$BASE_PATH" ]; then \
       sed -i "s|return 302 /;|return 302 /${BASE_PATH}/;|g" /etc/nginx/conf.d/default.conf; \
     fi
 
-COPY --from=frontend-builder /frontend/dist/ /usr/share/nginx/html/${BASE_PATH}/
+RUN if [ -n "$BASE_PATH" ]; then \
+      COPY --from=frontend-builder /frontend/dist/ /usr/share/nginx/html/${BASE_PATH}/; \
+    else \
+      COPY --from=frontend-builder /frontend/dist/ /usr/share/nginx/html/; \
+    fi
 
 RUN if [ -n "$BASE_PATH" ]; then \
       echo 'return 302 /'${BASE_PATH}'/;' > /etc/nginx/conf.d/root-redirect.conf; \

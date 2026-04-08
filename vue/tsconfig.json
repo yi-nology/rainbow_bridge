@@ -19,7 +19,7 @@
       "@/*": ["./src/*"]
     },
     "baseUrl": ".",
-    "ignoreDeprecations": "5.0"
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]

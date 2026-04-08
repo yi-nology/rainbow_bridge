@@ -54,6 +54,9 @@ RUN go mod download
 
 COPY . .
 
+# 从frontend-builder阶段复制前端构建产物
+COPY --from=frontend-builder /frontend/dist /frontend/dist
+
 RUN mkdir -p pkg/static/web && cp -r /frontend/dist/* pkg/static/web/
 
 RUN go build \

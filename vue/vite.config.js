@@ -13,7 +13,7 @@ export default defineConfig({
     },
     base: basePath,
     build: {
-        outDir: '../pkg/static/web',
+        outDir: 'dist',
         emptyOutDir: true,
     },
     server: {

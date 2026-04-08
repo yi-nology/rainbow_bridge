@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rainbow-bridge
+  labels:
+    app: rainbow-bridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rainbow-bridge
+  template:
+    metadata:
+      labels:
+        app: rainbow-bridge
+    spec:
+      containers:
+      - name: rainbow-bridge-api
+        image: ghcr.io/yi-nology/rainbow-bridge-api:latest
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: rainbow-bridge-data
+          mountPath: /app/data
+        - name: config-volume
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+        env:
+        - name: GIN_MODE
+          value: "release"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/ping
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/ping
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+      volumes:
+      - name: rainbow-bridge-data
+        persistentVolumeClaim:
+          claimName: rainbow-bridge-data
+      - name: config-volume
+        configMap:
+          name: rainbow-bridge-config

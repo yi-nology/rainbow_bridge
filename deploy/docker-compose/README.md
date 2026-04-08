@@ -1,578 +1,234 @@
-# Rainbow Bridge Docker Compose 部署方案
+# Docker Compose 部署指南
 
-本目录提供了多种数据库和存储方案的 Docker Compose 部署配置。
+本目录提供了 Rainbow Bridge 的多种 Docker Compose 部署方案，适用于不同的场景和需求。
 
-## 📁 目录结构
+## 目录结构
 
 ```
-deploy/docker-compose/
-├── sqlite/                  # SQLite 方案（最简单）
-│   ├── docker-compose.yaml
-│   └── config.yaml
-├── mysql/                   # MySQL 方案
-│   ├── docker-compose.yaml
-│   ├── config.yaml
-│   └── init-mysql.sql
-├── postgres/                # PostgreSQL 方案
-│   ├── docker-compose.yaml
-│   ├── config.yaml
-│   └── init-postgres.sql
-├── pgsql-minio/             # PostgreSQL + MinIO 单节点
-│   ├── docker-compose.yaml
-│   ├── config.yaml
-│   └── init-postgres.sql
-├── minio-cluster/           # MinIO 4节点集群 + PostgreSQL
-│   ├── docker-compose.yaml
-│   ├── config.yaml
-│   └── nginx-minio.conf
-├── docker-compose.yaml      # 默认配置（SQLite）
-├── config.yaml              # 默认配置文件
-└── README.md
+docker-compose/
+├── sqlite/            # SQLite 方案（最简单）
+├── mysql/             # MySQL 方案
+├── postgres/          # PostgreSQL 方案
+├── pgsql-minio/       # PostgreSQL + MinIO 方案
+└── minio-cluster/     # MinIO 分布式集群方案
 ```
 
-## 📦 方案概览
+## 部署方案对比
 
-### 数据库方案
+| 方案 | 数据库 | 存储 | 适用场景 |
+|------|--------|------|----------|
+| `sqlite` | SQLite | 本地文件 | 个人使用、测试环境 |
+| `mysql` | MySQL 8.0 | 本地文件 | 中小型生产环境 |
+| `postgres` | PostgreSQL 16 | 本地文件 | 大型生产环境 |
+| `pgsql-minio` | PostgreSQL 16 | MinIO | 云原生、多实例 |
+| `minio-cluster` | PostgreSQL 16 | MinIO 4节点集群 | 企业级高可用 |
 
-| 方案 | 目录 | 数据库 | 特点 | 推荐场景 |
-|------|------|--------|------|----------|
-| **SQLite** | `sqlite/` | 内置 SQLite | 零依赖、单容器、轻量级 | 个人使用、测试环境、小规模部署 |
-| **MySQL** | `mysql/` | MySQL 8.0 | 成熟稳定、生态丰富 | 中小型生产环境 |
-| **PostgreSQL** | `postgres/` | PostgreSQL 16 | 功能强大、高性能 | 大型生产环境、复杂查询场景 |
+## 快速开始
 
-### 对象存储方案
+### 使用统一部署脚本（推荐）
 
-| 方案 | 目录 | 存储 | 特点 | 推荐场景 |
-|------|------|------|------|----------|
-| **MinIO 单节点** | `pgsql-minio/` | MinIO + PostgreSQL | S3 兼容、易部署 | 中型生产环境、云原生应用 |
-| **MinIO 集群** | `minio-cluster/` | MinIO 4节点集群 + Nginx | 高可用、数据冗余、负载均衡 | 大型生产环境、企业级应用 |
-
----
-
-## 🚀 快速开始
-
-### 方案一：SQLite（推荐新手）
-
-**特点：**
-- ✅ 最简单，无需额外数据库容器
-- ✅ 数据存储在本地文件中
-- ✅ 适合个人使用和测试
-
-**启动命令：**
 ```bash
-cd deploy/docker-compose/sqlite
+# 回到 deploy 目录
+cd ..
+
+# 运行交互式部署脚本
+./deploy.sh
+```
+
+### 直接使用特定方案
+
+```bash
+# 进入对应方案目录
+cd sqlite
+
+# 启动服务
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止服务
+docker compose down
+
+# 重启服务
+docker compose restart
+
+# 删除数据重建
+docker compose down -v
 docker compose up -d
 ```
 
-**停止命令：**
-```bash
-docker compose down
-```
+## 配置说明
 
-**数据备份：**
+### 通用配置
+
+所有方案都包含以下配置：
+
+- **端口映射**：80 端口映射到容器的 8080 端口
+- **数据持久化**：使用 Docker 卷或绑定挂载
+- **健康检查**：自动检查服务状态
+- **环境变量**：根据不同方案设置相应的环境变量
+
+### 各方案特定配置
+
+#### SQLite 方案
+
+- **数据库**：SQLite 文件存储在 `./data` 目录
+- **存储**：本地文件系统
+- **优点**：简单易用，无需额外数据库服务
+
+#### MySQL 方案
+
+- **数据库**：MySQL 8.0
+- **端口**：3306
+- **默认账号**：
+  - 用户名：`rainbow_bridge`
+  - 密码：`rainbow_bridge_pass`
+  - 数据库名：`rainbow_bridge`
+
+#### PostgreSQL 方案
+
+- **数据库**：PostgreSQL 16
+- **端口**：5432
+- **默认账号**：
+  - 用户名：`rainbow_bridge`
+  - 密码：`rainbow_bridge_pass`
+  - 数据库名：`rainbow_bridge`
+
+#### PostgreSQL + MinIO 方案
+
+- **数据库**：PostgreSQL 16
+- **存储**：MinIO 对象存储
+- **MinIO 端口**：
+  - API：9000
+  - 控制台：9001
+- **MinIO 默认账号**：
+  - 用户名：`minioadmin`
+  - 密码：`minioadmin123`
+- **自动创建存储桶**：`rainbow-bridge`
+
+#### MinIO 集群方案
+
+- **数据库**：PostgreSQL 16
+- **存储**：MinIO 4节点分布式集群
+- **MinIO 端口**：
+  - 节点1：9001 (API), 9011 (控制台)
+  - 节点2：9002 (API), 9012 (控制台)
+  - 节点3：9003 (API), 9013 (控制台)
+  - 节点4：9004 (API), 9014 (控制台)
+- **MinIO 默认账号**：
+  - 用户名：`minioadmin`
+  - 密码：`minioadmin123`
+- **自动创建存储桶**：`rainbow-bridge`
+
+## 环境变量
+
+### 通用环境变量
+
+| 变量名 | 描述 | 默认值 |
+|--------|------|--------|
+| `GIN_MODE` | Gin 运行模式 | `release` |
+
+### 数据库环境变量
+
+| 变量名 | 描述 | SQLite | MySQL | PostgreSQL |
+|--------|------|--------|-------|------------|
+| `DATABASE_TYPE` | 数据库类型 | `sqlite` | `mysql` | `postgres` |
+| `DATABASE_HOST` | 数据库主机 | - | `mysql` | `postgres` |
+| `DATABASE_PORT` | 数据库端口 | - | `3306` | `5432` |
+| `DATABASE_NAME` | 数据库名 | - | `rainbow_bridge` | `rainbow_bridge` |
+| `DATABASE_USER` | 数据库用户 | - | `rainbow_bridge` | `rainbow_bridge` |
+| `DATABASE_PASSWORD` | 数据库密码 | - | `rainbow_bridge_pass` | `rainbow_bridge_pass` |
+
+### 存储环境变量
+
+| 变量名 | 描述 | 本地存储 | MinIO |
+|--------|------|----------|-------|
+| `STORAGE_TYPE` | 存储类型 | `local` | `minio` |
+| `MINIO_ENDPOINT` | MinIO 端点 | - | `minio:9000` |
+| `MINIO_ACCESS_KEY` | MinIO 访问密钥 | - | `minioadmin` |
+| `MINIO_SECRET_KEY` | MinIO 秘密密钥 | - | `minioadmin123` |
+| `MINIO_BUCKET` | MinIO 存储桶 | - | `rainbow-bridge` |
+
+## 访问方式
+
+部署完成后，可以通过以下地址访问 Rainbow Bridge：
+
+- **Web 界面**：`http://localhost/`
+- **API 接口**：`http://localhost/api/`
+
+### MinIO 访问
+
+如果使用了包含 MinIO 的方案，可以通过以下地址访问：
+
+- **MinIO 控制台**：`http://localhost:9001`
+- **MinIO API**：`http://localhost:9000`
+
+## 数据备份
+
+### SQLite
+
 ```bash
-# 数据存储在 Docker volume 中
 docker run --rm -v rainbow_bridge_data:/data -v $(pwd):/backup alpine \
-  tar czf /backup/rainbow-bridge-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C /data .
+  tar czf /backup/backup-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
----
+### MySQL
 
-### 方案二：MySQL
-
-**特点：**
-- ✅ 适合中小型生产环境
-- ✅ 成熟稳定，工具生态丰富
-- ✅ 支持远程连接和管理
-
-**启动命令：**
 ```bash
-cd deploy/docker-compose/mysql
-docker compose up -d
+docker exec rainbow-bridge-mysql mysqldump -U rainbow_bridge rainbow_bridge > backup.sql
 ```
 
-**停止命令：**
+### PostgreSQL
+
 ```bash
-docker compose down
+docker exec rainbow-bridge-postgres pg_dump -U rainbow_bridge rainbow_bridge > backup.sql
 ```
 
-**查看日志：**
+### MinIO
+
 ```bash
-# 查看应用日志
-docker compose logs -f rainbow-bridge
-
-# 查看数据库日志
-docker compose logs -f mysql
+docker run --rm -v minio_data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/minio-backup-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
-**连接数据库：**
-```bash
-# 使用 MySQL 客户端连接
-mysql -h 127.0.0.1 -P 3306 -u rainbow_bridge -p
-# 密码: rainbow_bridge_pass
+## 常见问题
 
-# 或使用 Docker exec
-docker exec -it rainbow-bridge-mysql mysql -u rainbow_bridge -prainbow_bridge_pass rainbow_bridge
+### 端口冲突
+
+如果遇到端口冲突，可以修改 `docker-compose.yaml` 文件中的端口映射：
+
+```yaml
+ports:
+  - "8080:8080"  # 修改为其他端口，如 "8081:8080"
 ```
-
-**修改密码：**
-
-编辑 `docker-compose.yaml` 和 `config.yaml` 中的密码：
-
-1. `docker-compose.yaml`:
-   ```yaml
-   MYSQL_PASSWORD: 你的新密码
-   ```
-
-2. `config.yaml`:
-   ```yaml
-   dsn: "rainbow_bridge:你的新密码@tcp(mysql:3306)/..."
-   ```
-
-**数据备份：**
-```bash
-# 备份数据库
-docker exec rainbow-bridge-mysql mysqldump -u rainbow_bridge -prainbow_bridge_pass rainbow_bridge > backup-$(date +%Y%m%d-%H%M%S).sql
-
-# 恢复数据库
-docker exec -i rainbow-bridge-mysql mysql -u rainbow_bridge -prainbow_bridge_pass rainbow_bridge < backup.sql
-```
-
----
-
-### 方案三：PostgreSQL
-
-**特点：**
-- ✅ 适合大型生产环境
-- ✅ 功能强大，支持复杂查询
-- ✅ 高性能、高可靠性
-
-**启动命令：**
-```bash
-cd deploy/docker-compose/postgres
-docker compose up -d
-```
-
-**停止命令：**
-```bash
-docker compose down
-```
-
-**查看日志：**
-```bash
-# 查看应用日志
-docker compose logs -f rainbow-bridge
-
-# 查看数据库日志
-docker compose logs -f postgres
-```
-
-**连接数据库：**
-```bash
-# 使用 psql 客户端连接
-psql -h 127.0.0.1 -p 5432 -U rainbow_bridge -d rainbow_bridge
-# 密码: rainbow_bridge_pass
-
-# 或使用 Docker exec
-docker exec -it rainbow-bridge-postgres psql -U rainbow_bridge -d rainbow_bridge
-```
-
-**修改密码：**
-
-编辑 `docker-compose.yaml` 和 `config.yaml` 中的密码：
-
-1. `docker-compose.yaml`:
-   ```yaml
-   POSTGRES_PASSWORD: 你的新密码
-   ```
-
-2. `config.yaml`:
-   ```yaml
-   dsn: "host=postgres user=rainbow_bridge password=你的新密码 ..."
-   ```
-
-**数据备份：**
-```bash
-# 备份数据库
-docker exec rainbow-bridge-postgres pg_dump -U rainbow_bridge rainbow_bridge > backup-$(date +%Y%m%d-%H%M%S).sql
-
-# 恢复数据库
-docker exec -i rainbow-bridge-postgres psql -U rainbow_bridge rainbow_bridge < backup.sql
-```
-
----
-
-### 方案四：PostgreSQL + MinIO 单节点（推荐云原生）
-
-**特点：**
-- ✅ S3 兼容对象存储
-- ✅ 适合云原生应用
-- ✅ 支持分布式存储
-- ✅ Web 控制台管理
-
-**启动命令：**
-```bash
-cd deploy/docker-compose/pgsql-minio
-docker compose up -d
-```
-
-**停止命令：**
-```bash
-docker compose down
-```
-
-**访问 MinIO 控制台：**
-```
-URL: http://localhost:9001
-用户名: minioadmin
-密码: minioadmin123
-```
-
-**MinIO API 端点：**
-```
-http://localhost:9000
-```
-
-**修改密码：**
-
-编辑 `docker-compose.yaml` 和 `config.yaml` 中的密码：
-
-1. `docker-compose.yaml`:
-   ```yaml
-   # MinIO 服务
-   MINIO_ROOT_USER: 你的用户名
-   MINIO_ROOT_PASSWORD: 你的新密码
-   
-   # Rainbow Bridge 环境变量
-   MINIO_ACCESS_KEY: 你的用户名
-   MINIO_SECRET_KEY: 你的新密码
-   ```
-
-2. `config.yaml`:
-   ```yaml
-   storage:
-     minio:
-       access_key: "你的用户名"
-       secret_key: "你的新密码"
-   ```
-
-**数据备份：**
-```bash
-# 备份 MinIO 数据
-docker run --rm -v rainbow-bridge_minio_data:/data -v $(pwd):/backup alpine \
-  tar czf /backup/minio-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C /data .
-
-# 恢复 MinIO 数据
-docker run --rm -v rainbow-bridge_minio_data:/data -v $(pwd):/backup alpine \
-  tar xzf /backup/minio-backup-XXXXXX.tar.gz -C /data
-```
-
----
-
-### 方案五：MinIO 分布式集群（推荐企业级）
-
-**特点：**
-- ✅ 4 节点分布式集群
-- ✅ 高可用性（容忍 1 节点故障）
-- ✅ 数据冗余（Erasure Code）
-- ✅ Nginx 负载均衡
-- ✅ 适合生产环境
-
-**启动命令：**
-```bash
-cd deploy/docker-compose/minio-cluster
-docker compose up -d
-```
-
-**停止命令：**
-```bash
-docker compose down
-```
-
-**查看集群状态：**
-```bash
-# 查看所有容器状态
-docker compose ps
-
-# 查看单个节点日志
-docker compose logs minio1
-
-# 查看 Nginx 负载均衡器日志
-docker compose logs nginx
-```
-
-**访问 MinIO 控制台：**
-```
-URL: http://localhost:9001
-用户名: minioadmin
-密码: minioadmin123
-```
-
-**集群信息：**
-- 总存储节点：4 个
-- 每节点磁盘：2 个
-- 总磁盘数：8 个
-- Erasure Set 大小：4 (最多允许 1 个节点故障)
-- 负载均衡：Least Connections
-
-**扩容说明：**
-
-MinIO 集群启动后不能直接扩容。如需扩容：
-1. 创建新的服务器集 (Server Pool)
-2. 更新 docker-compose 添加更多节点
-3. 使用 MinIO 的 Server Pool 功能
-
-**数据备份：**
-```bash
-# 备份所有节点数据
-for i in 1 2 3 4; do
-  docker run --rm \
-    -v rainbow-bridge_minio${i}_data1:/data1 \
-    -v rainbow-bridge_minio${i}_data2:/data2 \
-    -v $(pwd):/backup alpine \
-    tar czf /backup/minio${i}-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C / data1 data2
-done
-```
-
----
-
-## 🔧 配置说明
-
-### 端口说明
-
-| 服务 | 端口 | 说明 |
-|------|------|------|
-| Rainbow Bridge | 8080 | Web 服务端口 |
-| MySQL | 3306 | MySQL 数据库端口（仅 MySQL 方案） |
-| PostgreSQL | 5432 | PostgreSQL 数据库端口（仅 PostgreSQL/MinIO 方案） |
-| MinIO API | 9000 | MinIO 对象存储 API（仅 MinIO 方案） |
-| MinIO Console | 9001 | MinIO Web 控制台（仅 MinIO 方案） |
 
 ### 数据持久化
 
-所有方案都使用 Docker Volume 进行数据持久化：
+所有方案都使用了 Docker 卷或绑定挂载来持久化数据，确保容器重启后数据不会丢失。
 
-- **SQLite**: `rainbow_bridge_data` - 存储数据库文件和上传文件
-- **MySQL**: `mysql_data` + `rainbow_bridge_uploads` - 分别存储数据库和上传文件
-- **PostgreSQL**: `postgres_data` + `rainbow_bridge_uploads` - 分别存储数据库和上传文件
-- **MinIO 单节点**: `minio_data` + `postgres_data` - MinIO 存储和 PostgreSQL 数据库
-- **MinIO 集群**: `minio{1..4}_data{1,2}` + `postgres_data` - 8个 MinIO 数据卷 + PostgreSQL 数据库
+### 性能优化
 
----
+- **SQLite**：适用于低流量场景
+- **MySQL/PostgreSQL**：适用于中等流量场景
+- **MinIO**：适用于需要对象存储的场景
+- **MinIO 集群**：适用于高可用、高流量场景
 
-## 🔄 方案迁移
+## 升级指南
 
-### 从 SQLite 迁移到 MySQL/PostgreSQL
-
-1. **导出 SQLite 数据**（手动迁移）
-2. **启动新数据库方案**
-3. **导入数据到新数据库**
-
-> ⚠️ 注意：SQLite 到 MySQL/PostgreSQL 的迁移需要手动处理，建议使用数据迁移工具或脚本。
-
-### 在不同方案间切换
-
-```bash
-# 停止当前方案（在对应目录下）
-docker compose down
-
-# 切换到其他方案目录
-cd ../mysql  # 或 ../postgres, ../pgsql-minio 等
-docker compose up -d
-```
-
----
-
-## 🛡️ 安全建议
-
-### 生产环境部署
-
-1. **修改默认密码**
-   - MySQL: 修改 `MYSQL_PASSWORD` 和 `MYSQL_ROOT_PASSWORD`
-   - PostgreSQL: 修改 `POSTGRES_PASSWORD`
-
-2. **限制端口暴露**
-   ```yaml
-   # 仅在本地监听，不对外暴露数据库端口
-   ports:
-     - "127.0.0.1:3306:3306"  # MySQL
-     - "127.0.0.1:5432:5432"  # PostgreSQL
-   ```
-
-3. **使用环境变量**
+1. **停止服务**：
    ```bash
-   # 创建 .env 文件
-   echo "DB_PASSWORD=your_secure_password" > .env
-   
-   # 在 docker-compose.yaml 中引用
-   MYSQL_PASSWORD: ${DB_PASSWORD}
+   docker compose down
    ```
 
-4. **启用 SSL/TLS**（生产环境推荐）
+2. **备份数据**（参见数据备份部分）
 
-5. **定期备份数据**
+3. **更新镜像**：
+   ```bash
+   docker compose pull
+   ```
 
----
-
-## 📊 性能优化
-
-### MySQL 优化
-
-编辑 `docker-compose.mysql.yaml`，添加性能参数：
-
-```yaml
-command:
-  - --character-set-server=utf8mb4
-  - --collation-server=utf8mb4_unicode_ci
-  - --max_connections=500
-  - --innodb_buffer_pool_size=1G
-  - --innodb_log_file_size=256M
-```
-
-### PostgreSQL 优化
-
-编辑 `docker-compose.postgres.yaml`，添加性能参数：
-
-```yaml
-command:
-  - postgres
-  - -c
-  - shared_buffers=256MB
-  - -c
-  - max_connections=200
-  - -c
-  - work_mem=8MB
-```
-
----
-
-## 🐛 故障排查
-
-### 检查容器状态
-
-```bash
-# 进入对应方案目录
-cd deploy/docker-compose/mysql  # 或其他方案目录
-docker compose ps
-```
-
-### 查看容器日志
-
-```bash
-# 查看所有日志
-docker compose logs
-
-# 实时查看日志
-docker compose logs -f
-
-# 查看特定服务日志
-docker compose logs rainbow-bridge
-```
-
-### 健康检查
-
-```bash
-# 检查 Rainbow Bridge 健康状态
-curl http://localhost:8080/rainbow-bridge/api/v1/ping
-
-# 检查 MySQL 连接
-docker exec rainbow-bridge-mysql mysqladmin ping -h localhost -u root -prainbow_bridge_root_pass
-
-# 检查 PostgreSQL 连接
-docker exec rainbow-bridge-postgres pg_isready -U rainbow_bridge
-```
-
-### 常见问题
-
-**Q: 容器启动失败，提示端口已被占用**
-```bash
-A: 检查端口是否被占用
-# macOS/Linux
-lsof -i :8080
-# Windows
-netstat -ano | findstr :8080
-
-# 修改 docker-compose.yaml 中的端口映射
-ports:
-  - "8081:8080"  # 改为其他端口
-```
-
-**Q: 数据库连接失败**
-```bash
-A: 检查数据库是否已就绪
-# MySQL
-docker exec rainbow-bridge-mysql mysqladmin ping -h localhost -u root -prainbow_bridge_root_pass
-
-# PostgreSQL
-docker exec rainbow-bridge-postgres pg_isready -U rainbow_bridge
-
-# 查看数据库日志
-docker compose -f docker-compose.mysql.yaml logs mysql
-```
-
-**Q: 如何清空数据重新开始**
-```bash
-A: 删除 volumes
-# 进入对应方案目录
-cd deploy/docker-compose/mysql  # 或其他方案目录
-
-# 停止容器
-docker compose down
-
-# 删除 volumes（⚠️ 会删除所有数据）
-docker compose down -v
-
-# 重新启动
-docker compose up -d
-```
-
----
-
-## 📚 更多资源
-
-- [Rainbow Bridge 主仓库](https://github.com/yi-nology/rainbow_bridge)
-- [Docker Compose 文档](https://docs.docker.com/compose/)
-- [MySQL 官方文档](https://dev.mysql.com/doc/)
-- [PostgreSQL 官方文档](https://www.postgresql.org/docs/)
-
----
-
-## 💬 支持
-
-如有问题，请提交 [Issue](https://github.com/yi-nology/rainbow_bridge/issues)。
-
----
-
-## 🔄 反向代理场景
-
-如果你的 rainbow-bridge 前面还有一层 nginx 或其他反向代理（例如在 k8s ingress 场景），请注意：
-
-### 必须传递正确的 Host 头
-
-最前端反向代理必须保留原始 Host 和端口：
-
-```nginx
-# 最前端 nginx 配置示例 (端口 32376)
-server {
-    listen 32376;
-    
-    location /rainbow-bridge/ {
-        proxy_pass http://rainbow-bridge-frontend:80/rainbow-bridge/;
-        
-        # 关键：保留原始 Host 和端口
-        proxy_set_header Host $host:$server_port;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host:$server_port;
-        proxy_set_header X-Forwarded-Port $server_port;
-    }
-}
-```
-
-### 已修复的问题
-
-以下场景已验证可用：
-- ✅ 单层反向代理 (nginx:32376 -> app:80)
-- ✅ 多层反向代理 (ingress:32376 -> nginx:80 -> app:8080)
-- ✅ k8s 集群内部访问
+4. **启动服务**：
+   ```bash
+   docker compose up -d
+   ```

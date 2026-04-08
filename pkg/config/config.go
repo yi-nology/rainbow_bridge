@@ -61,10 +61,10 @@ type RedisConfig struct {
 
 // CORSConfig defines CORS middleware settings.
 type CORSConfig struct {
-	AllowOrigin      string `yaml:"allow_origin"`
-	AllowMethods     string `yaml:"allow_methods"`
-	AllowHeaders     string `yaml:"allow_headers"`
-	AllowCredentials bool   `yaml:"allow_credentials"`
+	AllowOrigin      string `yaml:"allow_origin" default:"*"`
+	AllowMethods     string `yaml:"allow_methods" default:"*"`
+	AllowHeaders     string `yaml:"allow_headers" default:"*"`
+	AllowCredentials bool   `yaml:"allow_credentials" default:"false"`
 }
 
 // UploadConfig defines file upload constraints.
@@ -80,8 +80,8 @@ type IntranetConfig struct {
 
 // ServerConfig defines HTTP server options.
 type ServerConfig struct {
-	Address string `yaml:"address"`
-	// BasePath removed - now injected at build time via ldflags
+	Address  string `yaml:"address"`
+	BasePath string `yaml:"base_path"`
 }
 
 // DatabaseConfig defines the database backend configuration.
@@ -252,7 +252,6 @@ func applyDefaults(cfg *Config) {
 	if cfg.Server.Address == "" {
 		cfg.Server.Address = ":8080"
 	}
-	// BasePath removed - now injected at build time
 	if cfg.Database.Driver == "" {
 		cfg.Database.Driver = "sqlite"
 	}

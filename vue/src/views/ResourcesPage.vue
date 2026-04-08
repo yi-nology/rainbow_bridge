@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import AppSidebar from '@/components/AppSidebar.vue'
+import { Layout } from '@/components/ui/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, Layers } from 'lucide-vue-next'
 import { useEnvironmentStore } from '@/stores/environment'
@@ -74,78 +74,69 @@ const handleSearchChange = (value: string) => {
 </script>
 
 <template>
-  <div class="flex min-h-screen">
-    <AppSidebar />
-    <main class="flex-1 p-8 overflow-auto">
-      <div class="max-w-5xl mx-auto space-y-6">
-        <div class="mb-8">
-          <h1 class="text-2xl font-bold tracking-tight">资源管理</h1>
-          <p class="text-muted-foreground mt-1">
-            集中管理静态资源，自动生成 URL
+  <Layout
+    title="资源管理"
+    description="集中管理静态资源，自动生成 URL"
+  >
+    <!-- 环境和渠道选择组件 -->
+    <Card>
+      <CardHeader>
+        <CardTitle class="text-lg">选择环境与渠道</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <EnvironmentChannelSelector
+          v-model="envPipelineModel"
+        />
+      </CardContent>
+    </Card>
+
+    <!-- 资源列表和上传功能 -->
+    <Card>
+      <CardHeader>
+        <div class="flex items-center justify-between">
+          <CardTitle class="text-lg">资源列表</CardTitle>
+          <!-- 上传功能组件 -->
+          <Uploader
+            :selectedEnvKey="selectedEnvKey"
+            :selectedPipelineKey="selectedPipelineKey"
+            :searchTerm="searchTerm"
+            :onSearchChange="handleSearchChange"
+          />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div v-if="!selectedEnvKey || !selectedPipelineKey" class="flex flex-col items-center justify-center py-16 text-center">
+          <div class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+            <Layers class="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 class="text-lg font-medium mb-2">请先选择环境和渠道</h3>
+          <p class="text-muted-foreground text-sm max-w-sm">
+            资源与环境和渠道关联，请在上方选择要管理的环境和渠道后查看对应的资源列表
           </p>
         </div>
+        <div v-else-if="assetStore.loading" class="flex items-center justify-center py-16">
+          <Loader2 class="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+        <div v-else>
+          <!-- 资源列表组件 -->
+          <ResourceList
+            :selectedEnvKey="selectedEnvKey"
+            :selectedPipelineKey="selectedPipelineKey"
+            :onPreviewImage="handlePreviewImage"
+            :onCopy="handleCopy"
+            :copiedId="copiedId"
+            :searchTerm="searchTerm"
+          />
+        </div>
+      </CardContent>
+    </Card>
 
-        <!-- 环境和渠道选择组件 -->
-        <Card>
-          <CardHeader>
-            <CardTitle class="text-lg">选择环境与渠道</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EnvironmentChannelSelector
-              v-model="envPipelineModel"
-            />
-          </CardContent>
-        </Card>
-
-        <!-- 资源列表和上传功能 -->
-        <Card>
-          <CardHeader>
-            <div class="flex items-center justify-between">
-              <CardTitle class="text-lg">资源列表</CardTitle>
-              <!-- 上传功能组件 -->
-              <Uploader
-                :selectedEnvKey="selectedEnvKey"
-                :selectedPipelineKey="selectedPipelineKey"
-                :searchTerm="searchTerm"
-                :onSearchChange="handleSearchChange"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div v-if="!selectedEnvKey || !selectedPipelineKey" class="flex flex-col items-center justify-center py-16 text-center">
-              <div class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Layers class="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 class="text-lg font-medium mb-2">请先选择环境和渠道</h3>
-              <p class="text-muted-foreground text-sm max-w-sm">
-                资源与环境和渠道关联，请在上方选择要管理的环境和渠道后查看对应的资源列表
-              </p>
-            </div>
-            <div v-else-if="assetStore.loading" class="flex items-center justify-center py-16">
-              <Loader2 class="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
-            <div v-else>
-              <!-- 资源列表组件 -->
-              <ResourceList
-                :selectedEnvKey="selectedEnvKey"
-                :selectedPipelineKey="selectedPipelineKey"
-                :onPreviewImage="handlePreviewImage"
-                :onCopy="handleCopy"
-                :copiedId="copiedId"
-                :searchTerm="searchTerm"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- 图片预览组件 -->
-        <ImagePreview
-          :isOpen="isPreviewOpen"
-          :imageUrl="previewImage"
-          :imageName="previewImageName"
-          :onClose="closePreview"
-        />
-      </div>
-    </main>
-  </div>
+    <!-- 图片预览组件 -->
+    <ImagePreview
+      :isOpen="isPreviewOpen"
+      :imageUrl="previewImage"
+      :imageName="previewImageName"
+      :onClose="closePreview"
+    />
+  </Layout>
 </template>

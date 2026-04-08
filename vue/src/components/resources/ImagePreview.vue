@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { Loader2, FileImage } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -28,12 +28,16 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 }
 
-onMounted(() => {
-  if (props.isOpen) {
+// 监听 isOpen 变化
+watch(() => props.isOpen, (isOpen: boolean) => {
+  if (isOpen) {
     isImageLoading.value = true
+    imageLoadError.value = false
     document.addEventListener('keydown', handleKeyDown)
+  } else {
+    document.removeEventListener('keydown', handleKeyDown)
   }
-})
+}, { immediate: true })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)

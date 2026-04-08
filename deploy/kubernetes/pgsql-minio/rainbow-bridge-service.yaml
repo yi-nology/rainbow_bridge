@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rainbow-bridge
+  labels:
+    app: rainbow-bridge
+spec:
+  type: ClusterIP
+  ports:
+  - name: api
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: rainbow-bridge

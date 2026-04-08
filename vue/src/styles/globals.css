@@ -1,5 +1,8 @@
+/* 导入字体 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './animations.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -37,6 +40,26 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* 字体变量 */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', Consolas, 'Courier New', monospace;
+  /* 字体大小 */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+  --text-6xl: 3.75rem;
+  /* 字体粗细 */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
 }
 
 .dark {
@@ -75,8 +98,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -120,7 +143,89 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+  /* 标题样式 */
+  h1 {
+    @apply text-3xl font-bold tracking-tight;
+  }
+  h2 {
+    @apply text-2xl font-bold tracking-tight;
+  }
+  h3 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  h4 {
+    @apply text-lg font-semibold tracking-tight;
+  }
+  h5 {
+    @apply text-base font-semibold tracking-tight;
+  }
+  h6 {
+    @apply text-sm font-semibold tracking-tight;
+  }
+  /* 正文样式 */
+  p {
+    @apply text-base leading-relaxed;
+  }
+  /* 标签样式 */
+  label {
+    @apply text-sm font-medium;
+  }
+  /* 链接样式 */
+  a {
+    @apply text-primary hover:underline;
+  }
+  /* 代码样式 */
+  code {
+    @apply font-mono text-sm;
+  }
+  /* 小文本 */
+  .text-xs {
+    @apply text-[var(--text-xs)];
+  }
+  .text-sm {
+    @apply text-[var(--text-sm)];
+  }
+  .text-base {
+    @apply text-[var(--text-base)];
+  }
+  .text-lg {
+    @apply text-[var(--text-lg)];
+  }
+  .text-xl {
+    @apply text-[var(--text-xl)];
+  }
+  .text-2xl {
+    @apply text-[var(--text-2xl)];
+  }
+  .text-3xl {
+    @apply text-[var(--text-3xl)];
+  }
+  .text-4xl {
+    @apply text-[var(--text-4xl)];
+  }
+  .text-5xl {
+    @apply text-[var(--text-5xl)];
+  }
+  .text-6xl {
+    @apply text-[var(--text-6xl)];
+  }
+  /* 字体粗细 */
+  .font-light {
+    @apply font-[var(--font-light)];
+  }
+  .font-normal {
+    @apply font-[var(--font-normal)];
+  }
+  .font-medium {
+    @apply font-[var(--font-medium)];
+  }
+  .font-semibold {
+    @apply font-[var(--font-semibold)];
+  }
+  .font-bold {
+    @apply font-[var(--font-bold)];
   }
 }
 
@@ -130,5 +235,31 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+  /* 响应式字体 */
+  .text-responsive {
+    @apply text-base sm:text-lg md:text-xl;
+  }
+  /* 标题响应式 */
+  .h1-responsive {
+    @apply text-2xl sm:text-3xl md:text-4xl;
+  }
+  .h2-responsive {
+    @apply text-xl sm:text-2xl md:text-3xl;
+  }
+  .h3-responsive {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  /* 过渡效果 */
+  .transition-all-200 {
+    @apply transition-all duration-200;
+  }
+  /* 焦点效果 */
+  .focus-visible-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+  /* 禁用状态 */
+  .disabled-opacity {
+    @apply disabled:pointer-events-none disabled:opacity-50;
   }
 }

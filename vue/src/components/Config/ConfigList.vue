@@ -164,7 +164,7 @@ const handleReset = () => {
                 {{ config.alias }}
               </TableCell>
               <TableCell class="py-4 px-6">
-                <Badge variant="secondary" :class="CONFIG_TYPE_META[config.type]?.color || ''" class="px-2 py-1">
+                <Badge :class="CONFIG_TYPE_META[config.type]?.color || ''" class="px-2 py-1 border">
                   {{ CONFIG_TYPE_META[config.type]?.label || config.type }}
                 </Badge>
               </TableCell>

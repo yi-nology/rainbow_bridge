@@ -248,8 +248,8 @@ onMounted(() => {
               </TableCell>
               <TableCell>
                 <Badge
-                  variant="secondary"
                   :class="CONFIG_TYPE_META[config.type]?.color || ''"
+                  class="border"
                 >
                   {{ CONFIG_TYPE_META[config.type]?.label || config.type }}
                 </Badge>

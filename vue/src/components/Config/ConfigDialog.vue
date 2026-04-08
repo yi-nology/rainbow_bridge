@@ -208,19 +208,26 @@ const handleFileUpload = async (type: 'file' | 'image') => {
   input.accept = type === 'image' ? 'image/*' : '*/*'
 
   input.onchange = async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file || !props.selectedEnvKey || !props.selectedPipelineKey) return
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file || !props.selectedEnvKey || !props.selectedPipelineKey) return
 
-    try {
-      const result = await assetStore.uploadAsset(file, props.selectedEnvKey, props.selectedPipelineKey)
-      if (result?.url) {
-        formData.value.content = result.url
-        errors.value = errors.value.filter(e => e.field !== 'content')
+      try {
+        const result = await assetStore.uploadAsset(file, props.selectedEnvKey, props.selectedPipelineKey)
+        if (result?.url) {
+          // 只保存相对路径，避免重复添加 basePath
+          const basePath = import.meta.env.BASE_URL || ''
+          const normalizedBasePath = basePath.replace(/\/$/, '')
+          let url = result.url
+          if (normalizedBasePath && url.startsWith(normalizedBasePath)) {
+            url = url.replace(normalizedBasePath, '')
+          }
+          formData.value.content = url
+          errors.value = errors.value.filter(e => e.field !== 'content')
+        }
+      } catch (e) {
+        console.error('上传失败:', e)
       }
-    } catch (e) {
-      console.error('上传失败:', e)
     }
-  }
 
   input.click()
 }
@@ -368,7 +375,7 @@ if (isEditing.value && props.editingConfig) {
             :class="getFieldError('content') ? 'border-destructive' : ''"
             class="resize-none"
           />
-          <div v-else-if="formData.type === 'boolean'" class="flex items-center gap-4 p-4 border rounded-md bg-gray-50 dark:bg-gray-800">
+          <div v-else-if="formData.type === 'boolean'" class="flex items-center gap-4 p-4 border rounded-md bg-muted/50 dark:bg-muted">
             <Switch v-model="booleanValue" />
             <span class="text-sm">
               当前值: <Badge :variant="booleanValue ? 'default' : 'secondary'" class="ml-1">{{ booleanValue ? 'true' : 'false' }}</Badge>
@@ -396,7 +403,7 @@ if (isEditing.value && props.editingConfig) {
                 添加
               </Button>
             </div>
-            <div class="space-y-2 max-h-64 overflow-y-auto p-2 border rounded-md bg-gray-50 dark:bg-gray-800">
+            <div class="space-y-2 max-h-64 overflow-y-auto p-2 border rounded-md bg-muted/50 dark:bg-muted">
               <div v-for="(pair, index) in keyValuePairs" :key="index" class="flex items-center gap-2">
                 <Input
                   placeholder="键名"
@@ -426,7 +433,7 @@ if (isEditing.value && props.editingConfig) {
           </div>
           <div
             v-else-if="formData.type === 'file' || formData.type === 'image'"
-            class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors bg-gray-50 dark:bg-gray-800"
+            class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors bg-muted/50 dark:bg-muted"
             :class="getFieldError('content') ? 'border-destructive' : ''"
             @click="handleFileUpload(formData.type)"
           >
@@ -448,7 +455,7 @@ if (isEditing.value && props.editingConfig) {
           </p>
         </div>
 
-        <DialogFooter class="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <DialogFooter class="pt-4 border-t border-border">
           <Button variant="outline" @click="emit('update:open', false); resetForm()" class="h-10">
             取消
           </Button>

@@ -6,7 +6,21 @@ import type { ApiResponse, OperateResponse } from './types'
 import { ApiError, ErrorType, handleApiError } from './error'
 
 export function getBasePath(): string {
-  return import.meta.env.BASE_URL || ''
+  // 生产环境：优先使用运行时注入的 basePath
+  if (typeof window !== 'undefined' && window.__BASE_PATH__) {
+    const injected = window.__BASE_PATH__
+    // 如果不是占位符，使用注入的值
+    if (injected !== '__BASE_PATH__') {
+      return injected
+    }
+  }
+  
+  const viteBase = import.meta.env.BASE_URL || ''
+  // 如果 Vite 的 BASE_URL 是占位符，返回空字符串
+  if (viteBase.includes('__BASE_PATH__')) {
+    return ''
+  }
+  return viteBase
 }
 
 interface RawApiResponse<T = unknown> extends ApiResponse<T> {
@@ -103,14 +117,17 @@ export class ApiClient {
    */
   private getUrl(path: string): URL {
     if (path.startsWith('/api/')) {
+
       const baseUrl = this.baseUrl || window.location.origin
       // 如果baseUrl是相对路径，需要和basePath结合
       if (this.baseUrl && !this.baseUrl.startsWith('http')) {
-        return new URL(`${this.basePath}${path}`, window.location.origin)
+        const normalizedBase = this.baseUrl.replace(/\/$/, '')
+        return new URL(`${normalizedBase}${path}`, window.location.origin)
       }
       // 如果没有设置baseUrl，使用basePath
       if (!this.baseUrl) {
-        return new URL(`${this.basePath}${path}`, window.location.origin)
+        const normalizedBasePath = this.basePath.replace(/\/$/, '')
+        return new URL(`${normalizedBasePath}${path}`, window.location.origin)
       }
       return new URL(path, baseUrl)
     }

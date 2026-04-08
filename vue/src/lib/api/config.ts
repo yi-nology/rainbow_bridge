@@ -18,6 +18,11 @@ class ConfigApiService extends BaseApiService<ResourceConfig> {
     return 'resource_key'
   }
 
+  // 重写getRequestKey方法，使用正确的请求键名
+  protected getRequestKey(): string {
+    return 'config'
+  }
+
   // 重写detail方法，因为需要环境和管道key参数
   async detail(id: string | number, params?: Record<string, unknown>): Promise<{ [key: string]: ResourceConfig | null }> {
     return super.detail(id, params)

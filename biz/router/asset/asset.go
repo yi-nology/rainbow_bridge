@@ -27,7 +27,7 @@ func Register(r *server.Hertz) {
 				_asset.POST("/upload", append(_uploadMw(), asset.Upload)...)
 				{
 					_file := _asset.Group("/file", _fileMw()...)
-					_file.GET("/{file_id}", append(_getfileMw(), asset.GetFile)...)
+					_file.GET("/*filepath", append(_getfileMw(), asset.GetFile)...)
 				}
 			}
 		}

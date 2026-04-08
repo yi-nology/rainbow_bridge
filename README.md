@@ -1122,6 +1122,8 @@ SQLite 默认存储在 `data/resource.db`，静态文件默认落盘至 `data/up
 
 - `config.yaml`：主配置文件，包含 `server.address`、`database` 等；
 - `server.base_path`：可选的统一访问前缀（如 `/rainbow-bridge`），启用后 API、静态控制台与返回的资源 URL 会自动携带该前缀，便于部署在反向代理或多租户网关之下；
+  - 配置优先级：配置文件 > 环境变量 `BASE_PATH` > 编译时参数
+  - 留空表示部署在根路径
 - 若文件缺失，程序会使用默认配置（监听 `:8080`，使用 `sqlite` & `data/resource.db`）；
 - `main.go` 启动流程：
   1. 加载配置；  

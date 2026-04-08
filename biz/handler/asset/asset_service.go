@@ -187,12 +187,35 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 }
 
 // GetFile .
-// @router /api/v1/asset/file/{file_id} [GET]
+// @router /api/v1/asset/file/* [GET]
 func GetFile(ctx context.Context, c *app.RequestContext) {
-	fileID := c.Param("file_id")
+	// 优先从上下文中获取 file_id（当从 404 处理中调用时）
+	var fileID string
+	if id, exists := c.Get("file_id"); exists {
+		if idStr, ok := id.(string); ok {
+			fileID = idStr
+		}
+	}
+	// 如果上下文中没有，尝试从参数中获取
+	if fileID == "" {
+		fileID = c.Param("file_id")
+	}
+	// 尝试从 fileID 参数获取（大小写不同的情况）
 	if fileID == "" {
 		fileID = c.Param("fileID")
 	}
+	// 尝试从通配符参数获取
+	if fileID == "" {
+		wildcardPath := c.Param("filepath")
+		if wildcardPath != "" {
+			// 提取 file_id
+			parts := strings.Split(wildcardPath, "/")
+			if len(parts) > 0 {
+				fileID = parts[0]
+			}
+		}
+	}
+	fmt.Printf("[DEBUG] GetFile: fileID=%s\n", fileID)
 
 	// 处理带有文件名的路径，例如 /api/v1/asset/file/{file_id}/{file_name}
 	if strings.Contains(fileID, "/") {

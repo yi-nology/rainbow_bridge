@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import AppSidebar from '@/components/AppSidebar.vue'
+import { Layout } from '@/components/ui/layout'
 import SourceTargetSelector from '@/components/Migration/SourceTargetSelector.vue'
 import ChangePreview from '@/components/Migration/ChangePreview.vue'
 import MigrationOperation from '@/components/Migration/MigrationOperation.vue'
@@ -182,44 +182,35 @@ const handleReset = () => {
 </script>
 
 <template>
-  <div class="flex min-h-screen">
-    <AppSidebar />
-    <main class="flex-1 p-8 overflow-auto">
-      <div class="max-w-5xl mx-auto space-y-6">
-        <div class="mb-8">
-          <h1 class="text-2xl font-bold tracking-tight">配置迁移</h1>
-          <p class="text-muted-foreground mt-1">
-            在不同环境和渠道之间迁移配置项
-          </p>
-        </div>
+  <Layout
+    title="配置迁移"
+    description="在不同环境和渠道之间迁移配置项"
+  >
+    <MigrationOperation 
+      v-if="status === 'success' || status === 'error'"
+      :status="status" 
+      :selected-configs="selectedConfigs" 
+      @reset="handleReset"
+    />
 
-        <MigrationOperation 
-          v-if="status === 'success' || status === 'error'"
-          :status="status" 
-          :selected-configs="selectedConfigs" 
-          @reset="handleReset"
-        />
+    <template v-else>
+      <SourceTargetSelector 
+        v-model:source-env-key="sourceEnvKey"
+        v-model:source-pipeline-key="sourcePipelineKey"
+        v-model:target-env-key="targetEnvKey"
+        v-model:target-pipeline-key="targetPipelineKey"
+        :status="status"
+        @preview="handlePreview"
+      />
 
-        <template v-else>
-          <SourceTargetSelector 
-            v-model:source-env-key="sourceEnvKey"
-            v-model:source-pipeline-key="sourcePipelineKey"
-            v-model:target-env-key="targetEnvKey"
-            v-model:target-pipeline-key="targetPipelineKey"
-            :status="status"
-            @preview="handlePreview"
-          />
-
-          <ChangePreview 
-            :preview-data="previewData"
-            v-model:selected-configs="selectedConfigs"
-            v-model:overwrite-conflicts="overwriteConflicts"
-            :status="status"
-            @reset="handleReset"
-            @migrate="handleMigrate"
-          />
-        </template>
-      </div>
-    </main>
-  </div>
+      <ChangePreview 
+        :preview-data="previewData"
+        v-model:selected-configs="selectedConfigs"
+        v-model:overwrite-conflicts="overwriteConflicts"
+        :status="status"
+        @reset="handleReset"
+        @migrate="handleMigrate"
+      />
+    </template>
+  </Layout>
 </template>

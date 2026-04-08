@@ -7,12 +7,12 @@ import (
 	"flag"
 	"io/fs"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	asset "github.com/yi-nology/rainbow_bridge/biz/handler/asset"
 	appinit "github.com/yi-nology/rainbow_bridge/pkg/app"
 	"github.com/yi-nology/rainbow_bridge/pkg/static"
 )
@@ -32,11 +32,30 @@ func main() {
 	noFrontend := flag.Bool("no-frontend", false, "disable frontend static files")
 	flag.Parse()
 
+	// 先加载配置文件，获取 base_path
+	cfg, err := appinit.LoadConfig(*configPath)
+	if err != nil {
+		log.Printf("Warning: failed to load config: %v, will use default config", err)
+	}
+
+	// 优先级：配置文件 > 环境变量 > 编译时参数
+	effectiveBasePath := ""
+	if cfg != nil && cfg.Server.BasePath != "" {
+		effectiveBasePath = cfg.Server.BasePath
+		log.Printf("Using BASE_PATH from config file: %s", effectiveBasePath)
+	} else if envBasePath := os.Getenv("BASE_PATH"); envBasePath != "" {
+		effectiveBasePath = envBasePath
+		log.Printf("Using BASE_PATH from environment: %s", effectiveBasePath)
+	} else if BasePath != "" {
+		effectiveBasePath = BasePath
+		log.Printf("Using BASE_PATH from build time: %s", BasePath)
+	}
+
 	application, err := appinit.Initialize(*configPath, appinit.BuildConfig{
 		Version:   Version,
 		GitCommit: GitCommit,
 		BuildTime: BuildTime,
-		BasePath:  BasePath,
+		BasePath:  effectiveBasePath,
 	})
 	if err != nil {
 		log.Fatalf("initialize app: %v", err)
@@ -74,20 +93,14 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 	staticHandler := func(c context.Context, ctx *app.RequestContext) {
 		path := string(ctx.URI().Path())
 
-		// 尝试去除 /rainbow-bridge/ 前缀（如果存在）
-		if strings.HasPrefix(path, "/rainbow-bridge") {
-			path = strings.TrimPrefix(path, "/rainbow-bridge")
-		}
-
 		// 去除 basePath 前缀（如果存在）
 		if basePath != "" {
 			path = strings.TrimPrefix(path, basePath)
 		}
 
-		// 处理资产文件路径，例如 /api/v1/asset/file/{file_id}/{file_name}
-		if strings.HasPrefix(path, "/api/v1/asset/file/") {
-			// 调用资产处理函数
-			asset.GetFile(c, ctx)
+		// 如果路径以 /api/ 开头，跳过静态文件处理，让请求继续被 API 路由处理
+		if strings.HasPrefix(path, "/api/") {
+			ctx.Next(c)
 			return
 		}
 
@@ -124,30 +137,27 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 	noRoute := func(c context.Context, ctx *app.RequestContext) {
 		path := string(ctx.URI().Path())
 
-		// 尝试去除 /rainbow-bridge/ 前缀（如果存在）
-		if strings.HasPrefix(path, "/rainbow-bridge") {
-			path = strings.TrimPrefix(path, "/rainbow-bridge")
-		}
-
 		// 去除 basePath 前缀（如果存在）
 		if basePath != "" {
 			path = strings.TrimPrefix(path, basePath)
 		}
 
-		// 处理资产文件路径，例如 /api/v1/asset/file/{file_id}/{file_name}
-		if strings.HasPrefix(path, "/api/v1/asset/file/") {
-			// 提取 file_id
-			fileID := strings.TrimPrefix(path, "/api/v1/asset/file/")
-			if strings.Contains(fileID, "/") {
-				parts := strings.Split(fileID, "/")
-				if len(parts) > 0 {
-					fileID = parts[0]
-				}
-			}
-			// 调用资产处理函数
-			asset.GetFile(c, ctx)
-			return
-		}
+		//// 处理资产文件路径，例如 /api/v1/asset/file/{file_id}/{file_name}
+		//if strings.HasPrefix(path, "/api/v1/asset/file/") {
+		//	// 提取 file_id
+		//	fileID := strings.TrimPrefix(path, "/api/v1/asset/file/")
+		//	if strings.Contains(fileID, "/") {
+		//		parts := strings.Split(fileID, "/")
+		//		if len(parts) > 0 {
+		//			fileID = parts[0]
+		//		}
+		//	}
+		//	// 设置 file_id 到请求上下文中
+		//	ctx.Set("file_id", fileID)
+		//	// 调用资产处理函数
+		//	asset.GetFile(c, ctx)
+		//	return
+		//}
 
 		// 如果路径以 /api/ 开头，返回404
 		if strings.HasPrefix(path, "/api/") {

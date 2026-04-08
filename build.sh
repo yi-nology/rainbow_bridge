@@ -1,7 +1,7 @@
 #!/bin/bash
 RUN_NAME=hertz_service
 
-BASE_PATH="${BASE_PATH:-rainbow-bridge}"
+BASE_PATH="${BASE_PATH:-}"
 BUILD_MODE="${BUILD_MODE:-}"
 BUILD_TARGET="${BUILD_TARGET:-app}"
 

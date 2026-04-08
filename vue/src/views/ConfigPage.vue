@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import AppSidebar from '@/components/AppSidebar.vue'
+import { Layout } from '@/components/ui/layout'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useConfigStore } from '@/stores/config'
 import { type ConfigType } from '@/lib/types'
@@ -91,36 +91,27 @@ const handleCloseImagePreview = () => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-    <AppSidebar />
-    <main class="flex-1 p-8 overflow-auto">
-      <div class="max-w-6xl mx-auto space-y-8">
-        <div class="mb-10">
-          <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">配置管理</h1>
-          <p class="text-muted-foreground mt-2 text-lg">
-            管理指定环境和渠道的运行时配置项
-          </p>
-        </div>
+  <Layout
+    title="配置管理"
+    description="管理指定环境和渠道的运行时配置项"
+  >
+    <EnvironmentSelector
+      v-model:selected-env-key="selectedEnvKey"
+      v-model:selected-pipeline-key="selectedPipelineKey"
+    />
 
-        <EnvironmentSelector
-          v-model:selected-env-key="selectedEnvKey"
-          v-model:selected-pipeline-key="selectedPipelineKey"
-        />
-
-        <ConfigList
-          :configs="configStore.configs"
-          :loading="configStore.loading"
-          :selected-env-key="selectedEnvKey"
-          :selected-pipeline-key="selectedPipelineKey"
-          :selected-environment-name="selectedEnvironment?.name"
-          :selected-pipeline-name="selectedPipeline?.name"
-          @create="handleCreate"
-          @update="handleUpdate"
-          @delete="handleDelete"
-          @image-preview="handleImagePreview"
-        />
-      </div>
-    </main>
+    <ConfigList
+      :configs="configStore.configs"
+      :loading="configStore.loading"
+      :selected-env-key="selectedEnvKey"
+      :selected-pipeline-key="selectedPipelineKey"
+      :selected-environment-name="selectedEnvironment?.name"
+      :selected-pipeline-name="selectedPipeline?.name"
+      @create="handleCreate"
+      @update="handleUpdate"
+      @delete="handleDelete"
+      @image-preview="handleImagePreview"
+    />
 
     <ImagePreview
       :is-open="!!imagePreviewUrl"
@@ -128,5 +119,5 @@ const handleCloseImagePreview = () => {
       :image-name="imagePreviewName"
       :on-close="handleCloseImagePreview"
     />
-  </div>
+  </Layout>
 </template>

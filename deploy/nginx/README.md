@@ -1,34 +1,136 @@
-## Nginx Example for Rainbow Bridge
+# Nginx 反向代理配置
 
-本目录提供一个独立的 Nginx 反向代理示例，便于将 Rainbow Bridge 暴露在统一的 `/rainbow-bridge/` 前缀下。
+本目录提供了 Rainbow Bridge 的 Nginx 反向代理配置文件，用于将流量转发到 Rainbow Bridge 服务。
 
-### 文件说明
+## 配置说明
 
-- `rainbow-bridge.conf`：默认 server 配置，监听 80 端口并将 `/rainbow-bridge/` 的所有请求转发到上游 `rainbow-bridge:8080`，同时做了 gzip 优化。根路径会 302 到 `/rainbow-bridge/`。
+### 配置文件
 
-### 使用方式
+- `rainbow-bridge.conf`: Rainbow Bridge 的 Nginx 反向代理配置文件
 
-#### Docker 运行
+### 使用方法
 
-```bash
-docker run -d \
-  --name rainbow-bridge-nginx \
-  --network <your_network> \
-  -p 8080:80 \
-  -v $(pwd)/deploy/nginx/rainbow-bridge.conf:/etc/nginx/conf.d/default.conf:ro \
-  nginx:1.25-alpine
+1. **安装 Nginx**
+
+   ```bash
+   # Ubuntu/Debian
+   sudo apt update
+   sudo apt install nginx
+
+   # CentOS/RHEL
+   sudo yum install nginx
+   ```
+
+2. **复制配置文件**
+
+   ```bash
+   sudo cp rainbow-bridge.conf /etc/nginx/conf.d/
+   ```
+
+3. **修改配置文件**
+
+   根据实际部署情况，修改配置文件中的以下内容：
+
+   - `upstream rainbow_bridge` 中的服务器地址和端口
+   - `server_name` 中的域名
+   - 如需部署静态文件，取消注释 `root` 指令并设置正确的路径
+
+4. **检查配置**
+
+   ```bash
+   sudo nginx -t
+   ```
+
+5. **重启 Nginx**
+
+   ```bash
+   sudo systemctl restart nginx
+   ```
+
+## 反向代理配置详解
+
+### 核心配置
+
+- **upstream**：定义后端服务器集群
+- **server**：配置虚拟主机
+- **location**：定义请求路径的处理规则
+- **proxy_pass**：将请求转发到后端服务器
+
+### 重要参数
+
+- `proxy_set_header`：设置请求头信息
+- `proxy_http_version`：设置 HTTP 版本
+- `proxy_set_header Upgrade` 和 `proxy_set_header Connection`：支持 WebSocket 连接
+
+## 常见问题
+
+### 404 错误
+
+- 检查后端服务是否正常运行
+- 检查 `upstream` 配置是否正确
+- 检查 `proxy_pass` 路径是否正确
+
+### 502 错误
+
+- 后端服务未运行或无法访问
+- 网络连接问题
+- 防火墙阻止了连接
+
+### 性能优化
+
+- 增加 `proxy_buffers` 配置
+- 启用 `gzip` 压缩
+- 配置 `keepalive` 连接
+
+## 示例配置
+
+### 基本配置
+
+```nginx
+upstream rainbow_bridge {
+    server localhost:8080;
+}
+
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        proxy_pass http://rainbow_bridge;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
-确保 Nginx 与 Rainbow Bridge 服务在同一个网络（如 Docker Compose 自定义网络）并且上游主机名 `rainbow-bridge` 可解析到应用容器。如果实际主机名不同，可在挂载前修改 `proxy_pass`。
+### HTTPS 配置
 
-#### Kubernetes / 物理机
+```nginx
+upstream rainbow_bridge {
+    server localhost:8080;
+}
 
-把 `rainbow-bridge.conf` 按需放入 `/etc/nginx/conf.d/` 或创建 ConfigMap 挂载到 Nginx Pod 中；若端口或主机名不同，同样改动 `proxy_pass` 即可。
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$host$request_uri;
+}
 
-### 常见自定义
+server {
+    listen 443 ssl http2;
+    server_name example.com;
 
-1. **HTTPS**：可在 `server` 块里增加证书配置，并把 `listen 80` 改成 `listen 443 ssl`。
-2. **鉴权**：在 `location /rainbow-bridge/` 中加入 Basic Auth、JWT 校验等。
-3. **访问日志**：根据需要自定义 `log_format` 或使用集中日志方案。
+    ssl_certificate /path/to/certificate.crt;
+    ssl_certificate_key /path/to/private.key;
 
-该配置与 `deploy/docker-compose/docker-compose.yaml`、`deploy/kubernetes/rainbow-bridge.yaml` 相互独立，可在任何需要的反向代理场景下复用。
+    location / {
+        proxy_pass http://rainbow_bridge;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```

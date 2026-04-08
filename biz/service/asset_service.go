@@ -177,9 +177,15 @@ func (s *Service) GetAssetFile(ctx context.Context, fileID string) (*model.Asset
 	} else {
 		// 使用本地存储
 		fullPath := filepath.Join(dataDirectory, asset.Path)
+		fmt.Printf("[DEBUG] GetAssetFile: fullPath=%s, dataDirectory=%s, asset.Path=%s\n", fullPath, dataDirectory, asset.Path)
 		if _, err := os.Stat(fullPath); err != nil {
+			fmt.Printf("[DEBUG] os.Stat failed: %v\n", err)
+			if os.IsNotExist(err) {
+				return nil, "", ErrAssetNotFound
+			}
 			return nil, "", err
 		}
+		fmt.Printf("[DEBUG] os.Stat success, returning fullPath=%s\n", fullPath)
 		return asset, fullPath, nil
 	}
 }

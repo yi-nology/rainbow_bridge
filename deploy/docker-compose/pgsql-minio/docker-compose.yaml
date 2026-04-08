@@ -1,120 +1,88 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  # Redis 分布式写锁
-  redis:
-    image: redis:7-alpine
-    container_name: rainbow-bridge-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes
+  rainbow-bridge-api:
+    image: ghcr.io/yi-nology/rainbow-bridge-api:latest
+    container_name: rainbow-bridge-api
+    ports:
+      - "80:8080"
     volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      - ./config.yaml:/app/config.yaml
     environment:
-      TZ: Asia/Shanghai
+      - GIN_MODE=release
+      - DATABASE_TYPE=postgres
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=rainbow_bridge
+      - DATABASE_USER=rainbow_bridge
+      - DATABASE_PASSWORD=rainbow_bridge_pass
+      - STORAGE_TYPE=minio
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=rainbow-bridge
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # MinIO 对象存储服务
+  postgres:
+    image: postgres:16
+    container_name: rainbow-bridge-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_DB=rainbow_bridge
+      - POSTGRES_USER=rainbow_bridge
+      - POSTGRES_PASSWORD=rainbow_bridge_pass
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rainbow_bridge"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   minio:
     image: minio/minio:latest
     container_name: rainbow-bridge-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
-      TZ: Asia/Shanghai
     ports:
-      - "9000:9000"    # MinIO API 端口
-      - "9001:9001"    # MinIO Console 控制台端口
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
 
-  # PostgreSQL 数据库（推荐用于 MinIO 方案）
-  postgres:
-    image: postgres:16-alpine
-    container_name: rainbow-bridge-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: rainbow_bridge
-      POSTGRES_USER: rainbow_bridge
-      POSTGRES_PASSWORD: rainbow_bridge_pass
-      PGDATA: /var/lib/postgresql/data/pgdata
-      TZ: Asia/Shanghai
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rainbow_bridge -d rainbow_bridge"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  # Rainbow Bridge API 服务
-  rainbow-bridge-api:
-    image: ghcr.io/yi-nology/rainbow_bridge-api:latest
-    restart: unless-stopped
-    command:
-      - "--config"
-      - "/etc/rainbow_bridge/config.yaml"
-    environment:
-      TZ: Asia/Shanghai
-      # MinIO 配置
-      MINIO_ENDPOINT: "minio:9000"
-      MINIO_ACCESS_KEY: "minioadmin"
-      MINIO_SECRET_KEY: "minioadmin123"
-      MINIO_USE_SSL: "false"
-      MINIO_BUCKET: "rainbow-bridge"
-    expose:
-      - "8080"
-    volumes:
-      - ./config.yaml:/etc/rainbow_bridge/config.yaml:ro
+  minio-init:
+    image: minio/mc:latest
+    container_name: rainbow-bridge-minio-init
     depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8080/rainbow-bridge/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Rainbow Bridge 前端 (Nginx)
-  rainbow-bridge-frontend:
-    image: ghcr.io/yi-nology/rainbow_bridge-frontend:latest
-    container_name: rainbow-bridge-frontend
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      rainbow-bridge-api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/rainbow-bridge/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set minio http://minio:9000 minioadmin minioadmin123;
+      mc mb --ignore-existing minio/rainbow-bridge;
+      mc policy set public minio/rainbow-bridge;
+      exit 0;
+      "
 
 volumes:
-  redis_data:
-    driver: local
-  minio_data:
-    driver: local
   postgres_data:
-    driver: local
+  minio_data:

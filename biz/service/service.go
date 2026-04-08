@@ -113,6 +113,10 @@ func assetModelToPB(asset *model.Asset) *common.FileAsset {
 	if asset == nil {
 		return nil
 	}
+	url := "/api/v1/asset/file/" + asset.FileID
+	if asset.FileName != "" {
+		url = "/api/v1/asset/file/" + asset.FileID + "/" + asset.FileName
+	}
 	return &common.FileAsset{
 		FileId:         asset.FileID,
 		EnvironmentKey: asset.EnvironmentKey,
@@ -120,7 +124,7 @@ func assetModelToPB(asset *model.Asset) *common.FileAsset {
 		FileName:       asset.FileName,
 		ContentType:    asset.ContentType,
 		FileSize:       asset.FileSize,
-		Url:            "/api/v1/asset/file/" + asset.FileID,
+		Url:            url,
 		Remark:         asset.Remark,
 	}
 }
@@ -293,6 +297,9 @@ func detectContentType(provided string, data []byte) string {
 func (s *Service) generateFileURL(asset *model.Asset) string {
 	if asset == nil {
 		return ""
+	}
+	if asset.FileName != "" {
+		return fmt.Sprintf("%s/api/v1/asset/file/%s/%s", s.basePath, asset.FileID, asset.FileName)
 	}
 	return fmt.Sprintf("%s/api/v1/asset/file/%s", s.basePath, asset.FileID)
 }

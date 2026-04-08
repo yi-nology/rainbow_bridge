@@ -6,12 +6,35 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getBasePath(): string {
-  return import.meta.env.BASE_URL || ''
+  
+  // 优先使用运行时注入的 basePath
+  if (typeof window !== 'undefined' && window.__BASE_PATH__) {
+    const injected = window.__BASE_PATH__
+    // 如果不是占位符，使用注入的值
+    if (injected !== '__BASE_PATH__') {
+      return injected
+    }
+  }
+  
+  const viteBase = import.meta.env.BASE_URL || ''
+  // 如果 Vite 的 BASE_URL 是占位符，返回空字符串
+  if (viteBase.includes('__BASE_PATH__')) {
+    return ''
+  }
+  return viteBase
 }
 
 export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL || ''
 }
+
+// 声明全局类型
+declare global {
+  interface Window {
+    __BASE_PATH__?: string
+  }
+}
+
 
 export function resolveAssetUrl(url: string | undefined | null): string {
   if (!url) return ''
@@ -42,7 +65,11 @@ export function resolveAssetUrl(url: string | undefined | null): string {
   if (url.startsWith('/api/v1/asset/file/')) {
     // 开发环境下，让前端代理处理路径
     if (import.meta.env.DEV) {
-      return normalizedBasePath ? `${normalizedBasePath}${url}` : url
+      // 检查 URL 是否已经包含 basePath，避免重复添加
+      if (normalizedBasePath && !url.startsWith(normalizedBasePath)) {
+        return `${normalizedBasePath}${url}`
+      }
+      return url
     }
     // 生产环境下，使用 API 基础 URL
     if (normalizedApiBaseUrl) {

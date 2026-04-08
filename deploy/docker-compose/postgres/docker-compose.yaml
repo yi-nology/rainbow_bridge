@@ -1,87 +1,48 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: rainbow-bridge-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes
+  rainbow-bridge-api:
+    image: ghcr.io/yi-nology/rainbow-bridge-api:latest
+    container_name: rainbow-bridge-api
+    ports:
+      - "80:8080"
     volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      - ./config.yaml:/app/config.yaml
     environment:
-      TZ: Asia/Shanghai
+      - GIN_MODE=release
+      - DATABASE_TYPE=postgres
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=rainbow_bridge
+      - DATABASE_USER=rainbow_bridge
+      - DATABASE_PASSWORD=rainbow_bridge_pass
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16
     container_name: rainbow-bridge-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: rainbow_bridge
-      POSTGRES_USER: rainbow_bridge
-      POSTGRES_PASSWORD: rainbow_bridge_pass
-      PGDATA: /var/lib/postgresql/data/pgdata
-      TZ: Asia/Shanghai
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rainbow_bridge -d rainbow_bridge"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  rainbow-bridge-api:
-    image: ghcr.io/yi-nology/rainbow_bridge-api:latest
-    restart: unless-stopped
-    command:
-      - "--config"
-      - "/etc/rainbow_bridge/config.yaml"
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
-      TZ: Asia/Shanghai
-    expose:
-      - "8080"
-    volumes:
-      - ./config.yaml:/etc/rainbow_bridge/config.yaml:ro
-      - rainbow_bridge_uploads:/var/lib/rainbow_bridge/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8080/rainbow-bridge/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  rainbow-bridge-frontend:
-    image: ghcr.io/yi-nology/rainbow_bridge-frontend:latest
-    container_name: rainbow-bridge-frontend
+      - POSTGRES_DB=rainbow_bridge
+      - POSTGRES_USER=rainbow_bridge
+      - POSTGRES_PASSWORD=rainbow_bridge_pass
     restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      rainbow-bridge-api:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/rainbow-bridge/"]
+      test: ["CMD-SHELL", "pg_isready -U rainbow_bridge"]
       interval: 30s
       timeout: 10s
       retries: 3
 
 volumes:
-  redis_data:
-    driver: local
   postgres_data:
-    driver: local
-  rainbow_bridge_uploads:
-    driver: local

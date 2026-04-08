@@ -13,7 +13,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	appinit "github.com/yi-nology/rainbow_bridge/pkg/app"
 	"github.com/yi-nology/rainbow_bridge/pkg/static"
 )
 
@@ -33,7 +32,7 @@ func main() {
 	flag.Parse()
 
 	// 先加载配置文件，获取 base_path
-	cfg, err := appinit.LoadConfig(*configPath)
+	cfg, err := LoadConfig(*configPath)
 	if err != nil {
 		log.Printf("Warning: failed to load config: %v, will use default config", err)
 	}
@@ -51,7 +50,7 @@ func main() {
 		log.Printf("Using BASE_PATH from build time: %s", BasePath)
 	}
 
-	application, err := appinit.Initialize(*configPath, appinit.BuildConfig{
+	application, err := Initialize(*configPath, BuildConfig{
 		Version:   Version,
 		GitCommit: GitCommit,
 		BuildTime: BuildTime,
@@ -141,23 +140,6 @@ func setupStaticFileServer(h *server.Hertz, basePath string) {
 		if basePath != "" {
 			path = strings.TrimPrefix(path, basePath)
 		}
-
-		//// 处理资产文件路径，例如 /api/v1/asset/file/{file_id}/{file_name}
-		//if strings.HasPrefix(path, "/api/v1/asset/file/") {
-		//	// 提取 file_id
-		//	fileID := strings.TrimPrefix(path, "/api/v1/asset/file/")
-		//	if strings.Contains(fileID, "/") {
-		//		parts := strings.Split(fileID, "/")
-		//		if len(parts) > 0 {
-		//			fileID = parts[0]
-		//		}
-		//	}
-		//	// 设置 file_id 到请求上下文中
-		//	ctx.Set("file_id", fileID)
-		//	// 调用资产处理函数
-		//	asset.GetFile(c, ctx)
-		//	return
-		//}
 
 		// 如果路径以 /api/ 开头，返回404
 		if strings.HasPrefix(path, "/api/") {

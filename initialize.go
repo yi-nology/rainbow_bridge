@@ -1,0 +1,132 @@
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/cloudwego/hertz/pkg/app/server"
+	hconfig "github.com/cloudwego/hertz/pkg/common/config"
+	"github.com/redis/go-redis/v9"
+	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
+	versionhandler "github.com/yi-nology/rainbow_bridge/biz/handler/version"
+	"github.com/yi-nology/rainbow_bridge/biz/middleware"
+	bizrouter "github.com/yi-nology/rainbow_bridge/biz/router"
+	"github.com/yi-nology/rainbow_bridge/biz/service"
+	appconfig "github.com/yi-nology/rainbow_bridge/pkg/config"
+	"github.com/yi-nology/rainbow_bridge/pkg/database"
+	"github.com/yi-nology/rainbow_bridge/pkg/lock"
+	"github.com/yi-nology/rainbow_bridge/pkg/logging"
+	appredis "github.com/yi-nology/rainbow_bridge/pkg/redis"
+)
+
+// LoadConfig loads the configuration from the given path
+func LoadConfig(configPath string) (*appconfig.Config, error) {
+	return appconfig.Load(configPath)
+}
+
+// BuildConfig contains build-time information
+type BuildConfig struct {
+	Version   string
+	GitCommit string
+	BuildTime string
+	BasePath  string
+}
+
+// Application contains the initialized application components
+type Application struct {
+	H        *server.Hertz
+	Config   *appconfig.Config
+	Service  *service.Service
+	BasePath string
+}
+
+// Initialize initializes the application with the given configuration
+func Initialize(configPath string, buildConfig BuildConfig) (*Application, error) {
+	// Load configuration
+	cfg, err := appconfig.Load(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize logging
+	if err := logging.Initialize(&cfg.Log); err != nil {
+		return nil, err
+	}
+
+	// Open database connection
+	db, err := database.Open(cfg.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auto migrate database tables
+	if err := db.AutoMigrate(&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{}); err != nil {
+		return nil, err
+	}
+
+	// Migrate existing configs with default environment_key and pipeline_key
+	if err := service.MigrateConfigDefaults(db); err != nil {
+		return nil, err
+	}
+
+	// Ensure system defaults (create default environment and pipeline)
+	if err := service.EnsureSystemDefaults(context.Background(), db); err != nil {
+		return nil, err
+	}
+
+	// Initialize Redis client (optional)
+	var redisClient *redis.Client
+	if cfg.Redis.Enabled {
+		var redisErr error
+		redisClient, redisErr = appredis.NewClient(cfg.Redis)
+		if redisErr != nil {
+			return nil, redisErr
+		}
+		// Note: We don't defer close here because the service will use it throughout its lifecycle
+		writeLock := lock.New(redisClient, "rainbow_bridge:write_lock", 30*time.Second, 60*time.Second)
+		middleware.InitWriteLock(writeLock)
+		log.Printf("Redis distributed write lock enabled (%s)", cfg.Redis.Address)
+	}
+
+	// Use build-time injected BasePath
+	basePath := appconfig.NormalizeBasePath(buildConfig.BasePath)
+	opts := []hconfig.Option{server.WithHostPorts(cfg.Server.Address)}
+	if basePath != "" {
+		opts = append(opts, server.WithBasePath(basePath))
+	}
+	h := server.Default(opts...)
+
+	// Create service instance
+	svc := service.NewService(db, redisClient, basePath, cfg)
+
+	// Set version information
+	versionhandler.AppVersion = buildConfig.Version
+	versionhandler.AppGitCommit = buildConfig.GitCommit
+	versionhandler.AppBuildTime = buildConfig.BuildTime
+	versionhandler.IsIntranet = cfg.Intranet.Enabled
+
+	// Initialize handlers
+	bizrouter.InitHandlers(svc)
+
+	// Migrate to full asset paths
+	if err := svc.MigrateToFullAssetPaths(context.Background()); err != nil {
+		log.Printf("Warning: failed to migrate asset paths: %v", err)
+	}
+
+	// Register middleware
+	h.Use(middleware.Recovery())
+	h.Use(middleware.Logging())
+	h.Use(middleware.CORS(&cfg.CORS))
+	h.Use(middleware.Auth())
+
+	// Register routes
+	bizrouter.GeneratedRegister(h)
+
+	return &Application{
+		H:        h,
+		Config:   cfg,
+		Service:  svc,
+		BasePath: basePath,
+	}, nil
+}

@@ -1,0 +1,176 @@
+name: Build Docker from Remote Binary
+
+on:
+  workflow_call:
+    inputs:
+      base_path:
+        description: 'Base path for deployment'
+        required: false
+        default: ''
+        type: string
+      version:
+        description: 'Version tag'
+        required: true
+        type: string
+      git_commit:
+        description: 'Git commit SHA'
+        required: true
+        type: string
+      build_time:
+        description: 'Build timestamp'
+        required: true
+        type: string
+    outputs:
+      api_image_tags:
+        description: 'Tags for API Docker image'
+        value: ${{ jobs.docker-api.outputs.api_image_tags }}
+      app_image_tags:
+        description: 'Tags for App Docker image'
+        value: ${{ jobs.docker-app.outputs.app_image_tags }}
+
+env:
+  API_IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge-api
+  APP_IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge-app
+  FRONTEND_IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge-frontend
+  RUN_NAME: rainbow_bridge
+
+jobs:
+  docker-api:
+    name: Build and Push API Image from Remote Binary
+    runs-on: ubuntu-latest
+    
+    outputs:
+      api_image_tags: ${{ steps.meta-api.outputs.tags }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (API)
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.API_IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          dockerfile: Dockerfile.Remote.BIN
+          push: true
+          provenance: false
+          platforms: linux/amd64,linux/arm64
+          target: api
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          build-args: |
+            BINARY_ARTIFACT_URL=https://github.com/yi-nology/rainbow_bridge/releases/download/${{ inputs.version }}/${{ env.RUN_NAME }}-app-linux-amd64.tar.gz
+
+  docker-app:
+    name: Build and Push App Image from Remote Binary
+    runs-on: ubuntu-latest
+    
+    outputs:
+      app_image_tags: ${{ steps.meta-app.outputs.tags }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (App)
+        id: meta-app
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.APP_IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      - name: Build and push App image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          dockerfile: Dockerfile.Remote.BIN
+          push: true
+          provenance: false
+          platforms: linux/amd64,linux/arm64
+          target: app
+          tags: ${{ steps.meta-app.outputs.tags }}
+          labels: ${{ steps.meta-app.outputs.labels }}
+          build-args: |
+            BINARY_ARTIFACT_URL=https://github.com/yi-nology/rainbow_bridge/releases/download/${{ inputs.version }}/${{ env.RUN_NAME }}-app-linux-amd64.tar.gz
+            BASE_PATH=${{ inputs.base_path }}
+
+  docker-frontend:
+    name: Build and Push Frontend Image from Remote Binary
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (Frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          dockerfile: Dockerfile.Remote.BIN
+          push: true
+          provenance: false
+          platforms: linux/amd64,linux/arm64
+          target: frontend
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: |
+            BINARY_ARTIFACT_URL=https://github.com/yi-nology/rainbow_bridge/releases/download/${{ inputs.version }}/${{ env.RUN_NAME }}-app-linux-amd64.tar.gz
+            BASE_PATH=${{ inputs.base_path }}

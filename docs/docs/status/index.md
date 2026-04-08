@@ -10,7 +10,7 @@
 | 构建类型 | 分支 | 状态 | 最后成功时间 | 详情 |
 |---------|------|------|------------|------|
 | 二进制构建 | main | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-binaries.yml) |
-| Docker API 镜像 | main | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-docker-api.yml) |
+| Docker API 镜像 | main | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-docker-remote-bin.yml) |
 | Docker 前端镜像 | main | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-docker-frontend.yml) |
 | Release 发布 | tags/v* | 🟢 成功 | 最近一次 Release | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/release.yml) |
 <!-- build-status-end -->
@@ -64,7 +64,7 @@ dist/
 
 ### Docker 镜像构建
 
-#### API 服务镜像 (build-docker-api.yml)
+#### API 服务镜像 (build-docker-remote-bin.yml)
 
 **多架构支持**：
 - ✅ linux/amd64

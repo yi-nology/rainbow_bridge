@@ -1216,7 +1216,7 @@ go build -tags=dev -o output/local/hertz_service .
 
 **可复用 Workflow**：
 - `build-binaries.yml` - 多平台二进制构建（Linux/Windows/macOS × amd64/arm64）
-- `build-docker-api.yml` - Docker API 镜像构建
+- `build-docker-remote-bin.yml` - 基于预构建二进制的 Docker 镜像构建
 - `build-docker-frontend.yml` - Docker 前端镜像构建
 
 **主流程**：

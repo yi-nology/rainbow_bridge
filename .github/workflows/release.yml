@@ -15,8 +15,9 @@ jobs:
     with:
       base_path: ""
 
-  build-docker-api:
-    uses: ./.github/workflows/build-docker-api.yml
+  build-docker-from-remote-bin:
+    needs: [build-binaries]
+    uses: ./.github/workflows/build-docker-remote-bin.yml
     with:
       base_path: ""
       version: ${{ github.ref_name }}

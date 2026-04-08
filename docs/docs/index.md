@@ -63,7 +63,7 @@ footer: Apache-2.0 Licensed | Copyright © 2026 yi-nology
 | 构建类型 | 状态 | 详情 |
 |---------|------|------|
 | 二进制构建 | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-binaries.yml) |
-| Docker API 镜像 | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-docker-api.yml) |
+| Docker API 镜像 | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-docker-remote-bin.yml) |
 | Docker 前端镜像 | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/build-docker-frontend.yml) |
 
 ### 部署测试

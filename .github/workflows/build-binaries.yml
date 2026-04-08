@@ -141,7 +141,6 @@ jobs:
         env:
           BASE_PATH: ${{ inputs.base_path }}
         run: |
-          mkdir -p pkg/static/web
           cd vue
           npm ci
           if [ -n "$BASE_PATH" ]; then
@@ -154,8 +153,6 @@ jobs:
 
       - name: Create frontend archive
         run: |
-          mkdir -p dist
-          cp -r pkg/static/web/* dist/
           cd dist
           ls -la
           tar czf frontend.tar.gz .

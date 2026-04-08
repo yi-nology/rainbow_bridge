@@ -69,8 +69,8 @@ footer: Apache-2.0 Licensed | Copyright © 2026 yi-nology
 ### 部署测试
 | 部署方式 | 状态 | 详情 |
 |---------|------|------|
-| Docker Compose (SQLite) | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/deployment.yml) |
-| Docker Compose (MySQL) | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/deployment.yml) |
+| Docker Compose (SQLite) | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions) |
+| Docker Compose (MySQL) | 🟢 | [查看](https://github.com/yi-nology/rainbow_bridge/actions) |
 <!-- build-status-end -->
 
 ## 🔗 快速链接

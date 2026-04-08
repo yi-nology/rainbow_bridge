@@ -118,9 +118,9 @@ BUILD_MODE=dev ./build.sh
 <!-- deployment-status-start -->
 | 部署方式 | 状态 | 最后成功时间 | 详情 |
 |---------|------|------------|------|
-| Docker Compose (SQLite) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions/workflows/deployment.yml) |
-| Docker Compose (MySQL) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions/workflows/deployment.yml) |
-| Kubernetes (Standalone) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions/workflows/deployment.yml) |
+| Docker Compose (SQLite) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions) |
+| Docker Compose (MySQL) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions) |
+| Kubernetes (Standalone) | 🟢 成功 | 最近一次 CI | [查看日志](../../actions) |
 <!-- deployment-status-end -->
 
 **状态说明**：

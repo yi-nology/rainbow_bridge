@@ -20,8 +20,8 @@
 <!-- deployment-status-start -->
 | 部署方式 | 数据库 | 状态 | 最后成功 | 详情 |
 |---------|--------|------|---------|------|
-| Docker Compose | SQLite | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/deployment.yml) |
-| Docker Compose | MySQL | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions/workflows/deployment.yml) |
+| Docker Compose | SQLite | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions) |
+| Docker Compose | MySQL | 🟢 成功 | 最近一次 CI | [查看](https://github.com/yi-nology/rainbow_bridge/actions) |
 <!-- deployment-status-end -->
 
 ### 测试覆盖状态

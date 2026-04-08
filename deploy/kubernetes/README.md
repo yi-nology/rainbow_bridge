@@ -72,11 +72,22 @@ cd pgsql-minio
 kubectl get pods
 
 # 访问服务（需要端口转发）
-kubectl port-forward service/rainbow-bridge 80:80
+kubectl port-forward service/rainbow-bridge 8080:8080
 
 # 访问 MinIO 控制台（需要端口转发）
 kubectl port-forward service/minio 9001:9001
 ```
+
+**部署流程说明**：
+
+1. **部署 PostgreSQL** - 创建 PVC、Deployment 和 Service
+2. **部署 MinIO** - 创建 PVC、Deployment 和 Service
+3. **初始化 MinIO** - 自动创建 `rainbow-bridge` 存储桶并设置公开访问
+4. **部署 Rainbow Bridge** - 等待 MinIO 就绪后启动应用
+
+**访问地址**：
+- Rainbow Bridge: `http://localhost:8080/rainbow-bridge`
+- MinIO 控制台: `http://localhost:9001` (用户名: minioadmin, 密码: minioadmin123)
 
 ## 部署脚本说明
 
@@ -116,6 +127,7 @@ kubectl port-forward service/minio 9001:9001
 
 - **数据库**：PostgreSQL 16
 - **存储**：MinIO 对象存储
+- **MinIO 初始化**：自动创建存储桶和访问策略
 - **PostgreSQL 资源**：
   - CPU：100m
   - 内存：256Mi
@@ -125,6 +137,10 @@ kubectl port-forward service/minio 9001:9001
 - **Rainbow Bridge 资源**：
   - CPU：100m
   - 内存：256Mi
+- **启动顺序**：
+  1. PostgreSQL 和 MinIO 并行启动
+  2. MinIO 初始化 Job 创建存储桶
+  3. Rainbow Bridge 等待 MinIO 就绪后启动
 
 ## 环境变量
 
@@ -157,11 +173,15 @@ kubectl port-forward service/minio 9001:9001
 
 ```bash
 # 访问 Rainbow Bridge
-kubectl port-forward service/rainbow-bridge 80:80 -n <namespace>
+kubectl port-forward service/rainbow-bridge 8080:8080 -n <namespace>
 
 # 访问 MinIO 控制台（仅 pgsql-minio 方案）
 kubectl port-forward service/minio 9001:9001 -n <namespace>
 ```
+
+访问地址：
+- Rainbow Bridge: `http://localhost:8080/rainbow-bridge`
+- MinIO 控制台: `http://localhost:9001`
 
 ### Ingress 配置
 

@@ -48,11 +48,20 @@ cd docker-compose/mysql
 docker compose up -d
 ```
 
-**PostgreSQL + MinIO**
+**PostgreSQL + MinIO（推荐生产环境）**
 ```bash
 cd docker-compose/pgsql-minio
 docker compose up -d
 ```
+
+此方案包含：
+- PostgreSQL 16 作为关系型数据库
+- MinIO 对象存储用于静态资源
+- 自动初始化 MinIO 存储桶
+
+访问地址：
+- 管理界面：http://localhost:8080/rainbow-bridge
+- MinIO 控制台：http://localhost:9001（用户名: minioadmin, 密码: minioadmin123）
 
 #### 3. 验证部署
 

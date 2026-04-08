@@ -136,8 +136,8 @@ BUILD_MODE=dev ./build.sh
 测试场景包括：
 - ✅ SQLite 数据库部署
 - ✅ MySQL 数据库部署  
-- ✅ PostgreSQL 数据库部署（待添加）
-- ✅ MinIO 对象存储集群（待添加）
+- ✅ PostgreSQL 数据库部署
+- ✅ PostgreSQL + MinIO 对象存储部署
 
 测试验证内容：
 1. Docker 镜像构建成功

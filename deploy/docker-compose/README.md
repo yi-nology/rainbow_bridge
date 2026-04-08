@@ -106,6 +106,10 @@ docker compose up -d
   - 用户名：`minioadmin`
   - 密码：`minioadmin123`
 - **自动创建存储桶**：`rainbow-bridge`
+- **部署流程**：
+  1. PostgreSQL 和 MinIO 服务并行启动
+  2. minio-init 服务自动创建存储桶并设置公开访问
+  3. Rainbow Bridge 应用启动并连接所有服务
 
 #### MinIO 集群方案
 
@@ -154,8 +158,16 @@ docker compose up -d
 
 部署完成后，可以通过以下地址访问 Rainbow Bridge：
 
+### 本地存储方案 (sqlite/mysql/postgres)
+
 - **Web 界面**：`http://localhost/`
 - **API 接口**：`http://localhost/api/`
+
+### PostgreSQL + MinIO 方案
+
+- **Web 界面**：`http://localhost:8080/rainbow-bridge`
+- **API 接口**：`http://localhost:8080/rainbow-bridge/api/`
+- **MinIO 控制台**：`http://localhost:9001`
 
 ### MinIO 访问
 

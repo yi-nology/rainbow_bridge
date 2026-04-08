@@ -73,6 +73,7 @@ jobs:
           fi
           npm run build
           cd ..
+          cp -r vue/dist/* pkg/static/web/
           echo "Static files prepared at pkg/static/web"
 
       - name: Set up Go

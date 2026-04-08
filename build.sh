@@ -34,16 +34,15 @@ echo "Building ${RUN_NAME} version ${VERSION} (${GIT_COMMIT}) at ${BUILD_TIME}"
 case "$BUILD_TARGET" in
     server)
         echo "Building API server only (no frontend)"
-        go build ${BUILD_TAGS} -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME} ./cmd/server
+        go build ${BUILD_TAGS} -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME} .
         ;;
     app)
         echo "Building full application (with frontend)"
         go build ${BUILD_TAGS} -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME} ./cmd/app
         ;;
     both)
-        echo "Building both server and app"
-        go build ${BUILD_TAGS} -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME}-server ./cmd/server
-        go build ${BUILD_TAGS} -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME}-app ./cmd/app
+        echo "Building both app"
+        go build ${BUILD_TAGS} -ldflags="${LDFLAGS}" -o output/bin/${RUN_NAME} . 
         ;;
     *)
         echo "Unknown BUILD_TARGET: ${BUILD_TARGET}. Use 'server', 'app', or 'both'"

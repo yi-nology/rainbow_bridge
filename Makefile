@@ -19,19 +19,13 @@ help: ## 显示帮助信息
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-build: build-server build-app ## 构建所有二进制
-
-build-server: ## 构建 API 服务器 (无前端)
-	@echo "Building API server..."
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
-		-ldflags="-X 'main.Version=$(VERSION)' -X 'main.GitCommit=$(GIT_COMMIT)' -X 'main.BuildTime=$(BUILD_TIME)'" \
-		-o bin/server ./cmd/server
+build: build-app ## 构建所有二进制
 
 build-app: build-frontend ## 构建完整应用 (带前端)
 	@echo "Building App with frontend..."
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
 		-ldflags="-X 'main.Version=$(VERSION)' -X 'main.GitCommit=$(GIT_COMMIT)' -X 'main.BuildTime=$(BUILD_TIME)' -X 'main.BasePath=$(BASE_PATH)'" \
-		-o bin/app ./cmd/app
+		-o app .
 
 build-frontend: ## 构建 Vue 前端
 	@echo "Building Vue frontend..."

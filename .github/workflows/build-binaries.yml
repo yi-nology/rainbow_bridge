@@ -67,9 +67,9 @@ jobs:
           cd vue
           npm ci
           if [ -n "$BASE_PATH" ]; then
-            export VITE_BASE_PATH="/${BASE_PATH}/"
+            export VITE_BASE_PATH="./${BASE_PATH}/"
           else
-            export VITE_BASE_PATH="/"
+            export VITE_BASE_PATH="./"
           fi
           npm run build
           cd ..
@@ -88,19 +88,6 @@ jobs:
           echo "GIT_COMMIT=${{ github.sha }}" >> "$GITHUB_ENV"
           echo "BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
 
-      - name: Build server binary (API only)
-        env:
-          CGO_ENABLED: 0
-        run: |
-          NAME="${{ env.RUN_NAME }}-server-${{ matrix.goos }}-${{ matrix.goarch }}"
-          OUTPUT_DIR="./dist/${NAME}"
-          mkdir -p "$OUTPUT_DIR"
-          go build \
-            -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}'" \
-            -o "$OUTPUT_DIR/server${{ matrix.bin_ext }}" ./cmd/server
-          cp config.yaml "$OUTPUT_DIR/config.yaml"
-          cp -r deploy "$OUTPUT_DIR/deploy"
-
       - name: Build app binary (with frontend)
         env:
           CGO_ENABLED: 0
@@ -111,7 +98,7 @@ jobs:
           mkdir -p "$OUTPUT_DIR"
           go build \
             -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.BasePath=${{ env.BASE_PATH }}'" \
-            -o "$OUTPUT_DIR/app${{ matrix.bin_ext }}" ./cmd/app
+            -o "$OUTPUT_DIR/app${{ matrix.bin_ext }}" .
           cp config.yaml "$OUTPUT_DIR/config.yaml"
           cp -r deploy "$OUTPUT_DIR/deploy"
           cp -r pkg/static/web "$OUTPUT_DIR/web"
@@ -167,11 +154,10 @@ jobs:
 
       - name: Create frontend archive
         run: |
-          cd pkg/static/web
+          cd dist
           ls -la
-          mkdir -p ../../dist
-          tar czf ../../dist/frontend.tar.gz .
-          zip -rq ../../dist/frontend.zip .
+          tar czf frontend.tar.gz .
+          zip -rq frontend.zip .
           cd ../..
 
       - name: Upload frontend artifact

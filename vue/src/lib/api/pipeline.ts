@@ -1,4 +1,6 @@
 import { BaseApiService } from './base-api'
+import { apiClient } from './client'
+import { toCamelCase, toSnakeCase } from '../utils'
 import type { Pipeline } from './types'
 
 class PipelineApiService extends BaseApiService<Pipeline> {
@@ -6,6 +8,14 @@ class PipelineApiService extends BaseApiService<Pipeline> {
 
   protected getIdParamName(): string {
     return 'pipeline_key'
+  }
+
+  protected getRequestKey(): string {
+    return 'pipeline'
+  }
+
+  protected getResponseKey(): string {
+    return 'pipeline'
   }
 
   // 重写list方法，因为需要环境key参数
@@ -25,12 +35,30 @@ class PipelineApiService extends BaseApiService<Pipeline> {
 
   // 重写create方法，因为需要环境key参数
   async create(data: Pipeline): Promise<{ [key: string]: Pipeline | null }> {
-    return super.create(data)
+    const snakeCaseData = toSnakeCase(data) as any
+    const payload = {
+      environment_key: snakeCaseData.environment_key,
+      pipeline: snakeCaseData
+    }
+    const resp = await apiClient.post<{ [key: string]: any }>(`${this.baseUrl}/create`, payload)
+    const key = this.getResponseKey()
+    const createdData = resp.data?.[key]
+    const camelCaseData = createdData ? toCamelCase(createdData) as unknown as Pipeline : null
+    return { [key]: camelCaseData }
   }
 
   // 重写update方法，因为需要环境key参数
   async update(data: Pipeline): Promise<{ [key: string]: Pipeline | null }> {
-    return super.update(data)
+    const snakeCaseData = toSnakeCase(data) as any
+    const payload = {
+      environment_key: snakeCaseData.environment_key,
+      pipeline: snakeCaseData
+    }
+    const resp = await apiClient.post<{ [key: string]: any }>(`${this.baseUrl}/update`, payload)
+    const key = this.getResponseKey()
+    const updatedData = resp.data?.[key]
+    const camelCaseData = updatedData ? toCamelCase(updatedData) as unknown as Pipeline : null
+    return { [key]: camelCaseData }
   }
 }
 

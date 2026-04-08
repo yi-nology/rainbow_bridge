@@ -162,14 +162,18 @@ export const transferApi = {
   },
 
   exportSelective: async (params: ExportSelectiveParams): Promise<Blob> => {
+    const url = new URL('/api/v1/transfer/export', window.location.origin)
+    
+    // 添加基础路径
     const basePath = getBasePath()
-    const normalizedBasePath = basePath.replace(/\/$/, '')
-    let fullPath = '/api/v1/transfer/export'
-    if (normalizedBasePath && fullPath.startsWith('/api/')) {
-      fullPath = `${normalizedBasePath}${fullPath}`
+    if (basePath) {
+      const pathname = url.pathname
+      // 移除 basePath 末尾的斜杠，避免与 pathname 开头的斜杠重复
+      const normalizedBasePath = basePath.replace(/\/$/, '')
+      url.pathname = normalizedBasePath + pathname
     }
     
-    const response = await fetch(fullPath, {
+    const response = await fetch(url.toString(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

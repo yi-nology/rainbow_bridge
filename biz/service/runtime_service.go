@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 	"github.com/yi-nology/rainbow_bridge/biz/model/runtime"
+	"github.com/yi-nology/rainbow_bridge/pkg/static"
 	"gorm.io/gorm"
 )
 
@@ -192,14 +194,14 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 	}
 
 	type CustomRuntimeConfigData struct {
-		Configs      []CustomResourceConfig `json:"configs"`
-		Environment  *runtime.EnvironmentInfo `json:"environment"`
+		Configs     []CustomResourceConfig   `json:"configs"`
+		Environment *runtime.EnvironmentInfo `json:"environment"`
 	}
 
 	type CustomRuntimeConfigResponse struct {
-		Code    int32                    `json:"code"`
-		Msg     string                   `json:"msg"`
-		Data    CustomRuntimeConfigData  `json:"data"`
+		Code int32                   `json:"code"`
+		Msg  string                  `json:"msg"`
+		Data CustomRuntimeConfigData `json:"data"`
 	}
 
 	// 转换配置数据
@@ -297,11 +299,60 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 		closeQuietly(file)
 	}
 
+	// 添加首页静态资源文件
+	if err := s.addStaticFilesToArchive(zipWriter); err != nil {
+		return nil, err
+	}
+
 	if err := zipWriter.Close(); err != nil {
 		return nil, err
 	}
 
 	return buf.Bytes(), nil
+}
+
+// addStaticFilesToArchive 添加首页静态资源文件到压缩包
+func (s *Service) addStaticFilesToArchive(zipWriter *zip.Writer) error {
+	// 获取静态资源文件系统
+	webFS, err := static.WebFS()
+	if err != nil {
+		return fmt.Errorf("failed to get web filesystem: %w", err)
+	}
+
+	// 遍历静态资源文件并添加到压缩包
+	return fs.WalkDir(webFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		// 打开文件
+		file, err := webFS.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open static file %s: %w", path, err)
+		}
+
+		// 创建 zip 文件
+		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: path, Method: zip.Deflate})
+		if err != nil {
+			closeQuietly(file)
+			return fmt.Errorf("failed to create zip entry for %s: %w", path, err)
+		}
+
+		// 复制文件内容
+		if _, err := io.Copy(writer, file); err != nil {
+			closeQuietly(file)
+			return fmt.Errorf("failed to copy file content for %s: %w", path, err)
+		}
+
+		// 关闭文件
+		closeQuietly(file)
+
+		return nil
+	})
 }
 
 // extractAssetIDsFromCommonConfigs extracts asset IDs from common.ResourceConfig list

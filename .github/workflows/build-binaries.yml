@@ -161,13 +161,10 @@ jobs:
           # 先将文件复制到临时目录，避免文件在读取过程中被修改
           mkdir -p /tmp/frontend
           cp -r vue/dist/* /tmp/frontend/
-          cd /tmp/frontend
-          ls -la
-          tar czf frontend.tar.gz .
-          zip -rq frontend.zip .
-          mv frontend.tar.gz /home/runner/work/rainbow_bridge/rainbow_bridge/dist/
-          mv frontend.zip /home/runner/work/rainbow_bridge/rainbow_bridge/dist/
-          cd /home/runner/work/rainbow_bridge/rainbow_bridge
+          # 使用-C选项指定目录，避免cd操作
+          tar czf dist/frontend.tar.gz -C /tmp/frontend .
+          zip -rq dist/frontend.zip -j /tmp/frontend/*
+          ls -la dist/
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v7

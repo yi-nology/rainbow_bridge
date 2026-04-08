@@ -8,16 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/minio/minio-go/v7"
 	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 	"github.com/yi-nology/rainbow_bridge/biz/model/runtime"
-	"github.com/yi-nology/rainbow_bridge/pkg/static"
 	"gorm.io/gorm"
 )
 
@@ -275,33 +275,58 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 		asset, err := s.logic.GetAsset(ctx, assetID)
 		if err != nil {
 			// 如果资源不存在，跳过
+			hlog.Errorf("get asset %s error: %v", assetID, err)
 			continue
 		}
+		if s.config != nil && s.config.Storage.Type == "minio" {
+			// 使用 MinIO 存储
+			client, err := s.getMinioClient()
+			if err != nil {
+				hlog.Errorf("get minio client error: %v", err)
+				continue
+			}
 
-		fullPath := filepath.Join(dataDirectory, asset.Path)
-		file, err := os.Open(fullPath)
-		if err != nil {
-			// 如果文件不存在，跳过
-			continue
+			// 从 MinIO 获取对象
+			object, err := client.GetObject(ctx, s.config.Storage.Minio.Bucket, asset.Path, minio.GetObjectOptions{})
+			if err != nil {
+				hlog.Errorf("get object from minio error: %v", assetID, err)
+				continue
+			}
+			defer closeQuietly(object)
+
+			// 使用新的路径结构：<base_path>/api/v1/asset/file/<file_id>/<filename>
+			zipPath := path.Join(filesPrefix, asset.FileID, asset.FileName)
+			writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
+			if err != nil {
+				hlog.Errorf("create zip header failed: %v", err)
+				return nil, err
+			}
+			if _, err := io.Copy(writer, object); err != nil {
+				hlog.Errorf("copy object to zip failed: %v", err)
+				return nil, err
+			}
+		} else {
+			fullPath := filepath.Join(dataDirectory, asset.Path)
+			file, err := os.Open(fullPath)
+			defer closeQuietly(file)
+			if err != nil {
+				hlog.Errorf("open asset %s error: %v", assetID, err)
+				// 如果文件不存在，跳过
+				continue
+			}
+			// 使用新的路径结构：<base_path>/api/v1/asset/file/<file_id>/<filename>
+			zipPath := path.Join(filesPrefix, asset.FileID, asset.FileName)
+			writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
+			if err != nil {
+				hlog.Errorf("create zip header failed: %v", err)
+				return nil, err
+			}
+			if _, err := io.Copy(writer, file); err != nil {
+				hlog.Errorf("copy file to zip failed: %v", err)
+				return nil, err
+			}
 		}
 
-		// 使用新的路径结构：<base_path>/api/v1/asset/file/<file_id>/<filename>
-		zipPath := path.Join(filesPrefix, asset.FileID, asset.FileName)
-		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
-		if err != nil {
-			closeQuietly(file)
-			return nil, err
-		}
-		if _, err := io.Copy(writer, file); err != nil {
-			closeQuietly(file)
-			return nil, err
-		}
-		closeQuietly(file)
-	}
-
-	// 添加首页静态资源文件
-	if err := s.addStaticFilesToArchive(zipWriter); err != nil {
-		return nil, err
 	}
 
 	if err := zipWriter.Close(); err != nil {
@@ -309,50 +334,6 @@ func (s *Service) writeRuntimeConfigArchive(ctx context.Context, runtimeData *ru
 	}
 
 	return buf.Bytes(), nil
-}
-
-// addStaticFilesToArchive 添加首页静态资源文件到压缩包
-func (s *Service) addStaticFilesToArchive(zipWriter *zip.Writer) error {
-	// 获取静态资源文件系统
-	webFS, err := static.WebFS()
-	if err != nil {
-		return fmt.Errorf("failed to get web filesystem: %w", err)
-	}
-
-	// 遍历静态资源文件并添加到压缩包
-	return fs.WalkDir(webFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			return nil
-		}
-
-		// 打开文件
-		file, err := webFS.Open(path)
-		if err != nil {
-			return fmt.Errorf("failed to open static file %s: %w", path, err)
-		}
-
-		// 创建 zip 文件
-		writer, err := zipWriter.CreateHeader(&zip.FileHeader{Name: path, Method: zip.Deflate})
-		if err != nil {
-			closeQuietly(file)
-			return fmt.Errorf("failed to create zip entry for %s: %w", path, err)
-		}
-
-		// 复制文件内容
-		if _, err := io.Copy(writer, file); err != nil {
-			closeQuietly(file)
-			return fmt.Errorf("failed to copy file content for %s: %w", path, err)
-		}
-
-		// 关闭文件
-		closeQuietly(file)
-
-		return nil
-	})
 }
 
 // extractAssetIDsFromCommonConfigs extracts asset IDs from common.ResourceConfig list

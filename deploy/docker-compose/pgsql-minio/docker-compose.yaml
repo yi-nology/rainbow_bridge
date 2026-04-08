@@ -1,36 +1,4 @@
-version: '3.8'
-
 services:
-  rainbow-bridge-api:
-    image: ghcr.io/yi-nology/rainbow-bridge-api:latest
-    container_name: rainbow-bridge-api
-    ports:
-      - "80:8080"
-    volumes:
-      - ./config.yaml:/app/config.yaml
-    environment:
-      - GIN_MODE=release
-      - DATABASE_TYPE=postgres
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=rainbow_bridge
-      - DATABASE_USER=rainbow_bridge
-      - DATABASE_PASSWORD=rainbow_bridge_pass
-      - STORAGE_TYPE=minio
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
-      - MINIO_BUCKET=rainbow-bridge
-    restart: unless-stopped
-    depends_on:
-      - postgres
-      - minio
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   postgres:
     image: postgres:16
     container_name: rainbow-bridge-postgres
@@ -76,13 +44,49 @@ services:
       - minio
     entrypoint: >
       /bin/sh -c "
-      sleep 5;
+      sleep 10;
       mc alias set minio http://minio:9000 minioadmin minioadmin123;
       mc mb --ignore-existing minio/rainbow-bridge;
-      mc policy set public minio/rainbow-bridge;
+      mc anonymous set public minio/rainbow-bridge;
+      mc ls minio/rainbow-bridge;
       exit 0;
       "
+
+  rainbow-bridge:
+    build:
+      context: ../../..
+      target: app
+    container_name: rainbow-bridge
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - rainbow_bridge_data:/app/data
+    environment:
+      - GIN_MODE=release
+      - DATABASE_TYPE=postgres
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=rainbow_bridge
+      - DATABASE_USER=rainbow_bridge
+      - DATABASE_PASSWORD=rainbow_bridge_pass
+      - STORAGE_TYPE=minio
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=rainbow-bridge
+    depends_on:
+      - postgres
+      - minio
+      - minio-init
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
   minio_data:
+  rainbow_bridge_data:

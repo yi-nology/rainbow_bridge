@@ -154,12 +154,13 @@ jobs:
       - name: Create frontend archive
         run: |
           mkdir -p dist
-          cp -r pkg/static/web/* dist/
-          cd dist
+          cd vue/dist
           ls -la
           tar czf frontend.tar.gz .
           zip -rq frontend.zip .
-          cd ..
+          mv frontend.tar.gz ../../dist/
+          mv frontend.zip ../../dist/
+          cd ../..
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v7

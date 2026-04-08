@@ -11,13 +11,13 @@ import (
 var (
 	// alphaNumericRegexp 匹配字母和数字
 	alphaNumericRegexp = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
-	
+
 	// alphaNumericDashRegexp 匹配字母、数字、下划线和连字符
 	alphaNumericDashRegexp = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-	
+
 	// emailRegexp 匹配邮箱地址
 	emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	
+
 	// urlRegexp 匹配URL
 	urlRegexp = regexp.MustCompile(`^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$`)
 )
@@ -82,7 +82,7 @@ func ValidateBusinessKey(value string, fieldName string) error {
 	if err := ValidateLength(value, 1, 64, fieldName); err != nil {
 		return err
 	}
-	if !businessKeyRegexp.MatchString(value) {
+	if !alphaNumericDashRegexp.MatchString(value) {
 		return errors.New(fieldName + " must only contain lowercase letters, numbers, underscores, and hyphens")
 	}
 	return nil
@@ -95,15 +95,24 @@ func SanitizeString(value string) string {
 
 // ValidateConfigKey 验证配置键
 func ValidateConfigKey(value string) error {
-	return ValidateBusinessKey(value, "Config key")
+	if err := ValidateBusinessKey(value, "Config key"); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ValidateEnvironmentKey 验证环境键
 func ValidateEnvironmentKey(value string) error {
-	return ValidateBusinessKey(value, "Environment key")
+	if err := ValidateBusinessKey(value, "Environment key"); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ValidatePipelineKey 验证管道键
 func ValidatePipelineKey(value string) error {
-	return ValidateBusinessKey(value, "Pipeline key")
+	if err := ValidateBusinessKey(value, "Pipeline key"); err != nil {
+		return err
+	}
+	return nil
 }

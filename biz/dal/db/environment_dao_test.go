@@ -254,7 +254,7 @@ func TestEnvironmentDAO_List(t *testing.T) {
 	}
 
 	t.Run("ListAll", func(t *testing.T) {
-		envs, err := dao.List(ctx, db, nil)
+		envs, err := dao.List(ctx, db, nil, 0, 0)
 		if err != nil {
 			t.Fatalf("List failed: %v", err)
 		}
@@ -269,7 +269,7 @@ func TestEnvironmentDAO_List(t *testing.T) {
 
 	t.Run("ListActive", func(t *testing.T) {
 		active := true
-		envs, err := dao.List(ctx, db, &active)
+		envs, err := dao.List(ctx, db, &active, 0, 0)
 		if err != nil {
 			t.Fatalf("List failed: %v", err)
 		}
@@ -287,7 +287,7 @@ func TestEnvironmentDAO_List(t *testing.T) {
 
 	t.Run("ListInactive", func(t *testing.T) {
 		inactive := false
-		envs, err := dao.List(ctx, db, &inactive)
+		envs, err := dao.List(ctx, db, &inactive, 0, 0)
 		if err != nil {
 			t.Fatalf("List failed: %v", err)
 		}

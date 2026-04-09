@@ -400,6 +400,7 @@ func normalizeConfigPayload(cfg *model.Config) {
 	cfg.Type = normalizeConfigType(cfg.Type)
 	cfg.Content = strings.TrimSpace(cfg.Content)
 	cfg.Remark = strings.TrimSpace(cfg.Remark)
+	cfg.Description = strings.TrimSpace(cfg.Description)
 }
 
 func normalizeConfigType(t string) string {

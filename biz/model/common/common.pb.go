@@ -35,6 +35,7 @@ type ResourceConfig struct {
 	Type           string `protobuf:"bytes,7,opt,name=type,proto3" form:"type" json:"type,omitempty" query:"type"`
 	Remark         string `protobuf:"bytes,8,opt,name=remark,proto3" form:"remark" json:"remark,omitempty" query:"remark"`
 	IsPerm         bool   `protobuf:"varint,9,opt,name=is_perm,json=isPerm,proto3" form:"is_perm" json:"is_perm,omitempty" query:"is_perm"`
+	Description    string `protobuf:"bytes,10,opt,name=description,proto3" form:"description" json:"description,omitempty" query:"description"`
 }
 
 func (x *ResourceConfig) Reset() {
@@ -130,6 +131,13 @@ func (x *ResourceConfig) GetIsPerm() bool {
 		return x.IsPerm
 	}
 	return false
+}
+
+func (x *ResourceConfig) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
 }
 
 // FileAsset represents an uploaded file.

@@ -30,6 +30,7 @@ const emit = defineEmits<{
     alias: string
     type: ConfigType
     content: string
+    description: string
   }): void
   (e: 'update', config: {
     id: string
@@ -37,6 +38,7 @@ const emit = defineEmits<{
     alias: string
     type: ConfigType
     content: string
+    description: string
   }): void
   (e: 'reset'): void
 }>()
@@ -48,6 +50,7 @@ const formData = ref({
   alias: '',
   type: 'text' as ConfigType,
   content: '',
+  description: '',
 })
 
 const keyValuePairs = ref<{ key: string; value: string }[]>([{ key: '', value: '' }])
@@ -62,7 +65,7 @@ const getFieldError = (field: string) => {
 }
 
 const resetForm = () => {
-  formData.value = { name: '', alias: '', type: 'text', content: '' }
+  formData.value = { name: '', alias: '', type: 'text', content: '', description: '' }
   keyValuePairs.value = [{ key: '', value: '' }]
   booleanValue.value = false
   colorValue.value = '#3B82F6'
@@ -182,6 +185,7 @@ const handleAdd = () => {
     alias: formData.value.alias,
     type: formData.value.type,
     content: getFinalContent(),
+    description: formData.value.description,
   })
 
   emit('update:open', false)
@@ -197,6 +201,7 @@ const handleUpdate = () => {
     alias: formData.value.alias,
     type: formData.value.type,
     content: getFinalContent(),
+    description: formData.value.description,
   })
 
   resetForm()
@@ -261,6 +266,7 @@ if (isEditing.value && props.editingConfig) {
     alias: props.editingConfig.alias,
     type: props.editingConfig.type,
     content: formattedContent,
+    description: props.editingConfig.description || '',
   }
 
   if (props.editingConfig.type === 'keyvalue') {
@@ -453,6 +459,17 @@ if (isEditing.value && props.editingConfig) {
             <AlertCircle class="w-3 h-3" />
             {{ getFieldError('content') }}
           </p>
+        </div>
+
+        <div class="space-y-3">
+          <Label for="description" class="text-sm font-medium">描述</Label>
+          <Textarea
+            id="description"
+            placeholder="可选，为此配置项添加备注或说明..."
+            :rows="2"
+            v-model="formData.description"
+            class="resize-none"
+          />
         </div>
 
         <DialogFooter class="pt-4 border-t border-border">

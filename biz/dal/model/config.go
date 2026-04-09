@@ -21,6 +21,7 @@ type Config struct {
 	Type           string         `gorm:"column:type;index:idx_config_type" json:"type,omitempty"`
 	Remark         string         `gorm:"column:remark;type:varchar(512)" json:"remark,omitempty"`
 	IsPerm         bool           `gorm:"column:is_perm" json:"is_perm,omitempty"`
+	Description    string         `gorm:"column:description;type:text" json:"description,omitempty"`
 }
 
 // TableName overrides gorm to use resource_config table.

@@ -90,6 +90,7 @@ export interface ConfigItem {
   content: string
   environmentId: string
   pipelineId: string
+  description: string
   createdAt: string
   updatedAt: string
 }

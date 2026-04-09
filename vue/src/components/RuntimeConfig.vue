@@ -59,6 +59,7 @@ const fetchConfigs = async () => {
         content: typeof config.content === 'object' ? JSON.stringify(config.content, null, 2) : config.content,
         environmentId: config.environment_key,
         pipelineId: config.pipeline_key,
+        description: (config as any).description || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }))

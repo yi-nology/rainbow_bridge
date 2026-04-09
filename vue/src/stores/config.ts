@@ -58,6 +58,7 @@ export const useConfigStore = defineStore('config', () => {
       alias: string
       type: ConfigType
       content: string
+      description: string
     }
   ) => {
     try {
@@ -66,6 +67,7 @@ export const useConfigStore = defineStore('config', () => {
         alias: config.alias,
         type: config.type,
         content: config.content,
+        description: config.description,
         environmentId: environmentKey,
         pipelineId: pipelineKey,
       })
@@ -88,6 +90,7 @@ export const useConfigStore = defineStore('config', () => {
       alias: string
       type: ConfigType
       content: string
+      description: string
     }
   ) => {
     try {
@@ -97,6 +100,7 @@ export const useConfigStore = defineStore('config', () => {
         alias: config.alias,
         type: config.type,
         content: config.content,
+        description: config.description,
         environmentId: environmentKey,
         pipelineId: pipelineKey,
       })

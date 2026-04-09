@@ -104,11 +104,27 @@ kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 ```
 
-**PGSQL + MinIO 模式（完整部署）**
+**PostgreSQL + MinIO 模式（完整部署，推荐生产环境）**
+```bash
+cd deploy/kubernetes/pgsql-minio
+./deploy.sh
+```
+
+或使用 kubectl 手动部署：
 ```bash
 cd deploy/kubernetes/pgsql-minio
 kubectl apply -f .
 ```
+
+此方案包含：
+- PostgreSQL 16 作为关系型数据库
+- MinIO 对象存储用于静态资源
+- 自动初始化 MinIO 存储桶的 Job
+- Rainbow Bridge 应用（带 initContainer 等待 MinIO 就绪）
+
+访问地址：
+- 管理界面：http://localhost:8080/rainbow-bridge（需端口转发）
+- MinIO 控制台：http://localhost:9001（需端口转发，用户名: minioadmin, 密码: minioadmin123）
 
 #### 3. 验证部署
 
@@ -183,11 +199,19 @@ server:
   base_path: "/rainbow-bridge"  # 访问前缀
   
 database:
-  driver: "sqlite"  # 或 mysql, postgres
-  dsn: "data/resource.db"  # SQLite 路径或 MySQL/PG 连接字符串
+  driver: "postgres"  # sqlite, mysql, postgres
+  postgres:
+    dsn: "host=postgres user=rainbow_bridge password=rainbow_bridge_pass dbname=rainbow_bridge port=5432 sslmode=disable TimeZone=UTC"
   
 storage:
-  path: "data/uploads/"  # 静态文件存储路径
+  type: "minio"  # local 或 minio
+  minio:
+    endpoint: "minio:9000"
+    access_key: "minioadmin"
+    secret_key: "minioadmin123"
+    use_ssl: false
+    bucket: "rainbow-bridge"
+    region: "us-east-1"
 ```
 
 ### 环境变量

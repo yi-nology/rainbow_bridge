@@ -4,13 +4,13 @@ server:
   base_path: "/rainbow-bridge"
 
 database:
-  driver: "sqlite"
+  driver: "postgres"
   sqlite:
     path: "data/resource.db"
   mysql:
     dsn: "user:password@tcp(127.0.0.1:3306)/resource?charset=utf8mb4&parseTime=True&loc=Local"
   postgres:
-    dsn: "host=127.0.0.1 user=postgres password=postgres dbname=resource port=5432 sslmode=disable TimeZone=UTC"
+    dsn: "host=localhost user=rainbow_bridge password=rainbow_bridge_pass dbname=rainbow_bridge port=5432 sslmode=disable TimeZone=UTC"
 
 # 内网环境配置
 intranet:
@@ -24,6 +24,17 @@ redis:
   address: "localhost:6379"
   password: ""
   db: 0
+
+# 存储配置
+storage:
+  type: "minio"
+  minio:
+    endpoint: "localhost:9000"
+    access_key: "minioadmin"
+    secret_key: "minioadmin123"
+    use_ssl: false
+    bucket: "rainbow-bridge"
+    region: "us-east-1"
 
 # 日志配置
 log:

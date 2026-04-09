@@ -81,6 +81,7 @@ func pbConfigToModel(cfg *common.ResourceConfig) *model.Config {
 		Type:           cfg.GetType(),
 		Remark:         cfg.GetRemark(),
 		IsPerm:         cfg.GetIsPerm(),
+		Description:    cfg.GetDescription(),
 	}
 }
 
@@ -98,6 +99,7 @@ func modelConfigToPB(cfg *model.Config) *common.ResourceConfig {
 		Type:           cfg.Type,
 		Remark:         cfg.Remark,
 		IsPerm:         cfg.IsPerm,
+		Description:    cfg.Description,
 	}
 }
 

@@ -76,6 +76,7 @@ export function fromApiConfig(api: ApiResourceConfig | ResourceConfig): ConfigIt
       content,
       environmentId: api.environment_key,
       pipelineId: api.pipeline_key,
+      description: api.description || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -90,6 +91,7 @@ export function fromApiConfig(api: ApiResourceConfig | ResourceConfig): ConfigIt
       content,
       environmentId: api.environmentKey,
       pipelineId: api.pipelineKey,
+      description: api.description || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -118,6 +120,7 @@ export function toApiConfig(
     type: backendType,
     remark: '',
     is_perm: false,
+    description: config.description || '',
   }
 }
 

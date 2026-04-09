@@ -44,6 +44,7 @@ export interface ApiResourceConfig {
   type: string
   remark: string
   is_perm: boolean
+  description: string
 }
 
 export interface ApiFileAsset {
@@ -96,6 +97,7 @@ export interface ResourceConfig {
   type: string
   remark: string
   isPerm: boolean
+  description: string
 }
 
 export interface FileAsset {

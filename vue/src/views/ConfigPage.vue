@@ -46,6 +46,7 @@ const handleCreate = async (config: {
   alias: string
   type: string
   content: string
+  description: string
 }) => {
   if (!selectedEnvKey.value || !selectedPipelineKey.value) return
   
@@ -54,6 +55,7 @@ const handleCreate = async (config: {
     alias: config.alias,
     type: config.type as ConfigType,
     content: config.content,
+    description: config.description,
   })
 }
 
@@ -63,6 +65,7 @@ const handleUpdate = async (config: {
   alias: string
   type: string
   content: string
+  description: string
 }) => {
   if (!selectedEnvKey.value || !selectedPipelineKey.value) return
   
@@ -72,6 +75,7 @@ const handleUpdate = async (config: {
     alias: config.alias,
     type: config.type as ConfigType,
     content: config.content,
+    description: config.description,
   })
 }
 

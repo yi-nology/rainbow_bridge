@@ -28,6 +28,7 @@ const emit = defineEmits<{
     alias: string
     type: string
     content: string
+    description: string
   }): void
   (e: 'update', config: {
     id: string
@@ -35,6 +36,7 @@ const emit = defineEmits<{
     alias: string
     type: string
     content: string
+    description: string
   }): void
   (e: 'delete', id: string): void
   (e: 'imagePreview', url: string, name: string): void
@@ -75,6 +77,7 @@ const handleCreate = (config: {
   alias: string
   type: string
   content: string
+  description: string
 }) => {
   emit('create', config)
 }
@@ -85,6 +88,7 @@ const handleUpdate = (config: {
   alias: string
   type: string
   content: string
+  description: string
 }) => {
   emit('update', config)
 }
@@ -159,6 +163,7 @@ const handleReset = () => {
             <TableRow v-for="config in filteredConfigs" :key="config.id" class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
               <TableCell class="py-4 px-6 font-medium text-gray-900 dark:text-white break-all max-w-xs">
                 {{ config.name }}
+                <p v-if="config.description" class="text-xs text-muted-foreground mt-1 font-normal line-clamp-2">{{ config.description }}</p>
               </TableCell>
               <TableCell class="py-4 px-6 text-muted-foreground break-all max-w-xs font-mono text-sm">
                 {{ config.alias }}

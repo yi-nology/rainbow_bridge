@@ -16,7 +16,7 @@ jobs:
       base_path: ""
 
   build-docker-api:
-    uses: ./.github/workflows/build-docker-api.yml
+    uses: ./.github/workflows/build-docker.yml
     with:
       base_path: ""
       version: ${{ github.ref_name }}

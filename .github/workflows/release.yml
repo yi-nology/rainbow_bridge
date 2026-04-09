@@ -18,6 +18,7 @@ jobs:
   build-docker-from-remote-bin:
     needs: [build-binaries]
     uses: ./.github/workflows/build-docker-remote-bin.yml
+    secrets: inherit
     with:
       base_path: ""
       version: ${{ github.ref_name }}

@@ -1,5 +1,9 @@
 name: Build Docker API
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   workflow_call:
     inputs:
@@ -26,7 +30,7 @@ on:
         value: ${{ jobs.docker-api.outputs.api_image_tags }}
 
 env:
-  IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge-api
+  IMAGE_NAME: ghcr.io/yi-nology/rainbow_bridge
 
 jobs:
   docker-api:

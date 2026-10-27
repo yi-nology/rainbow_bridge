@@ -1,0 +1,32 @@
+name: ACL Probe (temporary)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  probe:
+    name: Push brand-new package with GITHUB_TOKEN
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare tiny image context
+        run: |
+          mkdir -p ctx
+          printf 'FROM scratch\nLABEL org.opencontainers.image.source=https://github.com/yi-nology/rainbow_bridge\n' > ctx/Dockerfile
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push new package
+        uses: docker/build-push-action@v7
+        with:
+          context: ctx
+          push: true
+          tags: ghcr.io/yi-nology/rainbow_bridge-acl-probe:v1

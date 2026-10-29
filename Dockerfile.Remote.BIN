@@ -49,6 +49,9 @@ WORKDIR /app
 
 # 从binary-artifact阶段复制预构建的二进制文件和前端文件
 COPY --from=binary-artifact /artifact/app /app/server
+COPY --from=binary-artifact /artifact/admin-password-reset /app/admin-password-reset
+COPY --from=binary-artifact /artifact/backup-restore /app/backup-restore
+COPY --from=binary-artifact /artifact/release-storage /app/release-storage
 COPY --from=binary-artifact /artifact/web /app/web
 COPY config.yaml /app/config.yaml
 

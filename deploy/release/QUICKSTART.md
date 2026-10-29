@@ -1,4 +1,4 @@
-# v5.0.0 安装与启动
+# v5.1.0 安装与启动
 
 解压对应平台的应用包，在该目录启动；首次设置管理员初始化密码。
 
@@ -38,6 +38,10 @@ x-pipeline: default
 
 业务备份按需在 config.yaml 开启 backup.enabled，并设置同盘、业务根目录以外的绝对 control_dir；只支持说明中限定的单实例部署。离线 backup-restore 工具须在服务停止后按 --help 使用，不要把迁移包、业务静态包与整实例备份混用。
 
+发布快照缺省为 local；需要 MinIO 时显式设置 release_storage.type=minio 和独立私有快照 bucket，连接复用 storage.minio。先阅读 deploy/kubernetes/release-snapshots/minio-snapshots.md，再用 release-storage --config config.yaml --action plan 只读盘点；Windows 工具名带 .exe。迁移、回退与补清执行必须明确确认实例及所选版本/attempt，详见 tool-docs/release-storage.md。已有 local 历史的目录和卷保留，不自动删除。
+
+完整备份只支持 SQLite、本地原始资源与本地快照、库存无 MinIO locator、Redis 关闭的单实例。备份 schema 4 支持旧 schema 1/2/3 的候选库升级。原生 MinIO 快照生成后不可直接回退不识别定位的旧二进制。
+
 生产部署：调整监听地址、HTTPS、安全 Cookie 和 trusted_origins，使用自己的密码与存储配置；不能直接把本机 HTTP Cookie 示例用于公网。修改 base_path 时前端需匹配重新构建。
 
-升级应先保存数据库、uploads 与 release-snapshots 的一致副本。本包不含你的业务数据，不覆盖已有账号；降级前先恢复对应旧版备份。
+升级应先保存数据库、原始资源与快照的一致副本。本包不含你的业务数据，不覆盖已有账号。降级需先核对数据库及存储定位兼容性，不要直接退旧二进制或恢复旧库丢弃新版本；具体回退限制见上述部署文档。

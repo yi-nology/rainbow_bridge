@@ -9,6 +9,8 @@ redis:
   enabled: false
 storage:
   type: "local"
+release_storage:
+  type: "local"
 backup:
   enabled: false
 auth:

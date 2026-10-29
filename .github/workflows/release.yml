@@ -10,7 +10,25 @@ permissions:
   packages: write
 
 jobs:
+  preflight:
+    name: Validate release inputs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check notes, configuration and maintenance tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "docs/releases/${GITHUB_REF_NAME}.md"
+          for file in deploy/release/config.yaml deploy/release/QUICKSTART.md cmd/release-storage/README.md; do
+            test -s "$file"
+          done
+          for tool in admin-password-reset backup-restore release-storage; do
+            test -s "cmd/$tool/main.go"
+          done
+
   build-binaries:
+    needs: [preflight]
     uses: ./.github/workflows/build-binaries.yml
     with:
       base_path: "/rainbow-bridge"
@@ -43,8 +61,12 @@ jobs:
 
       - name: Generate download checksums
         run: |
+          set -eu
           mkdir -p release-assets
           find dist -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} release-assets/ \;
+          for asset in frontend.zip frontend.tar.gz rainbow_bridge-app-linux-amd64.tar.gz rainbow_bridge-app-linux-arm64.tar.gz rainbow_bridge-app-darwin-amd64.tar.gz rainbow_bridge-app-darwin-arm64.tar.gz rainbow_bridge-app-windows-amd64.zip; do
+            test -s "release-assets/$asset"
+          done
           cp docs/releases/${GITHUB_REF_NAME}.md release-assets/RELEASE_NOTES.md
           cp deploy/release/QUICKSTART.md release-assets/QUICKSTART.md
           cd release-assets

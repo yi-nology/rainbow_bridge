@@ -13,16 +13,17 @@ import (
 
 // Config captures service level configuration loaded from config.yaml.
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Database DatabaseConfig `yaml:"database"`
-	Auth     AuthConfig     `yaml:"auth"`
-	CORS     CORSConfig     `yaml:"cors"`
-	Upload   UploadConfig   `yaml:"upload"`
-	Intranet IntranetConfig `yaml:"intranet"`
-	Redis    RedisConfig    `yaml:"redis"`
-	Storage  StorageConfig  `yaml:"storage"`
-	Backup   BackupConfig   `yaml:"backup"`
-	Log      LogConfig      `yaml:"log"`
+	Server         ServerConfig         `yaml:"server"`
+	Database       DatabaseConfig       `yaml:"database"`
+	Auth           AuthConfig           `yaml:"auth"`
+	CORS           CORSConfig           `yaml:"cors"`
+	Upload         UploadConfig         `yaml:"upload"`
+	Intranet       IntranetConfig       `yaml:"intranet"`
+	Redis          RedisConfig          `yaml:"redis"`
+	Storage        StorageConfig        `yaml:"storage"`
+	ReleaseStorage ReleaseStorageConfig `yaml:"release_storage"`
+	Backup         BackupConfig         `yaml:"backup"`
+	Log            LogConfig            `yaml:"log"`
 }
 
 // BackupConfig controls the whole-instance business backup feature.
@@ -68,6 +69,12 @@ type LogConfig struct {
 type StorageConfig struct {
 	Type  string      `yaml:"type"` // local, minio
 	Minio MinioConfig `yaml:"minio"`
+}
+
+// ReleaseStorageConfig selects only NEW snapshots. History uses its persisted locator.
+type ReleaseStorageConfig struct {
+	Type   string `yaml:"type"`
+	Bucket string `yaml:"bucket"`
 }
 
 // MinioConfig contains MinIO specific connection details.

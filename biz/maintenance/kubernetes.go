@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/yi-nology/rainbow_bridge/pkg/businesshost"
 	"io"
 	"net/http"
 	"net/url"
@@ -39,6 +40,7 @@ func array(r resource, key string) []any  { a, _ := r[key].([]any); return a }
 func number(r resource, key string) int32 { v, _ := r[key].(float64); return int32(v) }
 
 type Kube struct {
+	hostKey                  []byte
 	client                   *http.Client
 	server, token, namespace string
 }
@@ -110,11 +112,22 @@ func (k *Kube) requestHeaders(ctx context.Context, method, path string, body any
 	for key, value := range headers {
 		r.Header.Set(key, value)
 	}
+	if len(k.hostKey) > 0 && strings.Contains(path, "/proxy/v1/") {
+		_, internal, _ := strings.Cut(path, "/proxy")
+		probe, _ := http.NewRequest(method, "http://host"+internal, nil)
+		var raw []byte
+		if body != nil {
+			raw, _ = json.Marshal(body)
+		}
+		businesshost.Sign(probe, raw, k.hostKey, time.Now())
+		r.Header.Set("X-Rainbow-Host-Time", probe.Header.Get("X-Rainbow-Host-Time"))
+		r.Header.Set("X-Rainbow-Host-Signature", probe.Header.Get("X-Rainbow-Host-Signature"))
+	}
 	res, err := k.client.Do(r)
 	if err != nil {
 		return nil, errors.New("Kubernetes 请求失败")
 	}
-	maintenanceProbe := strings.HasSuffix(path, "/ping") && res.StatusCode == 503 && res.Header.Get("X-Rainbow-Maintenance-Protocol") == "1" && res.Header.Get("X-Rainbow-Checking") == "true"
+	maintenanceProbe := res.StatusCode == 503 && res.Header.Get("X-Rainbow-Maintenance-Protocol") == "1" && res.Header.Get("X-Rainbow-Checking") == "true"
 	if (res.StatusCode < 200 || res.StatusCode > 299) && !maintenanceProbe {
 		res.Body.Close()
 		return nil, fmt.Errorf("Kubernetes 拒绝操作，HTTP %d", res.StatusCode)

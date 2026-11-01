@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/yi-nology/rainbow_bridge/biz/maintenance"
+	"github.com/yi-nology/rainbow_bridge/pkg/businesshost"
+	"os"
 	"time"
 )
 
@@ -136,6 +138,19 @@ func (s *Store) Capabilities(ctx context.Context) Capabilities {
 			allowed, _ := object(review, "status")["allowed"].(bool)
 			if err != nil || status != 201 || !allowed {
 				e = errors.New("job create permission unavailable")
+			}
+		}
+	}
+	if e == nil && s.Config.ExecutionMode == "pod_sidecar" {
+		key, err := os.ReadFile("/host-auth/key")
+		if err != nil {
+			e = errors.New("host authentication unavailable")
+		} else {
+			status, err := businesshost.LocalStatus(ctx, "/ipc/business-host.sock", key, s.Config.InstanceID, os.Getenv("RB_POD_UID"))
+			if err != nil {
+				e = err
+			} else if mode == "active" && status.State != "running" {
+				e = errors.New("business host not running")
 			}
 		}
 	}

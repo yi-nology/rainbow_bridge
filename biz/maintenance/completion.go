@@ -9,6 +9,9 @@ import (
 // VerifyCompleted is read-only and makes response-loss replay check actual Pods,
 // rather than treating the terminal journal alone as business availability.
 func VerifyCompleted(ctx context.Context, cfg Config, k *Kube, op Operation) error {
+	if _, e := k.lifecycle(cfg); e != nil {
+		return e
+	}
 	if !op.Terminal {
 		return errors.New("操作尚未提交")
 	}

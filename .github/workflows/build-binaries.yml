@@ -101,7 +101,7 @@ jobs:
             -ldflags="-X 'main.Version=${{ env.VERSION }}' -X 'main.GitCommit=${{ env.GIT_COMMIT }}' -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.BasePath=${{ env.BASE_PATH }}'" \
             -o "$OUTPUT_DIR/app${{ matrix.bin_ext }}" .
           mkdir -p "$OUTPUT_DIR/tool-docs"
-          for TOOL in admin-password-reset backup-restore release-storage maintenance-backup maintenance-console maintenance-gateway; do
+          for TOOL in admin-password-reset backup-restore release-storage maintenance-backup maintenance-console maintenance-gateway business-host maintenance-helper; do
             go build -mod=readonly -trimpath -o "$OUTPUT_DIR/${TOOL}${{ matrix.bin_ext }}" "./cmd/${TOOL}"
           done
           cp cmd/release-storage/README.md "$OUTPUT_DIR/tool-docs/release-storage.md"

@@ -13,6 +13,10 @@ import (
 // Run binds execution to the reviewed plan. Resume uses the stored fingerprint,
 // never fabricates a new plan while maintenance has already stopped service.
 func Run(ctx context.Context, cfg Config, k *Kube, action, request, confirm, backup string) (Operation, error) {
+	lifecycle, lifecycleErr := k.lifecycle(cfg)
+	if lifecycleErr != nil {
+		return Operation{}, lifecycleErr
+	}
 	var data OperationData
 	kind := action
 	paramHash := ""
@@ -117,7 +121,7 @@ func Run(ctx context.Context, cfg Config, k *Kube, action, request, confirm, bac
 		}
 	}
 	if l.Op.Data.Aborting {
-		if err = k.Stop(ctx, l); err != nil {
+		if err = lifecycle.Stop(ctx, l); err != nil {
 			return l.Op, err
 		}
 		if err = fence(ctx, l, &app, false); err != nil {
@@ -130,7 +134,7 @@ func Run(ctx context.Context, cfg Config, k *Kube, action, request, confirm, bac
 		return l.Op, err
 	}
 	if l.Op.Phase == "claimed" || l.Op.Phase == "stopping" || l.Op.Phase == "stopped" {
-		if err = k.Stop(ctx, l); err != nil {
+		if err = lifecycle.Stop(ctx, l); err != nil {
 			return l.Op, err
 		}
 		if err = fence(ctx, l, &app, false); err != nil {

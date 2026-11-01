@@ -23,7 +23,7 @@ jobs:
           for file in deploy/release/config.yaml deploy/release/QUICKSTART.md cmd/release-storage/README.md; do
             test -s "$file"
           done
-          for tool in admin-password-reset backup-restore release-storage maintenance-backup maintenance-console maintenance-gateway; do
+          for tool in admin-password-reset backup-restore release-storage maintenance-backup maintenance-console maintenance-gateway business-host maintenance-helper; do
             test -s "cmd/$tool/main.go"
           done
 

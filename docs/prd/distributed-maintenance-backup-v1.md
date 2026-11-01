@@ -1,5 +1,7 @@
 # PostgreSQL＋MinIO 多实例手动维护备份恢复 PRD
 
+> **最新验收约定（2026-11-01，优先于本文各历史测试矩阵）**：用户明确要求“以后我们的设计也不再追加复杂故障测试，没有必要”。当前同Pod方案及后续虹桥任务只以基础主流程、必要构建和直接受影响的基础检查收口；不默认追加复杂故障注入、分区/崩溃组合、压力或灾备矩阵。不再为补齐§9、§11.6、§13.6等历史矩阵继续派发；未测项如实保留但不自动列为基础交付阻塞。已有结果不改写为本次通过，已知功能问题仍处理，数据保护设计保持；专项测试只有用户另行明确要求才开展。此约定不授予正式部署/推送权限。
+
 日期：2026-10-30。状态：CLI核心实施见§10；**当前产品目标以§11网页完整闭环修订为准**，用户已授权分别实施，派发记录见文末。未部署正式环境。
 
 > §1—9中“本批CLI-only、网页只说明”的终点被§11替代，保留为历史实施依据。停服、一致性、候选恢复及资源保护合同继续沿用。§10是原实现结果，不代表§11已完成。前端同步修订见distributed-backup-frontend-v1.md §8。
@@ -224,6 +226,14 @@ worker02独占hostPath目录内临时文件已删除并确认空目录，**空�
 
 ## 11. 网页完整闭环修订：前后端共同合同（2026-10-30）
 
+> 新部署约束（2026-11-01）：用户已明确允许“加辅助容器，执行备份时临时启动一个任务容器”。选定§13同Pod辅助容器＋临时Job模式，授权按原研发分工实现和隔离验证；不新增独立console/gateway Deployment或Service。§11独立控制面作为已实现兼容模式保留，§12独立服务正式接入方案不执行。新模式不是现v5.1.1开关，正式认证迁移/入口切换尚未执行。
+
+> §13选定模式摘要：保留原Deployment/Service/URL及PG/MinIO/Redis，现有每Pod增加一个管理辅助容器，业务容器增加守护入口；维护仅停止业务子进程，不缩容Pod。临时单次Job沿用现有执行者归属协议，前端沿用maintenance_web/v1。以下§11.1—11.8不是该新生命周期已验证的证明。
+
+> 正式接入诊断（2026-11-01）：用户升级v5.1.1后在K8s原入口仍看到“当前部署未开放网页备份与恢复”。架构已只读核对：31880 /version 为v5.1.1 / 0e1d962；namespace rainbow-bridge的Service仍直接选择app=rainbow-bridge-app，运行该业务Deployment，未运行独立console/gateway。该Pod的/app/config.yaml未出现backup根配置；镜像内maintenance-console/gateway/backup三个可执行文件均存在。独占rb-web-20261030-01仍有业务2副本、console和gateway，对外31981。故当前是**正式入口未完成控制面/认证/配置接入**，不是K8s或PG/MinIO/Redis本身不受支持，也不是只升级前端/强开supported即可修好。用户截图的旧本地模式原因与该部署形态吻合；本次未读取用户Cookie或更改正式配置/账号/数据。
+>
+> 后续先由后端形成可审阅的原入口接入方案：原业务/控制账号和数据备份、独占角色/控制DB/备份桶、现有账号一次性迁移、固定digest的console/gateway/Job及权限、同URL路由切换和受控回退、前置检查和停机范围。沿用现有PG/MinIO/Redis，不靠关闭Redis/改SQLite绕过。不能把测试31981导流到正式数据、不能以新空实例代替现有业务、不能用默认账号覆盖原admin。此诊断续作仅授权只读检查和方案准备；实际正式停服/认证迁移/路由变更尚未执行，须以用户明确部署要求为准。
+
 ### 11.1 用户目标与范围
 
 用户纠正：登录系统admin后，应通过网页完成全部正常备份恢复工作。本批终点改为**同站点登录→创建/查看/核验全量备份→预览和确认恢复→停服期间持续查看状态→中断后继续或切换前回退→恢复后用当前密码重新登录**。普通操作不要求SSH或CLI；现有CLI作为后台引擎入口与极端故障应急工具。只交付按钮或“联系运维”说明不算完成。
@@ -378,3 +388,203 @@ reason最长500字符；limit范围1—100，cursor为不透明值且校验归�
 | 同步后状态 | 业务2/2、console/gateway各1/1，active_tasks仍0、mode仍active、epoch仍7；8库/8角色/15桶、4 available及1 pending备份数量未变；正式Pod UID、restartCount=0和原镜像digest均未变 |
 
 证据：`.local-qa/distributed-web/run_20261030_web01/static-final-{preflight,sync,after}.log`、`static-final-browser.log`、`static-final-browser-result.json`、`static-final-list.png`、`static-final-task.png`。浏览器完成记录为2026-11-01 09:59:37北京时间。凭据只从受限文件读取，没有打印。后端本轮收尾完成，无额外联调用途；共享集群、旧静态与私有文件仍按跨端约定保留，待架构确认后统一清理，本次不擅自清场。
+
+## 12. 正式31880接入计划（2026-11-01，仅只读诊断与待执行方案）
+
+### 12.1 交付缺口与现状证据
+
+v5.1.1的代码和隔离网页闭环已经交付，但**正式实例接入没有执行**。镜像升级只替换了业务程序，不能代替控制库初始化、唯一认证权威迁移、Secret挂载与入口路由部署。此前交付应更清楚区分“代码已发布”和“正式网页备份可用”。本节不将接口supported强改为true，不关闭Redis，不换SQLite，不引用31981的业务库或测试账号替代正式数据。
+
+后端本轮只读证据在 `.local-qa/distributed-web/run_20261030_web01/production-readonly.log`、`production-topology.log`；PG查询使用READ ONLY事务，K8s只get，没有执行迁移/DDL/fence/停服/正式配置修改。诊断程序上传到已有测试私有目录，不进入正式Pod或镜像；未输出DSN、密码、用户hash或Secret正文。
+
+| 项目 | 实际核对结果 |
+| --- | --- |
+| namespace | rainbow-bridge，UID `ea6a71be-a68b-4bf0-98c7-c6155fdda528` |
+| 对外入口 | Service rainbow-bridge，UID `17640c71-a7c2-40cc-b805-2239a136a715`，ClusterIP 10.43.112.41，80→8080，NodePort31880；selector app=rainbow-bridge-app |
+| 正在服务 | Deployment rainbow-bridge-app，UID `3b7ae5cc-8c73-45f8-a2b6-685ad083de5f`，1副本；Pod rainbow-bridge-app-6b79d9458c-2rr5q |
+| 当前镜像内容 | v5.1.1/0e1d962；运行时digest `sha256:412bc877b0f04dcbe860b55e73de83fb02f89dd6f18ac70306e814f2343cbd04`。这是当前节点的已安装镜像digest，实施前核对目标节点架构及manifest；所有新增组件固定同一已验证digest，不能混用测试二进制 |
+| 配置 | ConfigMap rainbow-bridge-config的config.yaml，通过subPath挂到/app/config.yaml；SHA-256 `b1c6ea3edcd966004762443af9803310cdc9b9aa8808e58c4a2d4d59bff1271a`；distributed.enabled/web_enabled均false |
+| PG | postgres ExternalName→postgres.insights-catalog.svc.cluster.local；16.15；业务库/owner/登录角色均rainbow_bridge，15张public表归该角色。非superuser、无CREATEDB/CREATEROLE/replication、无角色继承，但没有实例归属注释。当前此角色连接仅见rainbow_bridge库；这不代替对其他客户端/定时任务的独占审核 |
+| 对象/缓存 | MinIO 10.60.226.47:9000；原始桶rainbow-bridge，快照桶rainbow-bridge-snapshots；Redis仍启用redis:6379。保留这些服务、桶和业务内容 |
+| 认证 | 1个用户、1个启用admin；HTTP可信来源http://10.60.226.43:31880，当前显式allow_insecure_remote=true、cookie_secure=false；不重置密码，不引入admin/admin |
+| 其他写入者 | legacy rainbow-bridge-api与frontend Deployment各0副本；当前namespace无HPA/CronJob/Job，只有default SA，无维护Role/RoleBinding。必须保持legacy API=0并审核外部GitOps/直写者，不能只靠本次快照宣称永久独占 |
+
+MinIO管理员IAM策略、共享PG管理员可授予权限、PG/MinIO容量、外部写者和独占角色归属还需部署前核对；本次没有用新建桶/写对象/改角色来试权限，也没有读取不相关服务Secret。现有业务连接仅有普通业务权限，**不能拿它创建控制库或当维护身份**。如同名拟建资源已存在，先核对owner/注释/引用，不默认收编或覆盖。
+
+### 12.2 拟建资源与权限清单
+
+保留正式namespace，避免跨namespace改现有业务归属。生成一个全新的生产固定UUID并登记在受限部署归属文件；不得复用测试instance aaa4c049-987c-4751-9559-4b3626369950。UUID须贯穿角色注释、控制记录、Secret、console及Job。下面名称是本实例拟定值，执行前检查冲突。
+
+| 资源 | 新建/调整及边界 |
+| --- | --- |
+| PG控制库 | 新建rbp_control，owner rbp_operator；原rainbow_bridge业务库及owner不换、不覆盖。控制库撤销PUBLIC CONNECT/TEMP与public schema CREATE；只向列明角色授CONNECT/USAGE |
+| 原业务角色 | rainbow_bridge保留原密码与权限；确认独占后加`rainbow-maintenance:<生产UUID>`注释；仅迁移窗口NOLOGIN，结束恢复LOGIN；不得对共享角色执行此步骤 |
+| 7个永久新PG角色 | rbp_operator、rbp_guard、rbp_auth_owner、rbp_auth、rbp_console、rbp_worker、rbp_auth_reader；均非superuser/replication；除operator外不得CREATEDB/CREATEROLE，不授无关角色继承 |
+| operator | 独占LOGIN，CREATEDB/CREATEROLE、控制库owner；DBA执行`GRANT rainbow_bridge TO rbp_operator WITH ADMIN OPTION`以允许fence/建候选并归属业务角色。此权限可影响PG角色，不能声称普通只读或完全限于一个DB；凭据只挂载executor，不挂console/业务 |
+| guard | 控制库仅rb_maintenance_instance SELECT；业务Pod单独连接，不给其作业写权限 |
+| auth owner/init | rbp_auth_owner拥有auth_users/auth_sessions/rb_auth_authority和web表结构初始化所需权限；平时NOLOGIN。临时LOGIN凭据只给初始化Job；schema CREATE及rb_maintenance_instance REFERENCES/SELECT用于建表。完成后NOLOGIN并撤销不再需要的CREATE。新表owner按实际初始化身份核对 |
+| AUTH | rbp_auth：auth_users SELECT/UPDATE；auth_sessions SELECT/INSERT/UPDATE/DELETE及其sequence USAGE；rb_auth_authority、rb_maintenance_instance、rb_web_task SELECT。禁止维护operation/backup/authority写和schema CREATE |
+| CONSOLE | rbp_console：rb_web_task/outbox/preview/backup/event/result SELECT/INSERT/UPDATE，event sequence USAGE；rb_maintenance_instance/operation/backup及rb_auth_authority SELECT；auth_users仅(id,username,role,disabled,credential_version) SELECT，不可读hash |
+| WORKER | rbp_worker：rb_web_task SELECT/UPDATE、preview/event SELECT/INSERT、web_backup SELECT/INSERT/UPDATE，event sequence USAGE；控制instance/operation/backup/authority SELECT；没有AUTH会话/密码写权限 |
+| AUTH_READER | rbp_auth_reader：auth_users与rb_auth_authority SELECT；executor保留当前账号时使用。由auth owner向operator另授rb_auth_authority SELECT、UPDATE(session_epoch) |
+| 临时源读取身份 | rbp_auth_source只CONNECT原业务库、USAGE public、SELECT auth_users；初始化源连接不能用已NOLOGIN的rainbow_bridge。初始化完成即NOLOGIN、撤销读权，凭据不留在常驻Pod |
+| MinIO | 新建私有rbp-backups桶，无自动生命周期删除；原两业务桶保留。新建本实例APP和OPERATOR两个IAM用户及独立策略；不重设共享root/旧IAM |
+| APP IAM | 对rainbow-bridge、rainbow-bridge-snapshots及本UUID的rb-r-<UUID去横线>-*候选桶：ListBucket/GetBucketLocation及对象Get/Put/Delete和必要multipart权限；禁止建桶、访问备份桶/其他实例桶。APP必须能访问恢复后的候选桶，而非只原两桶 |
+| OPERATOR IAM | 原两桶仅列举/读取；rbp-backups读写对象与列举；本UUID候选桶CreateBucket/List/GetLocation及对象读写/失败处理所需multipart权限；不给其他实例桶或IAM管理。无日常自动清理/删旧桶授权需求。实施时以引擎动作清单核对策略并禁止全局s3:*资源通配 |
+| Redis | 沿用现有endpoint/DB/凭据，不FLUSH、不新建共享服务。记录现有namespace配置；维护代次与缓存命名按程序工作，不能把测试Redis引用复制过来 |
+| Secret | rainbow-bridge-app-config/config.yaml完整业务配置；console-config/console.yaml；web-worker-config/worker.yaml；operator-config/maintenance.yaml；auth-source-read-config/config.yaml；auth-init-credentials的control_dsn/source_role。后两份只供初始化，不挂常驻服务 |
+| K8s | maintenance-console与maintenance-executor SA/Role/RoleBinding；maintenance-console/gateway Deployment各1副本及ClusterIP Service；新增business Service选择原app。使用现有console.example.yaml、executor-rbac.example.yaml替换namespace/image/selector，保留资源限制与安全上下文 |
+
+准确数据库GRANT列表以§11.3及 `deploy/kubernetes/maintenance-web/README.md` 为基础，上表是本部署对应角色。RBAC沿用现有模板，无cluster-admin：console Job get/list/create、Pod get；executor Deployment get/list/update、RS get/list、Pod get/list/watch/proxy、Secret get/create/update、Job/CronJob/HPA get/list。可用resourceNames约束的get/update项应拆开限制到明确对象，但Job动态名/list/create不能以label变成权限沙箱；本namespace内console create Job意味着可创建挂载namespace Secret的Pod，必须把这里视为虹桥实例信任边界，不能把IAM/DB管理员凭据留在常驻Secret。初始化凭据用完撤销并在确认无引用后清理。
+
+### 12.3 必需配置与可审阅模板
+
+新增 `deploy/kubernetes/maintenance-web/production-v5.1.1.configs.yaml.example`：包含完整配置的增量片段、console配置与operator配置；明确worker应复制同一固定模板但换WORKER连接、移除AUTH凭据。模板只有占位符，**不是可以直接kubectl apply的Secret文件**。实际Secret在部署主机0700私有目录按角色分别生成，用`kubectl create secret generic NAME --from-file=KEY=PRIVATE_FILE --dry-run=client -o yaml | kubectl apply -f -`写入，不把结果打印/写入Git。数据库密码独立随机生成，不使用默认管理员密码。
+
+应用完整配置从现有配置的受限副本合并，只替换MinIO APP凭据、增加distributed块，保留原业务PG、原始桶、快照桶、Redis、BasePath和现有认证设置。console复制现有cookie名、idle/absolute timeout、trusted_origins，不擅自套用模板中的2h/8h。HTTP31880沿用已显式允许的cookie策略；若改HTTPS必须另行同步来源和cookie，不在本次暗改。
+
+业务Deployment改为完整Secret目录挂载，示意变更如下（需合并进现有spec，不替换其他无关字段）：
+
+```yaml
+# rainbow-bridge-app spec.template.spec
+containers:
+  - name: app
+    image: ghcr.io/yi-nology/rainbow_bridge-app@sha256:412bc877b0f04dcbe860b55e73de83fb02f89dd6f18ac70306e814f2343cbd04
+    args: [--config, /app-config/config.yaml]
+    volumeMounts:
+      - {name: config, mountPath: /app-config, readOnly: true}
+volumes:
+  - name: config
+    secret: {secretName: rainbow-bridge-app-config, defaultMode: 0440}
+# 保留/设置Pod fsGroup=10001以便非root读0440 Secret；禁止subPath。
+```
+
+operator配置中的config_secret_uid必须是新建Secret的实际UID，workloads只允许既有rainbow-bridge-app及其已记录UID；console/gateway/Redis不可进入停服allowlist。原legacy API保持0、不接新Secret、不允许自动启动。production不能填写experimental_artifact_dir/node_name，不挂/lab或测试hostPath。三份组件与执行Job固定同一v5.1.1 digest，Job模板参数不得由网页提供。
+
+新增business ClusterIP Service：selector app=rainbow-bridge-app，port8080→8080；gateway固定参数：`--address :8082 --base-path /rainbow-bridge --console http://maintenance-console:8081 --business http://business:8080`。管理静态/auth/maintenance走console；其他业务走business。**只改正式Service的selector还不够，targetPort必须同时从8080改8082**。Service保留UID/ClusterIP/80/NodePort31880，不能删除重建来“碰巧占回”端口。
+
+### 12.4 分阶段执行顺序与停服窗口（本轮未执行）
+
+1. **授权与前置核对**：核对以上UID、当前配置hash、imageID、DB角色属性、所有写者、GitOps/HPA/外部脚本；记录原Service完整spec、Deployment/ConfigMap受限副本、admin完整hash字段的受限校验摘要、业务scope/release元数据与对象清单。确认生产UUID/拟建名称无冲突、原两桶可读、PG/MinIO备份与候选可用空间、Service路由无其他公开旧管理入口。新源读取角色/DBA/MinIO管理身份的实际权限不足则停止，不能临时改用应用凭据冒充。
+2. **停服前准备**：DBA按§12.2创建新控制库/专用角色和归属，不动原业务表/owner/password；新建备份桶和两套IAM策略/用户；私下生成配置、Secrets与RBAC/业务Service/console-gateway模板，核对UID与digest。构建产物已存在，不在停服窗口等待CI。console/gateway可预建但未初始化前保持0或未对外，不启动默认账号。使用服务端dry-run核对API/准入/RBAC与Secret读取权限；这不替代实际连接检查。
+3. **进入唯一停服窗口**：暂停外部写者/调谐器，停止接收新业务请求；对原业务Deployment缩0并等待实际容器退出、所有业务连接清零。无其他写者证明之前不fence。临时设置原独占业务角色NOLOGIN，记录原LOGIN状态；不能杀未知共享连接或把失联Pod当退出。原31880此时允许暂不可用，不能宣传首次接入无停机。
+4. **保全现有数据**：用独立备份身份执行PG16工具的一致逻辑备份（包含业务/auth/sequence/schema及必要角色定义），并复制原始/快照桶的对象、版本与校验清单到本次受限回退存储；写者已停才构成一致副本。备份文件0700目录/0600权限，不使用新系统的网页备份冒充首次接入保险。校验备份可读、大小/hash与对象清单后再继续；原库原桶仍保留不覆盖。
+5. **控制bootstrap**：用已生成最终业务配置计算初始identity：instance新UUID、generation/session_generation=1。专用初始化Job运行 `/app/maintenance-backup --config /operator/maintenance.yaml --action bootstrap --app-config /app-config/config.yaml --confirm <生产UUID>`，operator连接控制库，app-config挂载新Secret；bootstrap只建控制结构/实例，不执行备份或恢复。记录Job UID/状态；重复初始化报已存在时先核对记录，禁止删表重来。再授guard与auth owner所需权限。
+6. **一次性认证迁移**：以独立临时源只读角色连接原业务库，以临时auth owner连接控制库；用auth-init.example.yaml固定镜像、设置RB_AUTH_SOURCE_ROLE=rainbow_bridge、RB_AUTH_INIT_DSN为初始化身份的控制库连接，执行`maintenance-console --initialize`。代码要求原角色NOLOGIN、无连接、归属注释匹配；原全部账号ID/密码hash/role/disabled/credential_version及时间字段逐项复制核对，控制authority/schema标记完成，清会话并建web表。已有不一致控制账号必须拒绝，不能覆盖。随后完成运行角色GRANT，撤销临时登录/源读权；不把临时DSN留在console。
+7. **应用与控制服务启动**：业务Deployment在副本0时合并新Secret挂载和固定image，恢复原业务角色LOGIN，业务恢复**原1副本**；不借接入扩为双副本。控制guard、独立AUTH权限、原业务连接与新authority必须全部成功；核对每Pod /ping控制identity/epoch与control-v1。启动console/gateway各1并等待Ready。原Service切换前用私有port-forward访问gateway做登录和只读核对（可信Origin仍保持31880，可设置浏览器本地映射或由HTTP客户端明确原Origin，不新增对外测试端口）。若失败，按12.5处理，不带病切入口。
+8. **保留原URL切路由**：在校验Service UID与旧selector/targetPort后，以一个JSON Patch同时test并replace：selector→app=maintenance-gateway，ports[0].targetPort→8082。port80、NodePort31880、ClusterIP和Service UID保持不变。执行前确认ports[0]仍是原80/31880单端口，不机械依赖数组索引。业务后端Service绝不能指回gateway导致循环。
+9. **结束窗口**：31880浏览器以原管理员当前密码登录，能力接口mode=maintenance_web、supported/ready=true，列表可刷新；业务runtime/active/fixed/对象只读检查与接入前快照相符，admin数量和hash未变，所有旧会话拒绝，控制Job创建权限通过SelfSubjectAccessReview。允许一次只读plan Job核对PG16、IAM、allowlist与归属，需用户执行授权包含此部署核对；不在正式环境擅自启动backup/restore、删源数据、改密或注入故障。确认无queued/running操作、mode=active后开放普通业务写，记录实际停服起止。
+
+停服预算建议预留30分钟作为人工接入窗口，**不是已测耗时承诺**：账号迁移数据很少，但首次一致副本耗时取决于正式库和两个桶容量，本轮没有实测；容量盘点后在执行单登记具体预算。超预算不跳校验，按当前检查点保留停服或受控回退。后续每次全量备份/恢复同样会暂停业务，console/gateway保持可用；不能把本次接入与日常备份都说成无停服。
+
+### 12.5 回退决策与数据/认证保护
+
+- **authority提交前失败**：保持外部写者暂停，确认所有初始化Job终态与控制未生效；原库账号仍唯一。恢复原业务LOGIN、原Deployment挂载/spec及原Service selector/targetPort，清原会话使重新登录，再开放原业务；新控制资源只隔离留存，不自动删库删桶。若authority提交状态不明，按已提交处理，不能猜未提交。
+- **authority已提交但业务未开放新写**：优先修复独立控制配置后继续接入；若必须恢复旧部署，停止console、业务及所有AUTH写入/Job，核对无活动作业、mode=active、业务连接仍为原DB/桶，才可由专用部署身份把**控制库当前**auth_users逐列单向导回原业务auth_users（含ID/hash/role/disabled/version/时间），设置sequence到有效上界、清两边auth_sessions并撤销rb_web_result、递增控制session_epoch，核对全字段摘要后统一恢复旧认证与旧路由。需要此回退时生成独立受审阅事务脚本，不拿旧备份hash覆盖可能更新的控制账号；无法核对则保持停服，不能直接kubectl rollout undo。
+- **已开放新写后失败**：不得恢复接入前全库备份或直接切旧候选，否则丢新数据。gateway自身故障且业务/控制身份均健康、mode=active且无活动任务时，可把入口临时路由回**当前新模式业务Pod**（保留AUTH连接），这只恢复业务与登录，网页维护暂不可用；如果维护中不能绕gateway直接开放业务。认证或业务异常另开受控修复窗口，按当前状态处置，不能以镜像降级替代数据回退。
+- Service路由原值为selector app=rainbow-bridge-app、targetPort8080；回退前先test实际UID/当前selector=maintenance-gateway/targetPort8082，保持Service本体不重建。任何已有backup/restore运行时禁止按此接入回退单直接缩console或改业务配置，须先走持久操作的status/resume/abort规则。
+- 新建角色/库/桶与旧资源的最终清理由实际归属记录、当前引用和用户指示决定；本轮未创建这些正式资源，也未清理31981。不得用通配符、DROP原库、删除原两桶或FLUSH Redis来回退。
+
+### 12.6 执行前仍须确认及本轮结论
+
+当前代码适配的PG16.15已匹配；普通业务角色也不是超级用户，具备收紧为独占角色的基础。**尚未证实/执行**：DBA/MinIO管理身份授权、桶容量与完整一致副本、无外部直写者、正式UUID及名称无冲突、MinIO新策略运行核对、初始化与新路由后的实际Ready；故不能把此方案登记成“正式已部署/网页已可备份”。所有正式创建/授权/停服/迁移/入口修改均等待用户明确正式接入指令，当前只完成只读诊断和可审阅方案。后端不推送、不发新tag、不改业务代码、不重跑功能矩阵。
+
+## 13. 同Pod辅助容器＋临时Job兼容模式（2026-11-01选定）
+
+### 13.1 授权、终点与资源边界
+
+用户明确允许“加辅助容器，执行备份时临时启动一个任务容器”，选定原评估A路线。目标是现有虹桥Deployment/Service/URL即可让admin网页备份恢复，不再要求独立console/gateway常驻Deployment或新增外部端口。每个业务Pod增加一个管理辅助容器，维护操作用单次Job，原业务容器改由守护入口运行。单容器完全内置路线B不实施；§12独立服务正式接入方案不执行。
+
+使用现有PG/MinIO/Redis服务，仍按§11需要独立控制/认证逻辑存储、最小角色、备份桶/候选对象副本和必要Secret/RBAC，不另外安装中间件。它们属于完整性和持久状态资源，不能放入被恢复覆盖的业务表或复用原图引用代替副本。权限不足列出具体缺项，不自动扩大到共享超级身份。新模式需实现并验证，不给v5.1.1默默加开关绕过现有拒绝。
+
+原有虹桥研发负责后端/生命周期/模板及隔离验证；虹桥前端只配合原v1接口交互/提示与验收。本轮允许候选构建、独占双Pod测试、必要测试逻辑资源；不推送/新tag/发布镜像，不直接对正式31880执行停服、认证迁移或镜像更新。先给可审阅的同Pod正式接入patch与数据保全/回退步骤，再处理实际接入；用户允许辅助容器不能被解释成允许删原数据或借用测试数据库替代原业务。
+
+### 13.2 选定运行拓扑
+
+| 组件 | 位置与职责 |
+| --- | --- |
+| business-host守护入口 | 原业务容器PID1，管理固定业务子进程的启动/排空/停止/检查启动；本身在维护窗口存活，不是shell后台并发启动脚本 |
+| 管理辅助容器 | 同一个Pod，组合复用console及gateway（优先同一入口管理两个listener），提供原Service targetPort8080的网页/认证/维护API与同Pod业务反代；不新建控制Service |
+| 业务子进程 | 固定/app/server等候选内可信命令，监听另一个本地端口（建议127.0.0.1:18080）；客户端不能绕过入口直接管理候选/旧代 |
+| 临时维护Job | 原有固定digest/模板/单次Never/backoff0执行器，独立于被暂停业务进程；持久请求/outbox、K8s owner终态证明不变，不改成Web请求goroutine |
+
+现有Service selector、port、NodePort和BasePath保持；targetPort8080由辅助容器承接，业务端口仅内部使用，禁止端口冲突或反代回原Service造成循环。两个容器不启用privileged/shareProcessNamespace/hostPID/hostNetwork，不以sidecar跨容器kill PID实现停服。
+
+守护入口与辅助容器通过专属emptyDir的Unix socket通信，固定生命周期命令，不提供任意shell/文件读写。emptyDir仅放IPC/可重建缓存，正式状态、退出证据和目标generation在控制库持久保存。Job到每Pod的生命周期通道由后端选定受认证的内部端口或K8s认证代理，必须验证instance/Pod UID/当前operation/token/批准目标指纹，外部8080明确拒绝内部控制路由；不能只靠端口隐藏或能猜到的Pod IP/operation UUID。
+
+K8s ServiceAccount属于Pod级，不是容器级：业务容器不自动挂载Job编排token/engine凭据，使用显式投射挂载仅给辅助容器所需身份；Job单独SA，维护角色/对象运维密钥只给执行器。辅助容器只读或任务受理权限沿用§11；恢复执行须原独占角色fence权限。同Pod是同一信任域，不宣称sidecar等同独立服务故障/安全隔离。
+
+### 13.3 引擎适配和停写证明
+
+为现有维护引擎抽出小的workload lifecycle适配，显式选择旧deployment_stop或新pod_sidecar；选择值属于部署端固定配置，不允许浏览器参数覆盖。保持数据流/对象验证/候选/控制锁逻辑，禁止处处散落if sidecar或整套复制Run/Stop/Switch。业务初始化与host能力协商增加版本，旧Pod未接协议时plan拒绝，不能混合缩0/停子进程。
+
+1. 持久登记operation、mode=draining和成员集合（Deployment UID、Pod UID、容器启动身份、host boot UUID、业务run UUID、generation）。冻结新业务启动许可，所有在途写入口/上传/后台任务纳入排空。现阶段仍拒绝未纳入协议的HPA/GitOps/Job/直写者，不扩成通用伸缩管理。
+2. Job逐Pod要求host排空并正常停止业务子进程。host必须实际wait进程退出，校验inflight为0、无遗留写者/上传任务，记录绑定本次operation/token及run UUID的证据到控制库后才确认。HTTP503、一个活跃计数0、PG事务0或心跳过期均不能单独当作停止证明；host/业务超时或SIGKILL/未知退出保持维护，不跳过。
+3. 对全部已登记成员核对证据，重读K8s成员列表处理新增/重启；新Pod的host在业务DB打开、迁移/seed前读取控制状态，不因自己刚启动就放行业务。未知旧run不能因Pod消失/重新Ready被忽略。再执行独占应用角色NOLOGIN、排空源/候选连接和在途维护SQL；确认之前不导出一致包/不切换。
+4. 不改变Deployment replicas，不删除业务Pod，不触发模板generation注解rollout，不使辅助容器因业务暂停而退出。多Pod管理HTTP均从控制库读作业/认证，任一请求可落到任一辅助容器，不依赖sticky session。
+
+Job的旧executor存活/终态检查和接续仍复用既有K8s证明；**业务run退出证据则新实现**，不能冒充整Pod终态。sidecar重启时host仍保持停止；host重启/Pod替换时控制状态默认阻止业务启动。旧run无法证明退出时允许网页查看明确阻塞，禁止自动解除维护或破坏性接管。新协议按Pod/run/operation精确归属且持久，不把旧任务的exit0复用为本轮证明。
+
+### 13.4 候选切换、配置和探针
+
+候选新库/新桶、当前admin权威、编号/epoch、对象完整性校验与原资源保留沿用。批准目标配置/指纹先持久，再更新受控配置Secret及host目标；Secret整目录挂载、不用subPath，不rollout整个Pod应用新配置。host等待**实际文件内容SHA匹配**后启动固定业务子进程，不能固定sleep假定Secret已刷新。也可由受认证控制通道提供已签定配置的安全引用，但不得把DSN传浏览器或无凭据写配置。
+
+辅助容器自身控制/认证配置独立于业务目标，不因业务配置换代被重启或误连候选业务库。候选业务启动为checking，拒绝普通业务写；辅助容器继续提供管理/静态/登录，内部检查真实子进程identity/generation、runtime/ZIP和全部成员就绪后才最终提交/open writes。中断后按持久阶段/实际hash/业务run对账，不重建当前计划。
+
+探针必须区分管理入口与业务可用性：两个容器的K8s liveness/readiness检测各自管理循环/IPC/入口能服务，不以有意暂停的业务child为失败；避免所有Pod从Service端点移除或业务child被自动拉起。管理健康成功不代表business_available=true，运行时业务路径暂停时仍明确503，无成功空数据。控制DB不可用时页面可达并报真实错误、业务写fail closed。整个Pod/节点不可用不承诺网页零中断，幸存Pod或重启后仍依据控制状态提供接续。
+
+abort在开放写前可恢复原配置并重启原业务child，generation不倒退，原库/桶不覆盖；最终开放写后拒绝自动退库。host自动崩溃重启业务仅允许控制active且当前批准generation，不与Job的draining/checking打架。修改配置/控制结果丢失等边界沿用先记意图、再副作用、再核对的规则。
+
+### 13.5 兼容、打包与实施顺序
+
+网页维持maintenance_web/v1及§11.5接口。新配置允许明确execution_mode=pod_sidecar（最终字段位置按现有config职责），默认旧模式，不把supported改true掩盖缺host/sidecar。capabilities只有全部运行条件确认后ready=true，缺协议/权限/成员证明用安全reason说明；前端无需用户理解sidecar/Job。保留SQLite和独立服务部署兼容。
+
+新增host/管理组合入口及同版构建产物、镜像/发行包脚本、同PodDeployment patch/Job/RBAC/Secret/探针模板；需要新构建，不修改已发布v5.1.1标签或digest。优先复用console初始化/HTTP注册库与gateway，不在同进程启动两个冲突的handler单例/全局SetService；若复用现有单例会串服务，应先在手写代码中明确隔离。遵守生成代码边界及engineering-quality-preserving-refactor，生命周期适配、host、IPC/认证、配置对账、HTTP视图各按职责拆分。
+
+实施依赖：host与内部协议→同Pod静态/登录＋临时Job空维护闭环→停写证明/候选启动适配→备份恢复/中断与回退→前端同合同检查与实际浏览器→同Pod正式接入patch和数据保全/回退交付。正常步骤自主连续进行，不额外审批每次构建；权限/安全关键偏差提供最小证据升级，不能偷偷换回独立常驻服务。
+
+### 13.6 最小验收和收尾
+
+专属新实验namespace、两业务Pod**每Pod仅原业务容器＋一个辅助容器**、一个原Service/入口；复用远程PG/MinIO/Redis服务的独占逻辑资源。不得把旧rb-web环境独立console/gateway继续顶在前面伪装新模式通过；旧测试资源/未完成清理另外登记，禁止挪用正式库/桶。
+
+必须实际证明：普通业务正常→网页备份/恢复时replicas始终2、Pod UID保持、业务child退出而helper仍存活、临时Job存在→两个Pod随机分流的同一URL刷新/新浏览器登录/状态查询持续正常→候选检查/最终恢复与原数据/资源/active/fixed/编号/缓存/账号核对。HTTP202、Pod Ready、进度100%均不能代替数据与业务恢复证据。
+
+历史故障测试候选（已按2026-11-01用户最新要求取消必测，不继续扩展）：长上传/停止超时、sidecar重启、新Pod维护态加入、host/run异常退出、Job杀进程接续/abort、Secret延迟、多helper并发等组合。相关保护仍是实现合同，但不默认以新增复杂试验作为本轮交付条件；已有结果可保留，未测如实记录。基础验收保留同Pod正常备份恢复、管理可达、当前账号/数据核对和直接受影响检查。
+
+完成后同PRD追加代码/协议/实际镜像与命令/资源规模/耗时、所有Pod/run证明与最终hash、浏览器记录、旧模式受影响回归、失败/未测与精确清理。前端只补契约有变化/受影响路径；后端维护共享实验窗口与归属，确认结束后统一清理，保留被审批拒绝的已登记残留，不绕过。不更改正式31880或发布新版本直到有具体可审阅交付和用户接入指令。
+
+派发状态：2026-11-01已通过send_message_to_thread续派给原虹桥研发（local / 01a1333a-342c-7903-8ca8-164b82392399），工具确认送达；无该新模式交付/验证结果。
+
+### 13.7 同Pod实施与共享交接登记（2026-11-01，进行中）
+
+本模式尚未交付验收，下面仅登记已实施和真实进度。新增 `pkg/businesshost`、`cmd/business-host`，固定server child＋UDS/HMAC内部命令；`cmd/maintenance-helper`组合复用抽出的 `pkg/maintenanceconsole` 与gateway。新增生命周期adapter显式选择deployment_stop/pod_sidecar，默认沿用旧模式；持久run在exec前登记，wait后的exit0与operation/token绑定；未知旧run保持阻塞。Job使用自己的SA，经K8s pods/proxy和HMAC到各Pod19090，再由辅助容器转UDS；对外8080拒绝内部路由。密钥只读Secret显式挂载，业务host没有K8s token，helper的投射token只挂helper；运行配置内容SHA匹配且control checking批准后才启动loopback18080 child，不scale0/rollout整个Pod切业务代次。内部协议版本pod-sidecar-v1；公开maintenance_web/v1保持。持久表、最小HOST角色/RLS及初始化正在真实验证，不能把代码编译通过当最终安全证明。
+
+独占新环境已建立：namespace `rb-sidecar-20261101-01`，UID `f24a9bae-cb83-4373-9047-7fba2c1eaf8a`，instance `7e09a8ec-e2e1-43bb-9bbf-074aac5e7bfb`，单入口 `http://10.60.226.43:31982/rainbow-bridge/`。只有lab-app一个业务Deployment，2副本，每Pod business＋management两个容器；rainbow-bridge一个NodePort Service。没有创建独立console/gateway Deployment或Service，没有新建Redis中间件；复用远程PG16、MinIO和现有Redis服务的独占库/角色/桶及实例缓存前缀。初始化夹具曾运行单容器业务Pod建独占schema/账号，认证迁移后已替换为同Pod拓扑；这不是用旧独立服务伪装最终模式。
+
+当前为固定旧基础镜像digest `55301c0c…1448b88`＋本轮ARM64候选程序的只读hostPath挂载，非发布镜像。候选根目录：`.local-qa/distributed-sidecar/run_20261101_sidecar01/`、远端0700 `/var/tmp/rb-maint-run_20261101_sidecar01`；归属state在任何资源创建前私下登记。准备日志prepare.log记录初始正式基线、资源归属、13配置/10PNG/3版本夹具及最终2/2拓扑。新增打包程序与模板仍在本地未提交，无新tag，无正式部署。后续必须补真实空维护/backup/restore、故障及浏览器证据后才能宣布ready；前端暂不依此进行破坏性操作，共享资源先保留。
+
+### 13.8 基础交付登记（按用户最新要求收紧验证范围）
+
+用户最新明确“不做过多测试、验证，只做最基础的情况”。本轮以代码构建、基本备份恢复及已有网页操作证据收口，不再扩展§13.6的完整危险边界矩阵，不能把未执行项写成通过。当前代码未提交/推送，未改v5.1.1标签或镜像，也没有正式停服/认证迁移。§12独立Deployment/Service路线不执行。
+
+已完成代码：`pkg/businesshost`（固定子进程、UDS/HMAC、实际Wait退出证明、控制状态与配置SHA校验、持久run/RLS），`cmd/business-host`，`cmd/maintenance-helper`；console注册复用到`pkg/maintenanceconsole`，单进程只注册一次handler，保留原独立console命令兼容；引擎`lifecycle.go`统一Stop/Start，显式deployment_stop与pod_sidecar模式，旧默认不变。新模式不scale/rollout业务Pod应用配置，使用受认证内部通道检查runtime/ZIP；固定Job仅增加host-auth引用。新增两个程序的发行包与镜像构建入口已补齐，尚未发版。
+
+| 基础验证 | 实际结果与证据（均为本次独占同Pod环境） |
+| --- | --- |
+| 编译/受影响检查 | `go build ./...`通过；businesshost、maintenance、maintenanceweb、gateway等受影响测试及新增包vet已通过；git diff --check通过。没有重跑全仓E2E或全部故障矩阵 |
+| HTTP备份 | backup.log：plan Job→backup Job成功，同request重放返回同task；备份7fd038d3-5204-4b7c-a17b-f51dee19a68d。子进程实际exit0后才继续，两个业务Pod保持 |
+| HTTP恢复与业务结果 | restore-retry.log：先改独占源配置/密码/版本、预热两Pod缓存并删两个独占对象，再新库新桶恢复成功；两个child停止且两个Pod仍存活时，fresh登录、maintenance scope、task及SPA深链接可用，业务POST503不清管理认证；旧普通会话401、结果Cookie仅任务200/列表401、当前密码可重登；两Pod active/fixed大整数、旧新ZIP CRC、编辑区12项、缓存对照键及自动v5通过 |
+| Pod身份保持 | 正常备份/恢复前后两Pod UID保持48678218-a3a9-4b21-9e13-9137ebd091d4、7c3caaed-8273-4645-8c41-d88e7235ca7f；没有通过缩0冒充同Pod模式 |
+| 真实浏览器 | browser-backup.log/result：登录→列表→核对方案→确认创建→完成→刷新通过；browser-resume/abort.log/result：对真实中断任务点击继续/取消恢复原服务、确认、完成及刷新通过。完整恢复数据检查来自上述真实HTTP链，本轮未声称新增了完整浏览器恢复交互矩阵 |
+| 中断后接续 | fenced前日志提交断点杀executor，操作持久保持draining，网页resume完成；配置已切换断点杀executor，网页abort恢复原服务完成。分别见prepare-restart.log/browser-resume.log、prepare-abort.log/browser-abort.log；不是把强杀业务child当正常退出 |
+| 已做的重启/新成员观察 | restart.log：业务已经停稳后重启host/helper，host新boot保持idle、不自动拉业务，管理继续提供任务；join.log：维护态新增第3个测试Pod保持idle无business run，再恢复2副本。该人为测试扩缩与维护引擎正常执行不改replicas须区分；不是生产操作，也不代表已覆盖所有分区/重启情况 |
+| 最终正常状态 | final-basic.log：仅lab-app Deployment、2副本/每Pod两容器，单Service31982；active_tasks=0、mode=active、epoch=4；2 available备份、0 pending；5独占PG库、9角色、9桶。当前保留给双方检查，不宣称清理完成 |
+| 正式保护 | 正式Deployment UID仍3b7ae5cc-8c73-45f8-a2b6-685ad083de5f/1副本/v5.1.1，Service UID仍17640c71-a7c2-40cc-b805-2239a136a715，原selector、31880和targetPort8080均未改变；本轮未对正式库桶/账号写入 |
+
+真实验证期间发现并修正/记录：Job通过pods/proxy发送POST生命周期请求还需create动词，已拆分为pods get/list/watch及pods/proxy get/create，未扩大为pods create。首次plan因缺此权限失败，补权限后成功；失败Job保留供核对。master与worker时钟相差约44秒，内部HMAC限30秒不放宽，执行Job与业务host同worker时间正常；master诊断专用脚本只按已测偏差签名，不能把它当正式时间同步。首轮源变更脚本漏带共享Redis密码导致中途退出，随后仅在独占控制账号执行受控重置、更新私有凭据并续做夹具；恢复验证使用修正后证据，不把首轮失败当通过。新run全实例查询改为显式授权的可信函数，防止RLS空结果误判为全部已停。
+
+测试入口仍为 `http://10.60.226.43:31982/rainbow-bridge/`；受限访问文件 `.local-qa/distributed-sidecar/run_20261101_sidecar01/frontend-access.private.json`，不打印密码。候选文件实测SHA：server `4b1b0b3d850a9c9218128d4d7d08326946051be671ce6d76fae584979523e352`；business-host `77df1d66c84b256b55932b621b1b082caff9f6be344ba1d0e0dc76b9289738e4`；maintenance-helper `be436f05a779d7872b0e8f6ea9df72cec0dadd2e0868d1b3daa192d41a2b9b33`；maintenance-backup `48375f1275f5c61292cb9d9740ee4770a96cc0b35a6eeac361a919e5b024fcbb`。这些是final-basic.log中隔离环境文件hash；此后本地补充健康命令、run运行观察更新及客户端方法整理通过构建，未为这些非主链补充重新部署/重跑整套验证，不混称现场二进制与最终源码完全同hash。
+
+正式接入交付：`deploy/kubernetes/maintenance-web/pod-sidecar.example.yaml`（保留原Deployment/Service/URL的可审阅patch）、`pod-sidecar.md`（新配置/权限/内部通道/保全和回退说明）。首次接入仍须受控停服及当前账号迁移；数据一致副本、原密码保留、唯一认证、旧会话撤销沿用§12，路由步骤改为同Pod8080承接，**不创建独立console/gateway Deployment或Service，不改正式Service**。要真正使用这两个新入口需将来同版候选镜像，不能用现v5.1.1直接套patch。模板未在正式应用。
+
+**未测且本轮不再追加**：真实长上传/业务停止超时、活跃child未知退出/host故障后的完整阻塞矩阵、Secret人为延迟注入、跨节点分区、同request多helper并发压力，以及§13.6其余组合。已有Secret正常传播等待和恢复不等于延迟故障注入；历史独立模式测试不冒充新模式通过。基础交付可审阅，不能声称§13全部故障验收完成或可直接无窗口上线。共享新旧环境、终态Job及测试私有文件暂保留，原已被自动审批拒绝的重复生成目录不清除、不绕过；统一清场需后续协调。

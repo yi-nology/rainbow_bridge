@@ -66,6 +66,9 @@ func checkRole(ctx context.Context, cfg Config, app *config.Config) error {
 }
 func BuildPlan(ctx context.Context, cfg Config, k *Kube, kind, backup string) (Plan, error) {
 	var p Plan
+	if _, e := k.lifecycle(cfg); e != nil {
+		return p, e
+	}
 	if err := cfg.Validate(); err != nil {
 		return p, err
 	}
@@ -110,6 +113,26 @@ func BuildPlan(ctx context.Context, cfg Config, k *Kube, kind, backup string) (P
 	db, _ := pgx.ParseConfig(app.Database.Postgres.DSN)
 	p = Plan{InstanceID: cfg.InstanceID, Kind: kind, Active: identity, Workloads: workloads, ConfigUID: cfg.ConfigSecretUID, ConfigHash: digest(raw), Database: db.Database, OriginalBucket: app.Storage.Minio.Bucket, SnapshotBucket: app.ReleaseStorage.Bucket, BackupBucket: cfg.BackupBucket, BackupID: backup}
 	p.Namespace = cfg.Namespace
+	p.ExecutionMode = cfg.ExecutionMode
+	if cfg.ExecutionMode == "pod_sidecar" {
+		pods, _, e := k.matchingPods(ctx, workloads)
+		if e != nil {
+			return p, e
+		}
+		probe := &Lease{cfg: cfg}
+		for _, pod := range pods {
+			state, e := (sidecarLifecycle{k}).command(ctx, probe, pod, "status")
+			if e != nil {
+				return p, errors.New("同Pod内部认证通道或host协议不可用")
+			}
+			if state.State != "running" {
+				return p, errors.New("业务child当前未运行")
+			}
+			if state.ConfigSHA != p.ConfigHash {
+				return p, errors.New("实际业务配置SHA与配置Secret不一致")
+			}
+		}
+	}
 	p.ConfigSecret = cfg.ConfigSecret
 	p.CandidatePattern = "new database rb_restore_<UUID>; new buckets rb-r-<instance UUID>-<attempt>-{o,s}"
 	if kind == "restore" {

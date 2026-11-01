@@ -104,7 +104,7 @@ func (k *Kube) waitPods(ctx context.Context, l *Lease, app *config.Config, check
 		for _, p := range pods {
 			uid := value(metadata(p), "uid")
 			_ = uid
-			path := k.path("pods", value(metadata(p), "name")+":8080") + "/proxy" + app.Server.BasePath + "/ping"
+			path := k.businessPath(p, app.Server.BasePath+"/ping")
 			res, e := k.request(ctx, "GET", path, nil)
 			if e != nil {
 				all = false
@@ -200,10 +200,12 @@ func Switch(ctx context.Context, l *Lease, k *Kube, source *config.Config, oldRa
 	if err = fence(ctx, l, source, true); err != nil {
 		return err
 	}
-	for _, w := range l.Op.Data.Plan.Workloads {
-		if err = k.scale(ctx, l, w, w.Replicas, l.Op.Data.Target.Generation); err != nil {
-			return err
-		}
+	lifecycle, e := k.lifecycle(l.cfg)
+	if e != nil {
+		return e
+	}
+	if err = lifecycle.Start(ctx, l); err != nil {
+		return err
 	}
 	if err = l.Save(ctx, "starting"); err != nil {
 		return err
@@ -247,7 +249,7 @@ func checkRuntime(ctx context.Context, l *Lease, k *Kube, app *config.Config) er
 			return err
 		}
 		for _, p := range pods {
-			path := k.path("pods", value(metadata(p), "name")+":8080") + "/proxy" + app.Server.BasePath + "/api/v1/runtime/release?environment_key=" + url.QueryEscape(env) + "&pipeline_key=" + url.QueryEscape(pipe)
+			path := k.businessPath(p, app.Server.BasePath+"/api/v1/runtime/release?environment_key="+url.QueryEscape(env)+"&pipeline_key="+url.QueryEscape(pipe))
 			res, e := k.requestHeaders(ctx, "GET", path, nil, map[string]string{"x-environment": env, "x-pipeline": pipe})
 			if e != nil {
 				return errors.New("候选 runtime 读取失败")
@@ -263,10 +265,9 @@ func checkRuntime(ctx context.Context, l *Lease, k *Kube, app *config.Config) er
 			if e != nil || len(body) > model.ReleaseMaxPayloadByte || json.Unmarshal(body, &view) != nil || (view.Code != 200 && view.Code != 0) || view.Data.Snapshot != snapshot {
 				return fmt.Errorf("候选 runtime 未指向批准快照")
 			}
-			base := k.path("pods", value(metadata(p), "name")+":8080") + "/proxy" + app.Server.BasePath + "/api/v1/"
 			headers := map[string]string{"x-environment": env, "x-pipeline": pipe}
 			for _, endpoint := range []string{"runtime/static?environment_key=" + url.QueryEscape(env) + "&pipeline_key=" + url.QueryEscape(pipe), "runtime/release/static?environment_key=" + url.QueryEscape(env) + "&pipeline_key=" + url.QueryEscape(pipe) + "&scope_id=" + scope + "&version=" + url.QueryEscape(version) + "&expected_snapshot_id=" + snapshot} {
-				if e = k.checkZIP(ctx, base+endpoint, headers, assets); e != nil {
+				if e = k.checkZIP(ctx, k.businessPath(p, app.Server.BasePath+"/api/v1/"+endpoint), headers, assets); e != nil {
 					return e
 				}
 			}

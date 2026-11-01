@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/yi-nology/rainbow_bridge/pkg/businesshost"
 	"github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/maintcontrol"
 	"gopkg.in/yaml.v3"
@@ -23,6 +24,8 @@ type Workload struct {
 	Selector     map[string]string `yaml:"-"`
 }
 type Config struct {
+	ExecutionMode      string             `yaml:"execution_mode"`
+	HostKeyFile        string             `yaml:"host_key_file"`
 	AuthReadDSN        string             `yaml:"auth_read_dsn"`
 	Minio              config.MinioConfig `yaml:"minio"`
 	NoUnmanagedWriters bool               `yaml:"no_unmanaged_writers"`
@@ -59,6 +62,12 @@ func LoadConfig(path string) (Config, error) {
 	return c, nil
 }
 func (c *Config) Validate() error {
+	if c.ExecutionMode != "" && c.ExecutionMode != "deployment_stop" && c.ExecutionMode != "pod_sidecar" {
+		return errors.New("未知生命周期模式")
+	}
+	if c.ExecutionMode == "pod_sidecar" && c.HostKeyFile == "" {
+		return errors.New("同Pod模式缺少内部通道凭据引用")
+	}
 	if c.Minio.Endpoint == "" || c.Minio.AccessKey == "" || c.Minio.SecretKey == "" {
 		return errors.New("必须提供仅保存在运维配置中的独立对象存储凭据")
 	}
@@ -101,6 +110,7 @@ func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(
 func hashJSON(v any) string  { b, _ := json.Marshal(v); return digest(b) }
 
 type Plan struct {
+	ExecutionMode                                          string
 	Namespace, ConfigSecret                                string
 	TableRows                                              map[string]int64
 	ObjectCount                                            int
@@ -127,6 +137,7 @@ type Operation struct {
 	Data                       OperationData
 }
 type OperationData struct {
+	SidecarMembers                                     map[string]businesshost.Status
 	Progress                                           Progress
 	AllowedConfigHashes                                []string
 	PhaseTimes                                         map[string]time.Time

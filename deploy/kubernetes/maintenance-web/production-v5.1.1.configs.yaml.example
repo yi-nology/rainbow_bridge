@@ -1,0 +1,67 @@
+# REVIEW TEMPLATE ONLY. Not an apply-ready Secret bundle.
+# Fill in private files on the deployment host; never commit/render real credentials.
+# This first document is a MERGE FRAGMENT of the current complete application config.
+# Keep existing database/storage/release_storage/redis/server values and current admin.
+backup:
+  distributed:
+    enabled: true
+    web_enabled: true
+    instance_id: REPLACE_NEW_PRODUCTION_UUID
+    control_dsn: REPLACE_PRIVATE_GUARD_DSN
+    auth_dsn: REPLACE_PRIVATE_AUTH_DSN
+    generation: 1
+    session_generation: 1
+---
+# console-config/console.yaml; independent control/auth connections only.
+instance_id: REPLACE_NEW_PRODUCTION_UUID
+database_dsn: REPLACE_PRIVATE_CONSOLE_DSN
+namespace: rainbow-bridge
+target_label: 虹桥正式实例
+address: ':8081'
+executor_secret: operator-config
+worker_secret: web-worker-config
+executor_service_account: maintenance-executor
+executor_image: ghcr.io/yi-nology/rainbow_bridge-app@sha256:412bc877b0f04dcbe860b55e73de83fb02f89dd6f18ac70306e814f2343cbd04
+executor_command: /app/maintenance-backup
+application:
+  server: {address: ':8081', base_path: /rainbow-bridge}
+  auth:
+    cookie_name: REPLACE_WITH_EXISTING_COOKIE_NAME
+    cookie_secure: false
+    allow_insecure_remote: true
+    idle_timeout: 2h
+    absolute_timeout: 8h
+    trusted_origins: ['http://10.60.226.43:31880']
+  backup:
+    distributed:
+      enabled: true
+      web_enabled: true
+      instance_id: REPLACE_NEW_PRODUCTION_UUID
+      auth_dsn: REPLACE_PRIVATE_AUTH_DSN
+---
+# web-worker-config/worker.yaml: same instance/template/application fields as console.
+# Copy document 2, replace database_dsn with WORKER DSN and auth_dsn with literal
+# not-mounted-in-worker. No AUTH or business password in this Secret.
+# operator-config/maintenance.yaml:
+instance_id: REPLACE_NEW_PRODUCTION_UUID
+control_dsn: REPLACE_PRIVATE_OPERATOR_CONTROL_DSN
+admin_dsn: REPLACE_PRIVATE_OPERATOR_POSTGRES_DSN
+auth_read_dsn: REPLACE_PRIVATE_AUTH_READER_DSN
+application_role: rainbow_bridge
+namespace: rainbow-bridge
+config_secret: rainbow-bridge-app-config
+config_secret_uid: REPLACE_ACTUAL_NEW_SECRET_UID
+workloads:
+  - name: rainbow-bridge-app
+    uid: 3b7ae5cc-8c73-45f8-a2b6-685ad083de5f
+no_unmanaged_writers: true
+backup_bucket: rbp-backups
+minio:
+  endpoint: '10.60.226.47:9000'
+  access_key: REPLACE_PRIVATE_OPERATOR_KEY
+  secret_key: REPLACE_PRIVATE_OPERATOR_SECRET
+  use_ssl: false
+  region: REPLACE_WITH_EXISTING_REGION
+stop_timeout: 5m
+stream_timeout: 30m
+start_timeout: 5m

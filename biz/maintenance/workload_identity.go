@@ -34,7 +34,7 @@ func (k *Kube) verifyServingProtocol(ctx context.Context, app *config.Config, wo
 		return errors.New("计划时实际 Pod 数与 allowlist 副本数不一致")
 	}
 	for _, p := range pods {
-		path := k.path("pods", value(metadata(p), "name")+":8080") + "/proxy" + app.Server.BasePath + "/ping"
+		path := k.businessPath(p, app.Server.BasePath+"/ping")
 		r, err := k.request(ctx, "GET", path, nil)
 		if err != nil {
 			return errors.New("Pod 未证明已接入控制协议")

@@ -1,0 +1,85 @@
+# Strategic merge PATCH for the recorded production Deployment, NOT a new Deployment.
+# Candidate image required: v5.1.1 does NOT contain these two new entrypoints.
+# Review kubectl diff/server dry-run and record current UID/spec before applying.
+# Full private app config, independent console config and control initialization
+# must exist first. Read PRD section 13; no automatic auth migration in this patch.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rainbow-bridge-app
+  namespace: rainbow-bridge
+spec:
+  # Preserve the existing replica count. No replicas change for maintenance.
+  template:
+    spec:
+      serviceAccountName: maintenance-console
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001}
+      containers:
+        - name: app
+          image: REPLACE_SAME_CANDIDATE_IMAGE_AT_SHA256_DIGEST
+          command: [/app/business-host]
+          args: [--config, /app-config/config.yaml]
+          ports: null
+          env:
+            - name: RB_INSTANCE_ID
+              value: REPLACE_NEW_PRODUCTION_UUID
+            - name: RB_POD_UID
+              valueFrom: {fieldRef: {fieldPath: metadata.uid}}
+            - name: RB_HOST_CONTROL_DSN
+              valueFrom: {secretKeyRef: {name: host-config, key: dsn}}
+          # Replace old HTTP child probes; intentional child stop is healthy.
+          livenessProbe:
+            $patch: replace
+            exec: {command: [/app/business-host, --health]}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          readinessProbe:
+            $patch: replace
+            exec: {command: [/app/business-host, --health]}
+            periodSeconds: 3
+            timeoutSeconds: 3
+          volumeMounts:
+            - $patch: replace
+            - {name: app-config, mountPath: /app-config, readOnly: true}
+            - {name: host-auth, mountPath: /host-auth, readOnly: true}
+            - {name: ipc, mountPath: /ipc}
+            - {name: host-runtime, mountPath: /host-runtime}
+        - name: management
+          image: REPLACE_SAME_CANDIDATE_IMAGE_AT_SHA256_DIGEST
+          command: [/app/maintenance-helper]
+          args: [--config, /console/console.yaml]
+          env:
+            - name: RB_POD_UID
+              valueFrom: {fieldRef: {fieldPath: metadata.uid}}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe: {httpGet: {path: /helper-health, port: 8080}, periodSeconds: 3}
+          livenessProbe: {httpGet: {path: /helper-health, port: 8080}, periodSeconds: 5}
+          resources: {requests: {cpu: 100m, memory: 128Mi}, limits: {cpu: '1', memory: 512Mi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: console, mountPath: /console, readOnly: true}
+            - {name: host-auth, mountPath: /host-auth, readOnly: true}
+            - {name: ipc, mountPath: /ipc}
+            - {name: helper-api, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
+      volumes:
+        - name: config
+          $patch: delete
+        - {name: app-config, secret: {secretName: rainbow-bridge-app-config, defaultMode: 0440}}
+        - {name: console, secret: {secretName: console-config, defaultMode: 0440}}
+        - {name: host-auth, secret: {secretName: host-auth, defaultMode: 0440}}
+        - {name: ipc, emptyDir: {}}
+        - {name: host-runtime, emptyDir: {}}
+        - name: helper-api
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken: {path: token, expirationSeconds: 3600}
+              - configMap:
+                  name: kube-root-ca.crt
+                  items: [{key: ca.crt, path: ca.crt}]
+              - downwardAPI:
+                  items: [{path: namespace, fieldRef: {fieldPath: metadata.namespace}}]
+# Existing Service selector/port/targetPort8080/NodePort31880 stay unchanged.
+# Do not apply console.example.yaml's independent Deployments/Services here.

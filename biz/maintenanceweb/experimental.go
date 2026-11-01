@@ -19,5 +19,5 @@ func (s *Store) withArtifacts(job map[string]any) map[string]any {
 	return job
 }
 func (c Config) validArtifacts() bool {
-	return c.ArtifactDir == "" || (strings.HasPrefix(c.Namespace, "rb-web-") && strings.HasPrefix(c.ArtifactDir, "/var/tmp/rb-maint-") && path.Clean(c.ArtifactDir) == c.ArtifactDir && c.NodeName != "")
+	return c.ArtifactDir == "" || ((strings.HasPrefix(c.Namespace, "rb-web-") || strings.HasPrefix(c.Namespace, "rb-sidecar-")) && strings.HasPrefix(c.ArtifactDir, "/var/tmp/rb-maint-") && path.Clean(c.ArtifactDir) == c.ArtifactDir && c.NodeName != "")
 }

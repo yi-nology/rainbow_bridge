@@ -7,8 +7,11 @@ kind: Role
 metadata: {name: maintenance-executor, namespace: REPLACE_NAMESPACE}
 rules:
   - apiGroups: ['']
-    resources: [pods, pods/proxy]
+    resources: [pods]
     verbs: [get, list, watch]
+  - apiGroups: ['']
+    resources: [pods/proxy]
+    verbs: [get, create]
   - apiGroups: ['']
     resources: [secrets]
     verbs: [get, create, update]

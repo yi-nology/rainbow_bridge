@@ -11,6 +11,8 @@ import (
 
 // Console credentials can manage only HTTP tables and fixed Jobs, never workload fencing.
 type Config struct {
+	ExecutionMode          string                 `yaml:"execution_mode"`
+	HostSecret             string                 `yaml:"host_secret"`
 	ArtifactDir            string                 `yaml:"experimental_artifact_dir"`
 	NodeName               string                 `yaml:"experimental_node_name"`
 	InstanceID             string                 `yaml:"instance_id"`
@@ -39,6 +41,12 @@ func LoadConfig(path string) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
+	if c.ExecutionMode != "" && c.ExecutionMode != "deployment_stop" && c.ExecutionMode != "pod_sidecar" {
+		return errors.New("未知维护执行模式")
+	}
+	if c.ExecutionMode == "pod_sidecar" && c.HostSecret == "" {
+		return errors.New("同Pod模式缺少内部通道Secret引用")
+	}
 	if !c.validArtifacts() {
 		return errors.New("候选产物挂载仅允许本轮独占实验目录")
 	}

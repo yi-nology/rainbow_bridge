@@ -588,3 +588,21 @@ abort在开放写前可恢复原配置并重启原业务child，generation不倒
 正式接入交付：`deploy/kubernetes/maintenance-web/pod-sidecar.example.yaml`（保留原Deployment/Service/URL的可审阅patch）、`pod-sidecar.md`（新配置/权限/内部通道/保全和回退说明）。首次接入仍须受控停服及当前账号迁移；数据一致副本、原密码保留、唯一认证、旧会话撤销沿用§12，路由步骤改为同Pod8080承接，**不创建独立console/gateway Deployment或Service，不改正式Service**。要真正使用这两个新入口需将来同版候选镜像，不能用现v5.1.1直接套patch。模板未在正式应用。
 
 **未测且本轮不再追加**：真实长上传/业务停止超时、活跃child未知退出/host故障后的完整阻塞矩阵、Secret人为延迟注入、跨节点分区、同request多helper并发压力，以及§13.6其余组合。已有Secret正常传播等待和恢复不等于延迟故障注入；历史独立模式测试不冒充新模式通过。基础交付可审阅，不能声称§13全部故障验收完成或可直接无窗口上线。共享新旧环境、终态Job及测试私有文件暂保留，原已被自动审批拒绝的重复生成目录不清除、不绕过；统一清场需后续协调。
+
+### 13.9 v5.1.2发布与正式同Pod接入（2026-11-01，已执行）
+
+用户明确授权“推送代码。打包5.1.2镜像。在k8s部署新的服务”，本节更新此前尚未推送/未正式部署状态。功能代码已提交 `dd62e2dd5583c94505a7568eee7e430bdb8c9846` 并推送上游main；附注tag v5.1.2指向该提交，没有移动旧tag。Release流水线 `https://github.com/yi-nology/rainbow_bridge/actions/runs/41288978357` 全部成功，五平台应用包、前端包、说明及校验和已发布。镜像 `ghcr.io/yi-nology/rainbow_bridge-app:v5.1.2` 的OCI index digest为 `sha256:5dead4d48b2a8081df2331ce7b363dd9f7f6f5a2fdbf4462edc582f552bc3b24`，含linux/amd64、linux/arm64；正式两个容器及固定任务模板均使用此digest，不使用/lab候选或测试hostPath。
+
+正式接入结果：保留namespace rainbow-bridge、Deployment rainbow-bridge-app UID `3b7ae5cc-8c73-45f8-a2b6-685ad083de5f`、原副本数1；新Pod UID `7655d596-34d3-4d2f-8894-bd4e91bba677`，app运行business-host、management运行maintenance-helper，两个容器Ready且restartCount均0。Service rainbow-bridge UID `17640c71-a7c2-40cc-b805-2239a136a715`、selector app=rainbow-bridge-app、targetPort8080、NodePort31880保持，没有新增独立console/gateway Deployment或Service。访问地址仍为 `http://10.60.226.43:31880/rainbow-bridge/`。
+
+正式新instance `4f9bbe43-1633-4908-b951-8e350c04b405`；使用现有PG16/MinIO/Redis服务，新增专用控制库rbp512_control、9个角色（operator/guard/auth_owner/auth/console/worker/auth_reader/host/auth_source），以及rbp512-backups与rbp512-preserve两个私有桶和两套独立IAM。原rainbow_bridge库、rainbow-bridge原始桶、rainbow-bridge-snapshots快照桶保留。业务角色在确认连接清零后临时NOLOGIN，初始化结束已恢复LOGIN；auth_owner和auth_source临时角色已NOLOGIN。inspect日志中的fenced=true表示本轮曾完成fence的检查点，不代表当前角色仍禁止登录；当前mode=active、active_tasks=0。
+
+先完成镜像拉取及所需程序存在性检查，再停原业务并保全一致副本：PG16 custom dump及schema、5项对象/版本（382831字节）复制到独占保全桶并回读SHA核对；没有覆盖原库桶。现有账号经显式maintenance-auth-init-v512单次Job迁入控制权威，完整账号属性、密码hash及时间字段与停服前指纹一致，没有重置密码。业务数据表与一致副本核对：除environment/pipeline的updated_at外内容一致；这两表与dump逐字段对照，39条environment、61条pipeline仅updated_at被既有启动迁移更新，身份/内容无变化，不宣称整库字节完全未变。该历史迁移行为没有在本次发版临时扩修。
+
+基础验收仅做：镜像与组件启动、实际管理员登录、备份页展示、maintenance_web/v1 supported/ready=true、只读备份plan Job成功、方案页显示后离开未确认、最终无活动任务。plan task `a2fd461e-aa88-4ea0-9f42-fb85da7b1327`。真实浏览器截图production-backups.png、production-backup-plan.png与browser-result.json在 `.local-qa/deploy-v5.1.2/`。空列表按钮实际文案为“创建第一份备份”，方案为任务页内确认区，没有取消按钮；脚本修正为离开方案页，不点击确认，不将首轮定位错误当功能失败。**本次未在正式触发全量backup/restore、改业务内容或做故障测试**；新模式备份/恢复主链沿用§13.8隔离证据。
+
+部署辅助程序曾在master使用集群内短DNS连接控制库失败，已修正为部署主机可达的PG Service IP后从已保全检查点继续；没有重建或覆盖业务库。账号初始化、应用启动与后续基础核对均成功。正式部署记录的stage=complete，原入口已提供新功能。
+
+配置和回退材料仅在远端0700 `/root/rainbow-backups/deploy-v512-20261101`，文件0600；包含原Deployment/Service/ConfigMap、原配置、一致dump/对象清单、角色归属、实际patch、部署检查点和受控回退辅助程序。含凭据的配置/完整错误详情不入Git、不打印。后端部署证据本地 `.local-qa/deploy-v5.1.2/{provision,iam,configure,cutover,continue,finish,browser-plan,final}.log`；正式只读plan的终态Job保留供核对，初始化Job/Secret引用与旧实验资源未盲删，不声称零残留。
+
+恢复旧部署须停全部相关进程，使用控制库当前账号单向导回并撤销会话、核对Service/Deployment归属后恢复原spec；不能直接rollout undo复活旧密码。已开放新写后不恢复接入前整库副本覆盖新数据。此次没有执行回退，原数据保全材料继续保留。按用户长期要求不再追加复杂故障矩阵。

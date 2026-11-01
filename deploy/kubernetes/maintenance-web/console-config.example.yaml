@@ -1,0 +1,29 @@
+instance_id: REPLACE_FIXED_UUID
+database_dsn: postgres://CONSOLE:SECRET@PG:5432/CONTROL
+namespace: REPLACE_NAMESPACE
+target_label: 虹桥实例
+address: ':8081'
+executor_secret: operator-config
+worker_secret: web-worker-config
+executor_service_account: maintenance-executor
+executor_image: REPLACE_IMAGE_AT_SHA256_DIGEST
+executor_command: /app/maintenance-backup
+application:
+  server: {address: ':8081', base_path: /rainbow-bridge}
+  auth:
+    cookie_name: rb_admin_session
+    cookie_secure: true
+    idle_timeout: 2h
+    absolute_timeout: 8h
+    trusted_origins: ['https://REPLACE_HOST']
+  backup:
+    distributed:
+      enabled: true
+      web_enabled: true
+      instance_id: REPLACE_FIXED_UUID
+      auth_dsn: postgres://AUTH:SECRET@PG:5432/CONTROL
+# web-worker-config/worker.yaml uses the same fixed template fields, but its
+# database_dsn is the task-only WORKER identity. It must not contain AUTH credentials.
+# application.backup.distributed.auth_dsn may be a nonsecret placeholder for worker validation.
+# operator-config/maintenance.yaml contains the CLI config documented in docs/operations,
+# plus auth_read_dsn with SELECT-only current auth_users/rb_auth_authority privileges.

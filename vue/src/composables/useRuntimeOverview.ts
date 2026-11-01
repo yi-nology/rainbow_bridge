@@ -2,7 +2,7 @@ import { onUnmounted, reactive, ref } from 'vue'
 import { runtimeApi } from '@/lib/api/runtime'
 import { fromApiEnvironmentOverview } from '@/lib/api/transformers'
 import type { Environment } from '@/lib/types'
-import { toast } from 'vue-sonner'
+import { toast } from '@/lib/notifications'
 import { registerScopes } from '@/lib/scope'
 
 /** Public home data must not be cleared by management-session invalidation. */

@@ -13,7 +13,7 @@ import {
 } from '@/lib/api/transformers'
 import type { Environment, Pipeline } from '@/lib/types'
 import type { ApiEnvironment } from '@/lib/api/types'
-import { toast } from 'vue-sonner'
+import { toast } from '@/lib/notifications'
 import { registerScopes, assertEnvironment, assertScope } from '@/lib/scope'
 
 export const useEnvironmentStore = defineStore('environment', () => {

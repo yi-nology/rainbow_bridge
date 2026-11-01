@@ -74,7 +74,10 @@ func requireAdminIdentity(ctx context.Context) (AdminIdentity, error) {
 // EnsureAuthBootstrap 在启动时初始化管理员账号:
 // 账号表为空时必须提供合法首次密码,否则失败退出;已有账号则不因环境变量变化覆盖。
 func (s *Service) EnsureAuthBootstrap(ctx context.Context) error {
-	count, err := s.logic.authDAO.CountUsers(ctx, s.logic.db)
+	if s.config != nil && s.config.Backup.Distributed.WebEnabled {
+		return s.authRepositoryReady(ctx)
+	}
+	count, err := s.logic.authDAO.CountUsers(ctx, s.authenticationDB())
 	if err != nil {
 		return fmt.Errorf("auth bootstrap: count users: %w", err)
 	}
@@ -100,7 +103,7 @@ func (s *Service) EnsureAuthBootstrap(ctx context.Context) error {
 		return fmt.Errorf("auth bootstrap: hash password: %w", err)
 	}
 	user := &model.AuthUser{Username: username, PasswordHash: hash, Role: model.AuthRoleAdmin}
-	created, isNew, err := s.logic.authDAO.CreateUserIfEmpty(ctx, s.logic.db, user)
+	created, isNew, err := s.logic.authDAO.CreateUserIfEmpty(ctx, s.authenticationDB(), user)
 	if err != nil {
 		return fmt.Errorf("auth bootstrap: create admin: %w", err)
 	}
@@ -118,17 +121,20 @@ func (s *Service) EnsureAuthBootstrap(ctx context.Context) error {
 
 // ResetAdminPassword 是恢复命令用的路径:只重置既有管理员,递增凭据版本并撤销全部会话。
 func (s *Service) ResetAdminPassword(ctx context.Context, newPassword string) (string, error) {
+	if err := s.authRepositoryReady(ctx); err != nil {
+		return "", err
+	}
 	if !IsValidAuthPassword(newPassword) {
 		return "", errAuthPasswordInvalid
 	}
-	count, err := s.logic.authDAO.CountUsers(ctx, s.logic.db)
+	count, err := s.logic.authDAO.CountUsers(ctx, s.authenticationDB())
 	if err != nil {
 		return "", err
 	}
 	if count == 0 {
 		return "", errors.New("no admin account exists; start the service once with a valid initial password instead")
 	}
-	user, err := s.logic.authDAO.GetUserByUsername(ctx, s.logic.db, s.adminUsernameForReset(ctx))
+	user, err := s.logic.authDAO.GetUserByUsername(ctx, s.authenticationDB(), s.adminUsernameForReset(ctx))
 	if err != nil {
 		return "", err
 	}
@@ -137,7 +143,7 @@ func (s *Service) ResetAdminPassword(ctx context.Context, newPassword string) (s
 		return "", err
 	}
 	now := time.Now().UTC()
-	err = s.logic.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.authenticationDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		updated, err := s.logic.authDAO.UpdatePasswordIfVersion(ctx, tx, user.ID, user.CredentialVersion, hash, now)
 		if err != nil {
 			return err
@@ -163,7 +169,7 @@ func (s *Service) adminUsernameForReset(ctx context.Context) string {
 		return username
 	}
 	var user model.AuthUser
-	if err := s.logic.db.WithContext(ctx).Order("id ASC").First(&user).Error; err == nil {
+	if err := s.authenticationDB().WithContext(ctx).Order("id ASC").First(&user).Error; err == nil {
 		return user.Username
 	}
 	return defaultAdminUsername
@@ -171,7 +177,7 @@ func (s *Service) adminUsernameForReset(ctx context.Context) string {
 
 // adminAccountAvailable 表示是否存在可用管理员账号(不读取旧管理密钥)。
 func (s *Service) adminAccountAvailable(ctx context.Context) bool {
-	count, err := s.logic.authDAO.CountUsers(ctx, s.logic.db)
+	count, err := s.logic.authDAO.CountUsers(ctx, s.authenticationDB())
 	return err == nil && count > 0
 }
 

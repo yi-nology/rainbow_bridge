@@ -39,14 +39,14 @@ for (const conflict of [
   expect(mock.count('backup/restore/execute')).toBe(1)
 })
 
-test('不支持部署保留原因和说明，禁用备份恢复且不请求不可用接口', async ({ page }) => {
+test('不支持部署保留网页模式原因和说明，不展示备份恢复且不请求不可用接口', async ({ page }) => {
   const { state, mock } = await backupFixture(page)
   state.supported = false
   await page.goto('backups')
-  await expect(page.getByText('当前数据库不受支持，第一版仅支持 SQLite 文件库。', { exact: true })).toBeVisible()
-  await expect(page.getByText('资源需使用本地存储。', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: '创建备份', exact: true })).toBeDisabled()
-  await expect(page.getByLabel('业务备份包', { exact: true })).toBeDisabled()
+  await expect(page.getByText('网页本地备份模式仅支持 SQLite 文件库。', { exact: true })).toBeVisible()
+  await expect(page.getByText('网页本地备份模式要求资源使用本地存储。', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '创建备份', exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('业务备份包', { exact: true })).toHaveCount(0)
   expect(mock.count('backup/list')).toBe(0)
   expect(mock.count('backup/create')).toBe(0)
 })

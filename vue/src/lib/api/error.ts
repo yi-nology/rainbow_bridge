@@ -1,4 +1,4 @@
-import { toast } from 'vue-sonner'
+import { toast } from '@/lib/notifications'
 
 export enum ErrorType {
   NETWORK = 'network',

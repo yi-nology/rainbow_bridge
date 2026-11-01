@@ -87,6 +87,7 @@ func run() error {
 		defer db.Rollback()
 	}
 	s := service.NewService(db, nil, cfg.Server.BasePath, cfg)
+	defer s.CloseDistributedControl()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	identity, err := s.StorageInstanceConfirmation(ctx)

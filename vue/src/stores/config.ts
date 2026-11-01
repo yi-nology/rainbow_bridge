@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { configApi, type ListConfigParams } from '@/lib/api/config'
 import { fromApiConfig, toApiConfig } from '@/lib/api/transformers'
 import type { ConfigItem, ConfigType } from '@/lib/types'
-import { toast } from 'vue-sonner'
+import { toast } from '@/lib/notifications'
 import { scopeIdFor, assertScope } from '@/lib/scope'
 
 export const useConfigStore = defineStore('config', () => {

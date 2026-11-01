@@ -30,9 +30,10 @@ type Config struct {
 // The feature stays disabled unless explicitly enabled; control_dir is an
 // absolute path outside the replaceable <cwd>/data business root.
 type BackupConfig struct {
-	Enabled           bool   `yaml:"enabled"`
-	ControlDir        string `yaml:"control_dir"`
-	RollbackKeepCount int    `yaml:"rollback_keep_count"` // default 3, allowed 1-20
+	Distributed       DistributedBackupConfig `yaml:"distributed"`
+	Enabled           bool                    `yaml:"enabled"`
+	ControlDir        string                  `yaml:"control_dir"`
+	RollbackKeepCount int                     `yaml:"rollback_keep_count"` // default 3, allowed 1-20
 }
 
 const (
@@ -89,10 +90,12 @@ type MinioConfig struct {
 
 // RedisConfig defines Redis connection settings for distributed locking.
 type RedisConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	Address  string `yaml:"address"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
+	// Namespace is derived from the independent maintenance generation, never restored data.
+	Namespace string `yaml:"-"`
+	Enabled   bool   `yaml:"enabled"`
+	Address   string `yaml:"address"`
+	Password  string `yaml:"password"`
+	DB        int    `yaml:"db"`
 }
 
 // AuthConfig defines admin login session settings.

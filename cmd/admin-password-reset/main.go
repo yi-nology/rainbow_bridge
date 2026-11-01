@@ -13,6 +13,7 @@ import (
 	"github.com/yi-nology/rainbow_bridge/biz/service"
 	"github.com/yi-nology/rainbow_bridge/pkg/config"
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
+	"github.com/yi-nology/rainbow_bridge/pkg/maintcontrol"
 )
 
 func main() {
@@ -28,15 +29,25 @@ func main() {
 		log.Fatalf("请通过环境变量 %s 提供新密码(不放在命令行参数里)", service.AdminResetPasswordEnv)
 	}
 
+	guard, err := maintcontrol.New(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer guard.Close()
+	if _, err = guard.Check(context.Background(), false); err != nil {
+		log.Fatal(err)
+	}
 	db, err := database.Open(cfg.Database)
 	if err != nil {
 		log.Fatalf("打开数据库失败: %v", err)
 	}
+	// Startup DDL is permitted only after the same active-generation check.
+	svc := service.NewService(db, nil, cfg.Server.BasePath, cfg)
+	defer svc.CloseDistributedControl()
 	if err := db.AutoMigrate(&model.AuthUser{}, &model.AuthSession{}); err != nil {
 		log.Fatalf("迁移认证表失败: %v", err)
 	}
 
-	svc := service.NewService(db, nil, cfg.Server.BasePath, cfg)
 	username, err := svc.ResetAdminPassword(context.Background(), newPassword)
 	if err != nil {
 		// 失败原因里不含密码

@@ -1,0 +1,90 @@
+# Render placeholders before applying. This file never changes the existing production Service.
+# Secrets console-config, web-worker-config and operator-config must already exist.
+# All images must contain the same candidate app, console, gateway and executor binaries/static build.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: maintenance-console, namespace: REPLACE_NAMESPACE}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: maintenance-console, namespace: REPLACE_NAMESPACE}
+rules:
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, create]
+  - apiGroups: ['']
+    resources: [pods]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: maintenance-console, namespace: REPLACE_NAMESPACE}
+subjects:
+  - {kind: ServiceAccount, name: maintenance-console, namespace: REPLACE_NAMESPACE}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: maintenance-console}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: maintenance-console, namespace: REPLACE_NAMESPACE}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: maintenance-console}}
+  template:
+    metadata: {labels: {app: maintenance-console}}
+    spec:
+      serviceAccountName: maintenance-console
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001}
+      containers:
+        - name: console
+          image: REPLACE_IMAGE_AT_SHA256_DIGEST
+          command: [/app/maintenance-console]
+          args: [--config, /console/console.yaml]
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          ports: [{containerPort: 8081}]
+          readinessProbe: {httpGet: {path: /rainbow-bridge/ping, port: 8081}, periodSeconds: 3}
+          resources: {requests: {cpu: 100m, memory: 128Mi}, limits: {cpu: '1', memory: 512Mi}}
+          volumeMounts: [{name: config, mountPath: /console, readOnly: true}]
+      volumes:
+        - name: config
+          secret: {secretName: console-config, defaultMode: 0440}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: maintenance-console, namespace: REPLACE_NAMESPACE}
+spec:
+  selector: {app: maintenance-console}
+  ports: [{port: 8081, targetPort: 8081}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: maintenance-gateway, namespace: REPLACE_NAMESPACE}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: maintenance-gateway}}
+  template:
+    metadata: {labels: {app: maintenance-gateway}}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 10001}
+      containers:
+        - name: gateway
+          image: REPLACE_IMAGE_AT_SHA256_DIGEST
+          command: [/app/maintenance-gateway]
+          args: [--address, ':8082', --base-path, /rainbow-bridge, --console, 'http://maintenance-console:8081', --business, 'http://business:8080']
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          ports: [{containerPort: 8082}]
+          resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: 500m, memory: 256Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: maintenance-gateway, namespace: REPLACE_NAMESPACE}
+spec:
+  selector: {app: maintenance-gateway}
+  ports: [{port: 8082, targetPort: 8082}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: business, namespace: REPLACE_NAMESPACE}
+spec:
+  selector: {app: REPLACE_BUSINESS_SELECTOR}
+  ports: [{port: 8080, targetPort: 8080}]

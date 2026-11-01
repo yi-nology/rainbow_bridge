@@ -1,10 +1,13 @@
+import { isMaintenanceTaskPath } from '../maintenance-route'
+
 const paths = new Set(['/', '/config', '/environments', '/resources', '/migration', '/import-export', '/releases', '/backups'])
 export function safeReturnTo(value: unknown): string {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') ||
       /[\\\u0000-\u0020]/.test(value)) return '/config'
   try {
     const url = new URL(value, 'https://rainbow.invalid')
-    if (url.origin !== 'https://rainbow.invalid' || !paths.has(url.pathname)) return '/config'
+    if (url.origin !== 'https://rainbow.invalid' || (!paths.has(url.pathname) && !isMaintenanceTaskPath(url.pathname))) return '/config'
+    if (isMaintenanceTaskPath(url.pathname)) return url.pathname
     const query = new URLSearchParams()
     for (const key of ['env', 'pipeline']) {
       const part = url.searchParams.get(key)

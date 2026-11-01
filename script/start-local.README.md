@@ -30,4 +30,20 @@
 
 同一数据目录只能有一个启动器。`-NoReplace` 可禁止替换遗留服务。`-NoBrowser` 保持服务运行但不打开浏览器。
 
+## 查看最新备份页面
+
+启动器每次重新构建所选目录中的前后端，包括尚未提交的改动；不需要先发布镜像，也不需要安装 PostgreSQL、MinIO 或 Redis。双击 `start-rainbow.cmd`，登录后进入“备份与恢复”，即可查看当前代码的 SQLite 网页备份功能。
+
+想保留已有演示数据、另开一套用于操作验证时，使用独立目录和端口：
+
+```powershell
+.\start-rainbow.cmd -Port 18083 -DataDir "$env:LOCALAPPDATA\RainbowBridge\backup-preview"
+```
+
+浏览器访问 `http://127.0.0.1:18083/rainbow-bridge/`，账号密码为 `admin / admin`。该目录中的操作会真实修改本地演示数据；恢复测试请只在这套独立实例执行，不要使用需要保留的数据。
+
+这个启动器固定使用 SQLite、本地资源和关闭 Redis 的模式，因此不会显示分布式环境的“运维维护备份”分支，也不能验证多 Pod 停服、PostgreSQL 与 MinIO 的备份恢复。该分支的页面效果由 `tests/e2e/distributed-backup-frontend/` 专项使用契约 Mock 验证；真实运维流程参阅 [多 Pod 手动维护备份](../docs/operations/distributed-maintenance-backup.md)。不要为查看界面而把本地演示实例连接到正式数据库或伪造后端能力。
+
+本启动器仅供本机开发与演示，固定密码和演示账号重置行为不适合生产部署。对外提供源码时也应保留这一使用边界。
+
 启动器轻量回归：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\script\test-start-local-output.ps1`。检查输出异常隔离、构建失败、错误日志降级、遗留服务识别及端口释放；真实启动使用 `-CheckOnly` 验证。

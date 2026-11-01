@@ -9,6 +9,8 @@ import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/lib/api/error'
 import { safeReturnTo } from '@/lib/auth/redirect'
 import { getBasePath } from '@/lib/utils'
+import { maintenanceSession } from '@/lib/auth/session'
+import { isMaintenanceTaskPath } from '@/lib/maintenance-route'
 import TopologyBackground from '@/components/spectrum/TopologyBackground.vue'
 import '@/styles/spectrum.css'
 
@@ -21,12 +23,16 @@ const password = ref('')
 const error = ref('')
 const coolingDown = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
+function returnTarget() {
+  const target = safeReturnTo(route.query.redirect)
+  return maintenanceSession() && target !== '/backups' && !isMaintenanceTaskPath(target) ? '/backups' : target
+}
 onUnmounted(() => { clearTimeout(timer); password.value = '' })
 async function enter() {
   if (auth.submitting || coolingDown.value || !username.value.trim() || !password.value) return
   error.value = ''
   try {
-    if (await auth.login(username.value.trim(), password.value)) await router.replace(safeReturnTo(route.query.redirect))
+    if (await auth.login(username.value.trim(), password.value)) await router.replace(returnTarget())
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '服务暂不可用，请重试'
     if (cause instanceof ApiError && cause.code === 429) {
@@ -39,7 +45,7 @@ async function enter() {
 }
 async function restore() {
   await auth.restore(true)
-  if (auth.authenticated) await router.replace(safeReturnTo(route.query.redirect))
+  if (auth.authenticated) await router.replace(returnTarget())
 }
 </script>
 

@@ -1,0 +1,129 @@
+{
+  "accepted": {
+    "code": 202,
+    "data": {
+      "task": {
+        "task_id": "11111111-1111-4111-8111-111111111111",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "kind": "restore",
+        "state": "running",
+        "phase": "draining",
+        "revision": "3",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "created_at": "2026-10-30T08:00:00Z",
+        "updated_at": "2026-10-30T08:00:00Z",
+        "started_at": null,
+        "finished_at": null,
+        "actor": "admin",
+        "reason": "",
+        "parent_task_id": null,
+        "result": {
+          "backup_id": null,
+          "preview_id": null,
+          "business_available": false,
+          "reauth_required": null
+        },
+        "error": null,
+        "allowed_actions": [],
+        "progress": {
+          "completed_objects": null,
+          "total_objects": "12",
+          "completed_bytes": null,
+          "total_bytes": null
+        }
+      }
+    },
+    "msg": "ACCEPTED"
+  },
+  "conflict": {
+    "code": 409,
+    "data": {
+      "current_revision": "4"
+    },
+    "error_type": "STATE_CONFLICT",
+    "msg": "操作状态已变化，请刷新"
+  },
+  "contract_version": 1,
+  "discovery": {
+    "code": 200,
+    "data": {
+      "contract_version": 1,
+      "maintenance_api_prefix": "/api/v1/maintenance",
+      "mode": "maintenance_web",
+      "supported": true
+    },
+    "msg": "OK"
+  },
+  "note": "synthetic contract fixtures; no real operation or credentials",
+  "preview": {
+    "code": 200,
+    "data": {
+      "preview_id": "33333333-3333-4333-8333-333333333333",
+      "state": "valid",
+      "kind": "restore",
+      "expires_at": "2026-10-30T08:10:00Z",
+      "target_label": "虹桥隔离测试实例",
+      "backup_id": null,
+      "manifest_sha256": null,
+      "counts": null,
+      "bytes": null,
+      "warnings": [
+        {
+          "code": "BUSINESS_DOWNTIME",
+          "message": "执行时所有业务服务将暂停"
+        }
+      ],
+      "issues": [],
+      "plan_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "revision": "1"
+    },
+    "msg": "OK"
+  },
+  "task_detail": {
+    "code": 200,
+    "data": {
+      "operation": {
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "kind": "restore",
+        "state": "running",
+        "revision": "3",
+        "maintenance_active": true,
+        "business_available": false,
+        "writes_opened": false,
+        "allowed_actions": [],
+        "blocking_reasons": []
+      },
+      "task": {
+        "task_id": "11111111-1111-4111-8111-111111111111",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "kind": "restore",
+        "state": "running",
+        "phase": "draining",
+        "revision": "3",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "created_at": "2026-10-30T08:00:00Z",
+        "updated_at": "2026-10-30T08:00:00Z",
+        "started_at": null,
+        "finished_at": null,
+        "actor": "admin",
+        "reason": "",
+        "parent_task_id": null,
+        "result": {
+          "backup_id": null,
+          "preview_id": null,
+          "business_available": false,
+          "reauth_required": null
+        },
+        "error": null,
+        "allowed_actions": [],
+        "progress": {
+          "completed_objects": null,
+          "total_objects": "12",
+          "completed_bytes": null,
+          "total_bytes": null
+        }
+      }
+    },
+    "msg": "OK"
+  }
+}

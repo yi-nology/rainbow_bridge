@@ -2,8 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { safeReturnTo } from '@/lib/auth/redirect'
+import { maintenanceSession } from '@/lib/auth/session'
+import { isMaintenanceTaskPath } from '@/lib/maintenance-route'
 
 const routes: RouteRecordRaw[] = [
+  { path: '/backups/tasks/:task_id([a-zA-Z0-9_-]{1,128})', name: 'MaintenanceTask', component: () => import('@/views/MaintenanceTaskPage.vue') },
   { path: '/backups', name: 'Backups', component: () => import('@/views/BackupsPage.vue') },
   { path: '/login', name: 'Login', component: () => import('@/views/LoginPage.vue') },
   {
@@ -56,11 +59,17 @@ const router = createRouter({
 router.beforeEach(async to => {
   const auth = useAuthStore()
   if (to.path === '/') {
-    void auth.restore()
+    if (auth.authenticated && maintenanceSession()) return '/backups'
+    void auth.restore().then(() => { if (auth.authenticated && maintenanceSession() && router.currentRoute.value.path === '/') void router.replace('/backups') })
     return true
   }
+  if (isMaintenanceTaskPath(to.path)) { void auth.restore(); return true }
   await auth.restore()
-  if (to.path === '/login') return auth.authenticated ? safeReturnTo(to.query.redirect) : true
+  if (to.path === '/login') {
+    const target = safeReturnTo(to.query.redirect)
+    return auth.authenticated ? (maintenanceSession() && target !== '/backups' && !isMaintenanceTaskPath(target) ? '/backups' : target) : true
+  }
+  if (auth.authenticated && maintenanceSession() && to.path !== '/backups') return '/backups'
   return auth.authenticated ? true : { path: '/login', query: { redirect: safeReturnTo(to.fullPath) } }
 })
 

@@ -9,6 +9,7 @@ import SessionNotice from '@/components/auth/SessionNotice.vue'
 import ScopeNotice from './ScopeNotice.vue'
 import { getBasePath } from '@/lib/utils'
 import TopologyBackground from './TopologyBackground.vue'
+import { sessionIdentity } from '@/lib/auth/session'
 
 // Shared workspace shell; semantic tokens also reach Radix portals.
 withDefaults(defineProps<{ elevated?: boolean }>(), { elevated: true })
@@ -16,6 +17,7 @@ const route = useRoute()
 const brandIconUrl = `${getBasePath().replace(/\/$/, '')}/icon.svg`
 const versionStore = useVersionStore()
 const menuOpen = ref(false)
+const restricted = computed(() => sessionIdentity.value?.access_scope === 'maintenance')
 const navigation = [
   { to: '/', label: '项目概览' },
   { to: '/config', label: '配置管理' },
@@ -46,12 +48,12 @@ onMounted(() => { void versionStore.init() })
         <span>导航</span>
       </button>
       <nav id="spectrum-navigation" class="spectrum-navigation" :class="{ 'is-open': menuOpen }" aria-label="主要导航">
-        <RouterLink v-for="item in navigation" :key="item.to" :to="item.to" :aria-current="route.path === item.to ? 'page' : undefined">{{ item.label }}</RouterLink>
+        <template v-for="item in navigation" :key="item.to"><span v-if="restricted && item.to !== '/backups'" class="spectrum-nav-disabled" aria-disabled="true">{{ item.label }}</span><RouterLink v-else :to="item.to" :aria-current="route.path === item.to || (item.to === '/backups' && route.path.startsWith('/backups/')) ? 'page' : undefined">{{ item.label }}</RouterLink></template>
       </nav>
       <a class="spectrum-doc-link" href="https://yi-nology.github.io/rainbow_bridge/guide/" target="_blank" rel="noopener noreferrer">使用文档 <ArrowUpRight :size="14" /></a>
       <WorkspaceAccount />
     </header>
-    <main id="spectrum-main" class="spectrum-main" tabindex="-1"><SessionNotice /><ScopeNotice /><slot /></main>
+    <main id="spectrum-main" class="spectrum-main" tabindex="-1"><p v-if="restricted" class="backup-alert" role="status">业务维护中，当前登录可用于备份恢复与任务处理。</p><SessionNotice /><ScopeNotice /><slot /></main>
     <footer class="spectrum-footer">
       <details v-if="versionStore.versionInfo" class="spectrum-build-info">
         <summary>RAINBOW BRIDGE <code>{{ version }}</code><ChevronDown :size="12" aria-hidden="true" /></summary>

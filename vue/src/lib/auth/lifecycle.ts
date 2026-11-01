@@ -10,6 +10,7 @@ import { useFreezeStore } from '@/stores/freeze'
 import { useReleaseStore } from '@/stores/release'
 import { useTransferStore } from '@/stores/transfer'
 import { clearScopeSelection } from '@/composables/useScopeSelection'
+import { isMaintenanceTaskPath } from '../maintenance-route'
 
 export function installAuthLifecycle(pinia: Pinia, router: Router) {
   onSessionCleared(reason => {
@@ -21,6 +22,9 @@ export function installAuthLifecycle(pinia: Pinia, router: Router) {
     useReleaseStore(pinia).resetSession()
     useTransferStore(pinia).reset()
     const current = router.currentRoute.value
+    // Keep this operation's read-only result view alive across auth epoch changes.
+    // Its API adapter permits only GET on the exact task; actions still need login.
+    if (isMaintenanceTaskPath(current.path) && reason !== 'logout' && reason !== 'forbidden') return
     if (reason === 'restore' && sessionStatus.value === 'anonymous' && !['/', '/login'].includes(current.path)) {
       void router.replace({ path: '/login', query: { redirect: safeReturnTo(current.fullPath) } })
       return

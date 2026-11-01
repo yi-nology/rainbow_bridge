@@ -27,6 +27,9 @@ func NewClient(cfg config.RedisConfig) (*redis.Client, error) {
 		Password: cfg.Password,
 		DB:       cfg.DB,
 	})
+	if cfg.Namespace != "" {
+		client.AddHook(namespaceHook{prefix: cfg.Namespace})
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

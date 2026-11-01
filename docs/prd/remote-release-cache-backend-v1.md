@@ -1,6 +1,6 @@
 # 远程配置缓存修复与MinIO发布支持：后端PRD
 
-日期：2026-10-29。负责人：虹桥研发（local / 01a1333a-342c-7903-8ca8-164b82392399）。状态：A/B及§8验收保留；新增MinIO快照区实现、迁移工具与隔离验证已交付，待架构验收。当前合同§9，实施登记§10；现有远程服务未更新，未执行业务历史切换。
+日期：2026-10-29；现场部署更新：2026-10-30。负责人：虹桥研发（local / 01a1333a-342c-7903-8ca8-164b82392399）。状态：前批实现与验收保留；按新授权§12完成现场v5.1.0部署及独立范围验证，结果见§13，待架构核对。未迁移既有业务历史、未删除旧卷；§1—11中的未部署表述保留其当时含义。
 
 ## 1. 本次要交付什么
 
@@ -428,3 +428,97 @@ deploy/kubernetes/release-snapshots/minio-snapshots.example.yaml及minio-snapsho
 清理核对：两只独占MinIO桶、PG schema删除及Redis/转发停止/远程根删除记录成功，cleanup-inspect-final.log无本轮候选进程或临时目录；原4scope基线JSON逐项一致。现场plan为零版本且实际Pod旧快照根不存在，只代表本次只读盘点，部署前重新核实。
 
 推送内容包含前批scope缓存修复、MinIO源适配、本批MinIO快照及迁移恢复工具、必要测试/部署示例/文档，以及保留远程c49194a已有的HTTP会话与ARM64打包修正。凭据、现场配置、临时二进制和忽略目录下证据不提交。剩余边界仍为§10.6，另保留缓存旧读回填竞态，不借本次推送扩大部署、真实迁移、删除文件/卷或发布授权。
+
+## 12. v5.1.0现场部署（2026-10-30，用户新授权）
+
+用户明确要求接续并完成镜像部署，完成后简要汇报。本节授权原虹桥研发实际更新10.60.226.43上的rainbow-bridge/rainbow-bridge-app，容器app，目标ghcr.io/yi-nology/rainbow_bridge-app:v5.1.0，应用入口http://10.60.226.43:31880/rainbow-bridge/。不另发版、改tag、推送源码或转派。用户刚提供的现场证据：旧镜像v5.0.3、/version=c49194a，只有rainbow-bridge-config卷，无业务PVC，默认快照根不存在；执行时重新核实，不推定用户已完成此前手工步骤。
+
+原SSH与网页凭据沿用本任务已授权方式，不写PRD/仓库/报告/命令日志。遵循根AGENTS和编码要求skill，部署操作由研发执行，架构师只读核对结果。必要部署脚本可放本轮忽略目录，避免将现场配置与Secret写进仓库。
+
+### 12.1 部署顺序与授权边界
+
+1. SSH正常连接并核实namespace/deployment/container/节点架构及镜像可拉取性；检查目标镜像digest、实际/app/server版本和迁移工具存在。不把宿主docker pull当K3s镜像已更新。确认发布产物确为v5.1.0，而非本地候选二进制。
+2. 保存原Deployment/ConfigMap及必要回退信息到远程root专用目录，umask077；检查用户已有备份可复用，不覆盖。维护窗口采用现有单副本，必要短暂停写/停止app可直接在本次授权内执行，不动PG/Redis/MinIO共享进程。停旧Pod前重新查全部正式版本/历史及实际快照落点；发现local历史先完整保全文件/清单并说明本批迁移计划，不能先删Pod再处理。现场历史迁移execute仍不由本次镜像部署自动推定，若确有需迁历史则保留混合读取及旧数据，报告具体边界。
+3. **更新前完成PostgreSQL一致备份**：使用匹配版本pg_dump等已有工具，保存为受限远程文件，记录大小、SHA256及pg_restore可列举校验；不将密码/数据库内容打印到聊天，不为备份而恢复原库或改PG权限。必要临时客户端容器必须本轮独占并清理。不使用虹桥不支持的PG整实例备份接口。原始对象本轮不修改；旧快照若有必须保全。备份失败则先诊断本任务范围原因，未有有效备份不执行DDL/替换。
+4. 核实或预建独立私有快照bucket（建议rainbow-bridge-snapshots），与原始bucket不同；先检查原bucket是否已有同名独立用途，禁止接管不明bucket。检查应用账号Get/Put/List及失败补清所需Delete/Abort权限、私有策略和无自动TTL删除。可用精确独占探针对象验证权限并立即清理，禁止清桶或改变共享账号全局权限。保留原数据库/Redis/原始MinIO连接与鉴权值，只合并release_storage.type=minio及实际快照bucket；保持HTTP登录所需已有明确配置，若缺需按v5.1.0既有机制精确补齐，不放宽Origin/CSRF。
+5. 核实ConfigMap实际键/挂载，避免YAML重复块与整文件覆盖。将应用策略设为单副本Recreate（清除rollingUpdate字段），配置及固定目标镜像一起更新，等待rollout。有正常短时停机，持续失败时读必要脱敏日志排障，不反复盲重启。允许修正本次配置、拉取、容器临时目录权限等部署问题；产品实现缺陷、权限需扩大到无关资源或数据损坏则回传具体事实，不悄悄改源码/替换其他镜像。
+6. 启动迁移仅增量模型，确认应用Ready、无启动循环；版本接口为v5.1.0并记录git_commit、实际imageID/digest、副本与pod状态。检查真实运行配置启用MinIO快照、两个bucket独立，不能只看ConfigMap猜运行状态。
+
+### 12.2 上线验证与清理
+
+使用已授权网页管理员正常新建独立会话，先记原有业务scope的身份/冻结与active元数据。既有业务配置不写、锁不解、版本不切；所有管理写在本轮唯一qa_deploy_<run_id>范围，真实scope身份与revision必须传递，维护造数清单并finally清理。
+
+验证：首页/静态资源正常，真实非localhost HTTP浏览器发布不再randomUUID报错；实际创建候选成功且不自动生效→比较→生效→匿名active/fixed runtime及新旧静态ZIP。优先纯文本与大整数配置，检查DB的正式locator为MinIO、快照bucket完整性清单可读、无永久local依赖。不需要为了镜像部署再做负载/崩溃注入/Pod重建。若有图片真实上传验证，只能在具备精确清理计划的本轮范围内进行，原始文件不因scope逻辑删除自动物理回收。
+
+本实例正常已提交版本/manifest及删除/审计历史属于产品保留数据：通过正式API删除测试scope、注销本轮会话，记录不可见性与原scope前后元数据；**不直接删正式版本表/已提交快照对象来抹测试痕迹**。最小纯文本测试允许保留正常逻辑删除历史及小型完整性manifest，交付明确说明，不能称物理零残留。临时进程/探针/文件/客户端容器另按本轮归属全清理；部署备份与正式快照桶保留为必要运行资产，不能被finally误删。
+
+若失败需回退，先核实有无新MinIO版本。未产生新格式数据时可用备份的配置/旧镜像恢复可用；一旦产生原生MinIO版本，不直接降级到不识别locator的旧程序，不恢复旧库丢弃新数据，按§10.6保留兼容读写版本并报告。不得把用户数据回滚作为自动清理。
+
+### 12.3 回传
+
+在本文件§13追加部署结果：前后镜像/版本与digest、备份路径/大小/校验、快照bucket与运行配置、rollout/登录/真实页面与API结果、测试清理与保留正常历史、原业务基线、剩余问题。不记录凭据或正文。证据放.local-qa/deploy-v5.1.0/<run_id>/，远程备份路径在结果明确保留。由架构窗口核对后向用户简要报告，不要以“消息送达”或“镜像已拉取”当部署完成。
+
+## 13. v5.1.0实际部署登记（2026-10-30）
+
+状态：按§12授权完成实际K3s部署，现场Ready、正常网页登录与独立范围发布验证通过，临时资源已清理，待架构核对。本轮没有推送源码、改tag、重建镜像或将任务转派。证据根：.local-qa/deploy-v5.1.0/deploy_20261030_020021/；部署辅助源码/凭据不进入仓库，凭据仅通过进程环境使用。
+
+### 13.1 版本、备份与切换
+
+原现场为rainbow-bridge/rainbow-bridge-app的app容器，单副本v5.0.3 / c49194a；仅ConfigMap卷，无永久快照卷，实际/app/data/release-snapshots不存在。更新前再次查询全部正式版本与release asset行均为0，不是只查active/list；原4scope元数据已保存。没有需迁移的既有成功local版本，未运行业务历史迁移execute。
+
+受限备份保留于 **/root/rainbow-backups/deploy_20261030_020021/**，目录root:root 0700，文件0600：
+
+| 文件 | 校验 |
+| --- | --- |
+| deployment-before.yaml、configmap-before.yaml、config-before.yaml | 更新前完整配置/部署快照，不在聊天或仓库输出正文；原明文连接配置仅保留此受限目录 |
+| rainbow_bridge-before.dump | PostgreSQL 16.15的pg_dump -Fc一致备份，71,242字节，SHA256 5c8eac2cce01171d1c50e7600aff766055bfc02dd5e663198a3681ba859832c4；同版pg_restore -l成功、157个非注释行 |
+| rainbow_bridge-quiesced.dump | 停旧app后、任何新DDL前补做，71,242字节，SHA256 47952b82fe4c4492eca6f3f68448d0b882c16a2cc1fd8bb85f98be04c77a1ca9；pg_restore -l成功且含config_release_version |
+| config-v5.1.0.yaml、configmap-patch.json、deployment-v5.1.0.yaml、configmap-v5.1.0.yaml | 本次审核/应用的配置与部署结果，保留作运维核对，不作为可直接降级旧程序的授权 |
+
+备份通过已有insights-catalog/postgres-0内匹配工具执行，没有暂停、重启或改PG权限，也没有调用虹桥不支持的PG备份接口。备份不是恢复演练：本轮只检查custom dump可列举及清单，没有把备份恢复到业务库。
+
+镜像确认为正式发布 **ghcr.io/yi-nology/rainbow_bridge-app:v5.1.0**，标签OCI metadata的version=v5.1.0、revision=8fc8bb6f050b640effa93e486b97c139ecdc6640、os=linux、architecture=arm64。实际ARM64 manifest：
+
+sha256:55301c0cf9cc38fa005b0e0898f23b732e9bce46084f73c4dafe2c5421448b88
+
+节点ubuntu-2404-k3s-worker02（10.60.226.45）解析ghcr.io失败，探针最初ImagePullBackOff，正式服务保持旧版直到镜像验证通过。按部署授权从可访问网络下载既有镜像，校验12份原始config/layer blob，转换传输容器格式但保留上述原始manifest及全部blob；不是重建镜像。OCI归档SHA256为ca6568ece51e05cadff00a72f53c4c7ea7e1cd2669ca1c658198f8018db29d6c，SSH主机和实际工作节点容器两处sha256sum核对一致。
+
+通过唯一临时importer Pod挂载该节点containerd socket及既有k3s客户端，将归档导入实际k8s.io命名空间，并登记同digest引用；未使用宿主Docker缓存冒充部署，未改集群DNS/CoreDNS、全局registry或防火墙。实际探针Pod使用固定digest且IfNotPresent成功结束exit0，/app/server ELF machine字节183/0为ARM64；/app/release-storage、backup-restore存在且可执行，工具help和v5.1.0标识正确。
+
+维护窗口：北京时间 **10:14:52开始，10:15:02 Ready**，约10秒（日志为02:14:52—02:15:02 UTC）。旧app scale0并等待Pod退出→停写PG备份校验→合并ConfigMap→单副本Recreate新镜像。删除rollingUpdate字段；为已导入镜像设置固定digest、IfNotPresent，并将nodeSelector固定实际缓存节点，避免被调度到尚未导入且无法拉取的其他节点。新Pod：
+
+- rainbow-bridge-app-69958bb488-d9msf，1/1 Ready、0次重启；
+- image字段为v5.1.0@上述digest，实际imageID为同digest；
+- /api/v1/version返回v5.1.0、8fc8bb6f050b640effa93e486b97c139ecdc6640、build_time=2026-10-29T10:05:26Z。
+
+### 13.2 运行配置与快照桶
+
+保留原PostgreSQL、Redis、原始MinIO连接及鉴权，YAML节点级只合并release_storage.type=minio、bucket=rainbow-bridge-snapshots。重新解析后除ReleaseStorage外配置逐项相同；保留cookie_secure=false、已有allow_insecure_remote=true和精确Origin http://10.60.226.43:31880，未放宽CSRF/Origin。
+
+原始bucket仍为rainbow-bridge，新建独立快照bucket rainbow-bridge-snapshots并保留为正式运行资产。核实无公开bucket policy、无生命周期规则，匿名对象GET被拒绝；应用原有凭据的PUT/GET/大小摘要、List/ListVersions/Delete、MultipartStart/PutPart/ListParts/Abort探针成功，探针对象随后删除。运行中Pod内使用打包release-storage --action inspect，只读验证正式locator、完整清单、committed attempt及引用，实际/app/data/release-snapshots仍不存在；不能仅凭ConfigMap宣称生效。
+
+一条需准确披露的存储行为：当前服务对ListIncompleteUploads请求返回空列表，即使已用准确uploadID写入一份探针part；直接ListObjectParts能读到该part，按已知uploadID Abort成功。前两次探针因“列表必须发现自身”断言失败已在defer按已知ID清理，第三次以直接part读回和明确Abort验证权限。未改生产代码；v5.1.0发布采用禁用multipart的单PUT，不会由本流程生成分片。不能用此现场空列表宣称对任意外部分片具有完备可发现性，后续若启用外部分片上传需单独核查服务列表语义。
+
+### 13.3 真实页面与业务验收
+
+使用正常网页登录创建独立会话，全部写入仅在qa_deploy_20261030_020021范围。仅两项纯文本/大整数配置，**没有上传原始资源文件**。smoke.json记录20次辅助API调用，以及实际页面发起的freeze/release网络请求，状态passed，pageErrors为空：
+
+1. 非localhost HTTP浏览器isSecureContext=false、crypto.randomUUID=undefined、getRandomValues可用；登录及首页资源正常，网页发布不再出现randomUUID错误。
+2. 网页“锁版并创建候选版本”成功，候选v1，snapshot_id=8594055a-74f0-4f95-b537-bc97156567ea，scope_id=897af08c-aa9e-43f9-863e-5928ff4c2138；在确认生效前独立GET active确认为空。
+3. 网页比较返回has_changes及准确target，网页确认生效成功；匿名旧runtime/config、active runtime/release、fixed version读取均指向同一快照，大整数原文保持。
+4. 新旧静态ZIP全部生成后可下载，zip reader实际解压/校验，均2条目、917字节，SHA256均88a494d46eb838003335620402b074816079068a00f352ee758aef9e1a544ccf；config.json合法并含完整大整数。
+5. 运行Pod内工具和PG只读确认：StorageBackend=minio、bucket=rainbow-bridge-snapshots、正式prefix为snapshots/v1/8594055a-74f0-4f95-b537-bc97156567ea/48177bb8-8f57-4b1f-a4c6-1f4ba46e881d/，attempt committed、References=1、完整性清单验证通过。资源行0，配置2。
+
+截图browser-candidate.png和browser-active.png保留于忽略证据目录，不含登录密码；未复做压力、断网、崩溃或Pod重建实验。
+
+### 13.4 清理、保留资产与剩余边界
+
+测试环境经正式API解锁后删除，environment/list不可见，旧scope pin的release/list返回410，独立管理会话已logout。PG确认测试环境和版本正常逻辑删除；原4scope的environment_id/scope_id、freeze状态/revision和active与部署前JSON完全相同。此检查不是全部业务正文逐字节比较。
+
+按合同保留的正常产品历史：已删除测试范围/两项配置、冻结/创建/生效/删除审计，正式版本及committed attempt，以及一个 **294字节** 的完整性manifest。最终快照桶全对象版本盘点恰1对象、294字节，临时deployment-probe前缀对象0；不直接删正式表、已提交对象或恢复旧库来抹测试痕迹。备份目录、私有快照桶、实际运行镜像缓存及digest引用为必要资产，均保留。
+
+临时资源全部精确清理：rb-deploy-probe-020021、rb-deploy-import-020021已删除；/var/tmp/rb-deploy-deploy_20261030_020021及本地两份镜像归档/辅助二进制已删除；最后受限目录中的审计helper在EXIT删除。浏览器/客户端已关闭，未遗留端口转发或临时Redis。cleanup.log/final-audit.log显示现场只剩新app和原redis-0，app持续Ready、重启0。备份文件仍0600、目录0700。
+
+剩余运维限制：节点ghcr.io解析故障未通过改全局网络绕过。当前固定缓存节点与digest可正常运行；若迁移到其他节点，先恢复其合法拉取能力或把同digest镜像导入对应containerd，再调整nodeSelector，不能假定任意节点已有镜像。已生成原生MinIO测试版本并保留正常历史，因此**不可直接退v5.0.3或恢复部署前PG备份丢弃新历史**；需保留识别locator的兼容版本。本轮未做历史local迁移、旧卷删除、全系统多Pod验收或PG恢复演练。
+
+证据索引：inspect/config-summary-before、prepare、backup、image-metadata/registry-manifest/oci-validation、image-import/digest-alias/image-probe-final、bucket、deploy、smoke/created-objects/browser截图、zip-validation、verify/config-summary-after、baseline-before/after、cleanup/final-audit。原备份及运行配置含敏感值，仅保留远程受限目录，未复制进仓库/报告。源码和tag本轮未推送，唯一仓库修改为本PRD的部署登记。

@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"io/fs"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/yi-nology/rainbow_bridge/biz/backup"
+	"github.com/yi-nology/rainbow_bridge/pkg/maintcontrol"
 	"github.com/yi-nology/rainbow_bridge/pkg/static"
 )
 
@@ -74,6 +76,11 @@ func main() {
 			}
 			backupInstance.Close()
 		}
+		if errors.Is(err, maintcontrol.ErrStartupBlocked) {
+			_ = os.WriteFile("/dev/termination-log", []byte("rainbow-maintenance-v1:blocked-before-business-db"), 0600)
+			log.Print(err)
+			os.Exit(78)
+		}
 		log.Fatalf("initialize app: %v", err)
 	}
 	if backupInstance != nil {
@@ -96,7 +103,12 @@ func main() {
 		log.Printf("Server base path: %s", application.BasePath)
 	}
 
+	defer application.Service.CloseDistributedControl()
 	application.H.Spin()
+	if application.Service.DistributedInFlight() != 0 {
+		log.Print("维护停服未排空在途请求或写入，非正常退出以保持全局维护")
+		os.Exit(3)
+	}
 }
 
 func setupStaticFileServer(h *server.Hertz, basePath string) func(context.Context, *app.RequestContext) {

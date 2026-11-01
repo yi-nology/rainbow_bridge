@@ -21,9 +21,11 @@ export interface BackupJob {
   error: { error_type: string; msg: string } | null
 }
 export interface BackupCapabilities {
-  supported: boolean; reasons: string[]; restore_requires_restart: boolean; mode: string
+  supported: boolean; reasons: string[]; restore_requires_restart: boolean; mode?: string
   limits: { package_bytes: number; max_backups: number }
   rollback_retention?: { keep_count: number; managed: boolean }
+  contract_version?: number
+  maintenance_api_prefix?: string
 }
 export interface RestorePreview {
   preview_id: string; job_id: string; valid: boolean; package_sha256: string; expires_at: string; target_instance_id: string

@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { assetApi } from '@/lib/api/asset'
 import { fromApiAsset } from '@/lib/api/transformers'
 import type { Asset } from '@/lib/api/transformers'
-import { toast } from 'vue-sonner'
+import { toast } from '@/lib/notifications'
 import { scopeIdFor } from '@/lib/scope'
 
 export const useAssetStore = defineStore('asset', () => {

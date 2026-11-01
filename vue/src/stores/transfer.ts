@@ -2,7 +2,7 @@ import { isSessionError } from '@/lib/api/http'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { transferApi, type ExportSelection, type ExportTreeEnvironment, type ImportJsonData } from '@/lib/api/transfer'
-import { toast } from 'vue-sonner'
+import { toast } from '@/lib/notifications'
 import { captureScope } from '@/lib/scope'
 
 export type { ExportTreeEnvironment }

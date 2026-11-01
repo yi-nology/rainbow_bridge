@@ -1,0 +1,35 @@
+/* §2.1 / §5.7 / §6.1: one floating, readable status; Spectrum semantic tokens.
+   Sonner supplies position/stack/keyboard behavior; no footer or page reflow. */
+[data-sonner-toaster].spectrum-toaster {
+  --width: 420px;
+  --normal-bg: var(--card);
+  --normal-text: var(--card-foreground);
+  --normal-border: var(--border);
+  --error-bg: var(--card);
+  --error-text: var(--destructive);
+  --error-border: var(--border);
+  --success-bg: var(--card);
+  --success-text: var(--spectrum-success, var(--foreground));
+  --success-border: var(--border);
+  --warning-bg: var(--card);
+  --warning-text: var(--spectrum-link, var(--foreground));
+  --warning-border: var(--border);
+  font-family: var(--font-sans);
+}
+[data-sonner-toaster].spectrum-toaster [data-sonner-toast][data-styled='true'] {
+  padding: 16px;
+  border-radius: 12px;
+  border-width: 1px;
+  box-shadow: var(--spectrum-material-soft-shadow, 0 4px 12px rgb(0 0 0 / .12));
+  font-size: 14px;
+  line-height: 1.6;
+}
+[data-sonner-toaster].spectrum-toaster [data-close-button] {
+  background: var(--card);
+  color: var(--card-foreground);
+  border-color: var(--border);
+}
+[data-sonner-toaster].spectrum-toaster [data-close-button]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

@@ -40,9 +40,11 @@ type authSessionJSON struct {
 }
 
 type authSessionDataJSON struct {
-	User      authUserJSON    `json:"user"`
-	Session   authSessionJSON `json:"session"`
-	CSRFToken string          `json:"csrf_token"`
+	AccessScope       string          `json:"access_scope,omitempty"`
+	ActiveOperationID *string         `json:"active_operation_id,omitempty"`
+	User              authUserJSON    `json:"user"`
+	Session           authSessionJSON `json:"session"`
+	CSRFToken         string          `json:"csrf_token"`
 }
 
 type authSessionEnvelopeJSON struct {
@@ -160,11 +162,19 @@ func clearSessionCookie(c *app.RequestContext) {
 
 // sessionPayload 把服务层结果转换成响应数据结构。
 func sessionPayload(user service.AuthUserView, session service.AuthSessionView, csrf string) authSessionDataJSON {
-	return authSessionDataJSON{
+	result := authSessionDataJSON{
 		User:      authUserJSON{ID: strconv.FormatInt(user.ID, 10), Username: user.Username, Role: user.Role},
 		Session:   authSessionJSON{ExpiresAt: session.ExpiresAt.Format(time.RFC3339), IdleExpiresAt: session.IdleExpiresAt.Format(time.RFC3339)},
 		CSRFToken: csrf,
 	}
+	scope, operation, err := svc.AuthenticationAccess(context.Background())
+	if err == nil {
+		result.AccessScope = scope
+		if operation != "" {
+			result.ActiveOperationID = &operation
+		}
+	}
+	return result
 }
 
 // --------------------- 接口 ---------------------

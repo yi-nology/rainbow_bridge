@@ -75,6 +75,9 @@ type AuthPasswordChangeInput struct {
 
 // Login 校验凭据并创建新会话;失败不删除浏览器现有有效会话。
 func (s *Service) Login(ctx context.Context, input AuthLoginInput) (*AuthLoginResult, error) {
+	if err := s.authRepositoryReady(ctx); err != nil {
+		return nil, err
+	}
 	username := input.Username
 	password := input.Password
 	if !IsValidAuthUsername(username) {
@@ -95,7 +98,7 @@ func (s *Service) Login(ctx context.Context, input AuthLoginInput) (*AuthLoginRe
 	}
 	defer s.passwordLimiter().release()
 
-	user, err := s.logic.authDAO.GetUserByUsername(ctx, s.logic.db, username)
+	user, err := s.logic.authDAO.GetUserByUsername(ctx, s.authenticationDB(), username)
 	if err != nil {
 		if !errors.Is(err, db.ErrAuthUserNotFound) {
 			if authDBUnavailable(err) {
@@ -131,8 +134,16 @@ func (s *Service) Login(ctx context.Context, input AuthLoginInput) (*AuthLoginRe
 		return nil, authInternalError(err)
 	}
 	settings := s.AuthSettings()
+	epoch, _, _, epochErr := s.AuthorityState(ctx)
+	if epochErr != nil {
+		return nil, authUnavailableError(epochErr)
+	}
+	tokenHash := s.sessionTokenHash(token)
+	if s.config != nil && s.config.Backup.Distributed.WebEnabled {
+		tokenHash = s.authorityTokenHashAt(token, epoch)
+	}
 	session := &model.AuthSession{
-		TokenHash:         sessionTokenHash(token),
+		TokenHash:         tokenHash,
 		UserID:            user.ID,
 		CredentialVersion: user.CredentialVersion,
 		CSRFToken:         csrf,
@@ -143,9 +154,9 @@ func (s *Service) Login(ctx context.Context, input AuthLoginInput) (*AuthLoginRe
 	}
 	previousHash := ""
 	if token := strings.TrimSpace(input.SessionToken); token != "" {
-		previousHash = sessionTokenHash(token)
+		previousHash = s.sessionTokenHash(token)
 	}
-	err = s.createSessionWithLimit(ctx, session, previousHash)
+	err = s.createSessionWithLimit(ctx, session, previousHash, epoch)
 	if err != nil {
 		if errors.Is(err, errAuthCredentialSuperseded) {
 			return nil, s.credentialSupersededError(ctx, user.ID)
@@ -164,8 +175,20 @@ func (s *Service) Login(ctx context.Context, input AuthLoginInput) (*AuthLoginRe
 }
 
 // createSessionWithLimit 在事务内条件插入会话(凭据版本必须仍然一致),替换旧会话并保持每账号最多 10 个有效会话。
-func (s *Service) createSessionWithLimit(ctx context.Context, session *model.AuthSession, previousTokenHash string) error {
-	return s.logic.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (s *Service) createSessionWithLimit(ctx context.Context, session *model.AuthSession, previousTokenHash string, epoch int64) error {
+	return s.authenticationDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if s.config != nil && s.config.Backup.Distributed.WebEnabled {
+			if e := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?,2))`, s.config.Backup.Distributed.InstanceID).Error; e != nil {
+				return e
+			}
+			var current int64
+			if e := tx.Raw(`SELECT session_epoch FROM rb_auth_authority WHERE instance_id=? AND state='active'`, s.config.Backup.Distributed.InstanceID).Scan(&current).Error; e != nil {
+				return e
+			}
+			if current != epoch {
+				return errAuthCredentialSuperseded
+			}
+		}
 		if previousTokenHash != "" {
 			if _, err := s.logic.authDAO.RevokeSession(ctx, tx, previousTokenHash, session.CreatedAt); err != nil {
 				return err
@@ -206,7 +229,7 @@ func (s *Service) CurrentSession(ctx context.Context, input AuthRequestInput) (*
 	if idle.After(row.ExpiresAt) {
 		idle = row.ExpiresAt
 	}
-	touched, err := s.logic.authDAO.TouchSession(ctx, s.logic.db, row.ID, row.CredentialVersion, idle, now)
+	touched, err := s.logic.authDAO.TouchSession(ctx, s.authenticationDB(), row.ID, row.CredentialVersion, idle, now)
 	if err != nil {
 		if authDBUnavailable(err) {
 			return nil, authUnavailableError(err)
@@ -247,7 +270,7 @@ func (s *Service) Logout(ctx context.Context, input AuthRequestInput) error {
 		// 校验失败不能先撤销再报错
 		return authCSRFError()
 	}
-	_, err = s.logic.authDAO.RevokeSession(ctx, s.logic.db, row.TokenHash, s.now())
+	_, err = s.logic.authDAO.RevokeSession(ctx, s.authenticationDB(), row.TokenHash, s.now())
 	if err != nil {
 		if authDBUnavailable(err) {
 			return authUnavailableError(err)
@@ -259,6 +282,13 @@ func (s *Service) Logout(ctx context.Context, input AuthRequestInput) error {
 
 // ChangePassword 校验当前密码后更新密码、递增凭据版本并撤销该账号全部会话。
 func (s *Service) ChangePassword(ctx context.Context, input AuthPasswordChangeInput) error {
+	_, mode, _, stateErr := s.AuthorityState(ctx)
+	if stateErr != nil {
+		return authUnavailableError(stateErr)
+	}
+	if mode != "active" {
+		return newAuthError(409, "STATE_CONFLICT", "维护期间暂不能修改密码")
+	}
 	row, user, err := s.resolveSession(ctx, input.SessionToken)
 	if err != nil {
 		return err
@@ -295,7 +325,28 @@ func (s *Service) ChangePassword(ctx context.Context, input AuthPasswordChangeIn
 		return authInternalError(err)
 	}
 	now := s.now()
-	err = s.logic.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.authenticationDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if s.config != nil && s.config.Backup.Distributed.WebEnabled {
+			// Serialize password changes with HTTP command acceptance and the engine's
+			// active→maintenance transition. Never change credentials after that boundary.
+			var mode string
+			if e := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?,2))`, s.config.Backup.Distributed.InstanceID).Error; e != nil {
+				return e
+			}
+			if e := tx.Raw(`SELECT mode FROM rb_maintenance_instance WHERE instance_id=?`, s.config.Backup.Distributed.InstanceID).Scan(&mode).Error; e != nil {
+				return e
+			}
+			if mode != "active" {
+				return newAuthError(409, "STATE_CONFLICT", "维护期间暂不能修改密码")
+			}
+			var busy bool
+			if e := tx.Raw(`SELECT EXISTS(SELECT 1 FROM rb_web_task WHERE instance_id=? AND state IN('queued','running'))`, s.config.Backup.Distributed.InstanceID).Scan(&busy).Error; e != nil {
+				return e
+			}
+			if busy {
+				return newAuthError(409, "STATE_CONFLICT", "任务已受理，暂不能修改密码")
+			}
+		}
 		updated, err := s.logic.authDAO.UpdatePasswordIfVersion(ctx, tx, user.ID, user.CredentialVersion, hash, now)
 		if err != nil {
 			return err
@@ -320,7 +371,7 @@ func (s *Service) ChangePassword(ctx context.Context, input AuthPasswordChangeIn
 
 // credentialSupersededError 区分“账号不可用”(403)与“凭据已变更”(409),不回显内部细节。
 func (s *Service) credentialSupersededError(ctx context.Context, userID int64) error {
-	latest, err := s.logic.authDAO.GetUserByID(ctx, s.logic.db, userID)
+	latest, err := s.logic.authDAO.GetUserByID(ctx, s.authenticationDB(), userID)
 	if err != nil {
 		if authDBUnavailable(err) {
 			return authUnavailableError(err)
@@ -336,11 +387,14 @@ func (s *Service) credentialSupersededError(ctx context.Context, userID int64) e
 
 // resolveSession 读取并验证会话;返回会话行与账号行。
 func (s *Service) resolveSession(ctx context.Context, token string) (authSessionRow, authUserRow, error) {
+	if err := s.authRepositoryReady(ctx); err != nil {
+		return authSessionRow{}, authUserRow{}, err
+	}
 	trimmed := strings.TrimSpace(token)
 	if trimmed == "" {
 		return authSessionRow{}, authUserRow{}, authRequiredError()
 	}
-	session, err := s.logic.authDAO.GetSessionByTokenHash(ctx, s.logic.db, sessionTokenHash(trimmed))
+	session, err := s.logic.authDAO.GetSessionByTokenHash(ctx, s.authenticationDB(), s.sessionTokenHash(trimmed))
 	if err != nil {
 		if authDBUnavailable(err) {
 			return authSessionRow{}, authUserRow{}, authUnavailableError(err)
@@ -350,7 +404,7 @@ func (s *Service) resolveSession(ctx context.Context, token string) (authSession
 	if session == nil {
 		return authSessionRow{}, authUserRow{}, authRequiredError()
 	}
-	user, err := s.logic.authDAO.GetUserByID(ctx, s.logic.db, session.UserID)
+	user, err := s.logic.authDAO.GetUserByID(ctx, s.authenticationDB(), session.UserID)
 	if err != nil {
 		if errors.Is(err, db.ErrAuthUserNotFound) {
 			return authSessionRow{}, authUserRow{}, authRequiredError()
@@ -388,7 +442,7 @@ func (s *Service) AdminIdentityForRequest(ctx context.Context, input AuthRequest
 	if idle.After(row.ExpiresAt) {
 		idle = row.ExpiresAt
 	}
-	touched, err := s.logic.authDAO.TouchSession(ctx, s.logic.db, row.ID, row.CredentialVersion, idle, now)
+	touched, err := s.logic.authDAO.TouchSession(ctx, s.authenticationDB(), row.ID, row.CredentialVersion, idle, now)
 	if err != nil {
 		if authDBUnavailable(err) {
 			return AdminIdentity{}, authUnavailableError(err)

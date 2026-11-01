@@ -1,0 +1,34 @@
+syntax = "proto3";
+package maintenance;
+import "api.proto";
+import "google/protobuf/struct.proto";
+option go_package = "github.com/yi-nology/rainbow_bridge/biz/model/maintenance";
+// Safe JSON views are specified by PRD 11.5 and biz/maintenanceweb/dto.go.
+// Struct is used only for response nullability; handlers never emit engine Plan/Data.
+message Response {int32 code=1;string msg=2;google.protobuf.Struct data=3;string error_type=4;}
+message Empty {}
+message ListRequest {optional int32 limit=1 [(api.query)="limit"];optional string cursor=2 [(api.query)="cursor"];}
+message PlanRequest {string request_id=1;string kind=2;optional string backup_id=3;optional string expected_sha256=4;}
+message PreviewRequest {string preview_id=1 [(api.path)="preview_id"];}
+message BackupRequest {string request_id=1;string preview_id=2;string plan_fingerprint=3;string confirmation=4;optional string reason=5;}
+message RestoreRequest {string request_id=1;string preview_id=2;string plan_fingerprint=3;string backup_id=4;string manifest_sha256=5;string confirmation=6;optional string reason=7;}
+message VerifyRequest {string backup_id=1 [(api.path)="backup_id"];string request_id=2;string expected_sha256=3;}
+message TaskRequest {string task_id=1 [(api.path)="task_id"];}
+message ByRequest {string request_id=1 [(api.path)="request_id"];}
+message ActionRequest {string operation_id=1 [(api.path)="operation_id"];string request_id=2;string expected_revision=3;string confirmation=4;}
+message CancelRequest {string task_id=1 [(api.path)="task_id"];string request_id=2;string expected_revision=3;}
+service MaintenanceService {
+ rpc Capabilities(Empty) returns(Response){option(api.get)="/api/v1/maintenance/capabilities";}
+ rpc CreatePlan(PlanRequest) returns(Response){option(api.post)="/api/v1/maintenance/plans";}
+ rpc GetPlan(PreviewRequest) returns(Response){option(api.get)="/api/v1/maintenance/plans/:preview_id";}
+ rpc CreateBackup(BackupRequest) returns(Response){option(api.post)="/api/v1/maintenance/backups";}
+ rpc ListBackups(ListRequest) returns(Response){option(api.get)="/api/v1/maintenance/backups";}
+ rpc VerifyBackup(VerifyRequest) returns(Response){option(api.post)="/api/v1/maintenance/backups/:backup_id/verify";}
+ rpc Restore(RestoreRequest) returns(Response){option(api.post)="/api/v1/maintenance/restores";}
+ rpc ListTasks(ListRequest) returns(Response){option(api.get)="/api/v1/maintenance/tasks";}
+ rpc TaskByRequest(ByRequest) returns(Response){option(api.get)="/api/v1/maintenance/tasks/by-request/:request_id";}
+ rpc GetTask(TaskRequest) returns(Response){option(api.get)="/api/v1/maintenance/tasks/:task_id";}
+ rpc Resume(ActionRequest) returns(Response){option(api.post)="/api/v1/maintenance/operations/:operation_id/resume";}
+ rpc Abort(ActionRequest) returns(Response){option(api.post)="/api/v1/maintenance/operations/:operation_id/abort";}
+ rpc Cancel(CancelRequest) returns(Response){option(api.post)="/api/v1/maintenance/tasks/:task_id/cancel";}
+}

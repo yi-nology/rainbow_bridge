@@ -26,6 +26,8 @@ message AuthSessionData {
   AuthUserView user = 1;
   AuthSessionView session = 2;
   string csrf_token = 3; // stable within one session; the client keeps it in memory only
+  optional string access_scope = 4;
+  optional string active_operation_id = 5;
 }
 
 // ==================== Login ====================

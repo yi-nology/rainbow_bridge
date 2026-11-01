@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -634,6 +635,9 @@ func TestMigrateConfigSaveFailureRollsBackResources(t *testing.T) {
 // TestMigrateCleanupResidueIsReported 覆盖 PRD §3.4/§7:
 // 清理失败不能静默:item 消息给出 file_id 与残留类别,且不删除旧共享文件。
 func TestMigrateCleanupResidueIsReported(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("requires Windows open-file deletion semantics; Unix permits unlink of an open file")
+	}
 	t.Setenv(FreezeAdminTokenEnv, testAdminToken())
 	svc := newFreezeService(t)
 	seedFreezeScope(t, svc, "123", "default")

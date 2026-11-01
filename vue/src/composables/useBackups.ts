@@ -4,6 +4,9 @@ import { ApiError } from '@/lib/api/error'
 import { isSessionError } from '@/lib/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { createRequestId } from '@/lib/request-id'
+import { backupMode } from '@/lib/backup-capability'
+import { sessionGeneration } from '@/lib/auth/session'
+import { isMaintenanceProtection } from '@/lib/api/maintenance'
 import { backupError, inProgress } from '@/components/backup/presentation'
 import { readBackupState, saveBackupState } from './backupPersistence'
 
@@ -11,6 +14,7 @@ export function useBackups() {
   const saved = readBackupState()
   const auth = useAuthStore()
   const capabilities = ref<BackupCapabilities | null>(null)
+  const confirmed = ref(false)
   const items = ref<BackupItem[]>([])
   const jobs = ref<BackupJob[]>([])
   const preview = ref<RestorePreview | null>(null)
@@ -30,15 +34,26 @@ export function useBackups() {
   let timer: ReturnType<typeof setTimeout> | undefined
   let expiryTimer: ReturnType<typeof setInterval> | undefined
   let stopped = false
+  let epoch = 0
+  let listAttempt = 0
+  let refreshing = false
   let failures = 0
   let polling = false
   let tracked = saved.jobs
   const completed = new Set<string>()
+  const mode = computed(() => confirmed.value && !loading.value && capabilities.value ? backupMode(capabilities.value) : 'unconfirmed')
+  const webReady = computed(() => mode.value === 'web' && auth.authenticated)
+  const hasSavedRecords = computed(() => Boolean(pending.value || unresolved.value || jobs.value.length))
   const waitingRestart = computed(() => jobs.value.find(job => job.state === 'restart_required'))
   const busy = computed(() => submitting.value || Boolean(pending.value) || unresolved.value || jobs.value.some(job => inProgress(job) || job.state === 'restart_required'))
-  const canOperate = computed(() => Boolean(capabilities.value?.supported) && !busy.value && !storageError.value)
+  const canOperate = computed(() => webReady.value && !busy.value && !storageError.value)
   const canRestore = computed(() => canOperate.value && Boolean(preview.value?.valid && !preview.value.issues?.length && preview.value.backup &&
     preview.value.target_instance_id && preview.value.package_sha256 && Date.parse(preview.value.expires_at) > now.value))
+
+  function ticket() {
+    const generation = sessionGeneration(), current = epoch
+    return () => !stopped && current === epoch && generation === sessionGeneration() && webReady.value
+  }
 
   function persist() {
     try { saveBackupState({ jobs: tracked, pending: pending.value }); return true }
@@ -52,29 +67,34 @@ export function useBackups() {
     persist()
   }
   async function loadList(more = false) {
-    if (stopped || !capabilities.value?.supported || listLoading.value) return
+    if (stopped || !webReady.value || listLoading.value) return
+    const valid = ticket(), attempt = ++listAttempt
     listLoading.value = true
     try {
       const result = await backupApi.list(more ? cursor.value : '')
-      if (stopped) return
+      if (!valid()) return
       const previous = more ? items.value : []
       items.value = [...previous, ...(result.items || []).filter(item => !previous.some(existing => existing.backup_id === item.backup_id))]
       hasMore.value = result.has_more
       cursor.value = result.next_before_id || ''
-    } catch (cause) { if (!stopped) error.value = backupError(cause) }
-    finally { listLoading.value = false }
+    } catch (cause) { if (valid()) error.value = backupError(cause) }
+    finally { if (attempt === listAttempt) listLoading.value = false }
   }
   async function readPreview(id: string) {
+    if (!webReady.value) return
+    const valid = ticket()
     const result = await backupApi.preview(id)
-    if (!stopped) preview.value = result
+    if (valid()) preview.value = result
   }
   async function followCompletion(job: BackupJob) {
-    if (job.state !== 'succeeded' || completed.has(job.job_id)) return
+    if (!webReady.value || job.state !== 'succeeded' || completed.has(job.job_id)) return
+    const valid = ticket()
     if (job.kind === 'validate') {
       const id = job.preview_id || job.result?.preview_id
       if (id) {
         try { await readPreview(id) }
         catch (cause) {
+          if (!valid()) return
           if (!(cause instanceof ApiError) || ![404, 410].includes(cause.code)) throw cause
           preview.value = null
           error.value = backupError(cause)
@@ -82,53 +102,71 @@ export function useBackups() {
       }
     }
     if (job.kind === 'create') await loadList()
+    if (!valid()) return
     if (job.kind === 'restore') { preview.value = null; file.value = null }
-    if (!stopped) completed.add(job.job_id)
+    completed.add(job.job_id)
   }
   function schedule() {
     clearTimeout(timer)
-    if (stopped || !auth.authenticated || !capabilities.value?.supported) return
+    if (stopped || !webReady.value) return
     const needsPoll = unresolved.value || jobs.value.some(job => inProgress(job) || job.state === 'restart_required') || Boolean(taskError.value)
     if (needsPoll) timer = setTimeout(poll, Math.min(30000, failures ? 2000 * 2 ** failures : waitingRestart.value ? 8000 : 1500))
   }
   async function poll() {
-    if (polling || stopped || !auth.authenticated || !capabilities.value?.supported) return
+    if (polling || stopped || !webReady.value) return
+    const valid = ticket()
     clearTimeout(timer)
     polling = true
     let failed = false
     try {
       for (const remembered of [...tracked]) {
+        if (!valid()) return
         try {
           const job = await backupApi.status(remembered.job_id)
-          if (stopped) return
+          if (!valid()) return
           acceptJob(job)
           await followCompletion(job)
         } catch (cause) {
           failed = true
-          if (stopped) return
+          if (!valid()) return
           taskError.value = backupError(cause)
           if (isSessionError(cause)) break
         }
       }
+      if (!valid()) return
       unresolved.value = failed
       if (!failed) { taskError.value = ''; failures = 0 }
       else failures++
     } finally { polling = false; schedule() }
   }
   async function refresh() {
-    if (loading.value && capabilities.value) return
+    if (refreshing || stopped) return
+    refreshing = true
+    const attempt = ++epoch, generation = sessionGeneration()
+    const valid = () => !stopped && attempt === epoch && generation === sessionGeneration()
+    clearTimeout(timer)
+    ++listAttempt; listLoading.value = false
+    confirmed.value = false
     loading.value = true
     error.value = ''
     try {
       const result = await backupApi.capabilities()
-      if (stopped) return
+      if (!valid()) return
       capabilities.value = result
-      if (result.supported) { await loadList(); await poll() }
-    } catch (cause) { if (!stopped) error.value = backupError(cause) }
-    finally { loading.value = false }
+      confirmed.value = true
+      loading.value = false
+      refreshing = false
+      if (webReady.value) { await loadList(); await poll() }
+      else {
+        items.value = []; jobs.value = []; preview.value = null
+        completed.clear()
+        unresolved.value = tracked.length > 0
+      }
+    } catch (cause) { if (valid()) error.value = backupError(cause) }
+    finally { if (attempt === epoch) refreshing = false; if (valid()) loading.value = false }
   }
   function selectFile(selected?: File) {
-    if (!selected) return
+    if (!selected || !webReady.value) return
     const intent = pending.value
     if (intent) {
       if (intent.action !== 'restore/preview' || selected.name !== intent.file?.name || selected.size !== intent.file.size || selected.lastModified !== intent.file.lastModified) {
@@ -143,7 +181,8 @@ export function useBackups() {
     error.value = ''
   }
   async function sendPending() {
-    if (submitting.value || !pending.value || stopped || !auth.authenticated || !capabilities.value?.supported || storageError.value) return false
+    if (submitting.value || !pending.value || stopped || !webReady.value || storageError.value) return false
+    const valid = ticket()
     const intent = pending.value
     if (intent.action === 'restore/preview' && !file.value) { error.value = '请重新选择上次上传的原备份包，再确认请求结果。'; return false }
     submitting.value = true
@@ -151,18 +190,18 @@ export function useBackups() {
     let result: Awaited<ReturnType<typeof backupApi.mutate>>
     try {
       result = await backupApi.mutate(intent, file.value || undefined)
-      if (stopped) return false
+      if (!valid()) return false
       if (result.job) acceptJob(result.job)
       else if (!(intent.action === 'delete' && result.deleted) && !(intent.action === 'restore/cancel' && result.cancelled)) throw new Error('未取得有效结果，请确认原请求')
       pending.value = null
       persist()
     } catch (cause) {
-      if (stopped) return false
+      if (!valid()) return false
       error.value = backupError(cause)
       // A transport/server failure may have happened AFTER acceptance. Keep its exact intent.
       // BACKUP_MAINTENANCE/UNSUPPORTED/SPACE are explicit precondition rejections.
       if (cause instanceof ApiError && ((cause.code >= 400 && cause.code < 500 && !isSessionError(cause)) ||
-          ['BACKUP_MAINTENANCE', 'BACKUP_UNSUPPORTED', 'BACKUP_SPACE_INSUFFICIENT'].includes(cause.errorType))) {
+          ['BACKUP_MAINTENANCE', 'BACKUP_UNSUPPORTED', 'BACKUP_SPACE_INSUFFICIENT'].includes(cause.errorType) || isMaintenanceProtection(cause))) {
         pending.value = null
         if (cause.errorType === 'BACKUP_PREVIEW_EXPIRED') preview.value = null
         persist()
@@ -171,7 +210,7 @@ export function useBackups() {
     } finally { submitting.value = false }
     // Follow-up failures never turn an already accepted mutation into an uncertain one.
     if (result.job) {
-      try { await followCompletion(result.job) } catch (cause) { taskError.value = backupError(cause) }
+      try { await followCompletion(result.job) } catch (cause) { if (valid()) taskError.value = backupError(cause) }
       schedule()
     }
     if (intent.action === 'delete') await loadList()
@@ -179,7 +218,7 @@ export function useBackups() {
     return true
   }
   function start(action: BackupIntent['action'], payload: Record<string, string>, selected?: File) {
-    if (busy.value || !capabilities.value?.supported || storageError.value) return Promise.resolve(false)
+    if (stopped || !canOperate.value) return Promise.resolve(false)
     if (selected) file.value = selected
     try {
       pending.value = { action, payload: { ...payload, request_id: createRequestId() },
@@ -189,7 +228,7 @@ export function useBackups() {
     } catch (cause) { error.value = backupError(cause); return Promise.resolve(false) }
   }
   async function cancelRestore() {
-    if (!waitingRestart.value || submitting.value || pending.value || unresolved.value) return false
+    if (stopped || !webReady.value || !waitingRestart.value || submitting.value || pending.value || unresolved.value) return false
     try {
       pending.value = { action: 'restore/cancel', payload: { job_id: waitingRestart.value.job_id, request_id: createRequestId() } }
       if (!persist()) { pending.value = null; return false }
@@ -197,24 +236,25 @@ export function useBackups() {
     } catch (cause) { error.value = backupError(cause); return false }
   }
   async function download(item: BackupItem) {
-    if (downloading.value || !capabilities.value?.supported) return
+    if (downloading.value || !webReady.value) return
+    const valid = ticket()
     downloading.value = item.backup_id
     error.value = ''
     try {
       const result = await backupApi.download(item.backup_id)
-      if (stopped) return
+      if (!valid()) return
       const url = URL.createObjectURL(result.blob)
       const anchor = document.createElement('a')
       anchor.href = url; anchor.download = result.filename
       document.body.append(anchor); anchor.click(); anchor.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (cause) { if (!stopped) error.value = backupError(cause) }
+    } catch (cause) { if (valid()) error.value = backupError(cause) }
     finally { downloading.value = '' }
   }
   onMounted(() => { void refresh(); expiryTimer = setInterval(() => { now.value = Date.now() }, 1000) })
-  onUnmounted(() => { stopped = true; clearTimeout(timer); clearInterval(expiryTimer) })
+  onUnmounted(() => { stopped = true; ++epoch; clearTimeout(timer); clearInterval(expiryTimer) })
   return { capabilities, items, jobs, preview, pending, file, loading, listLoading, submitting, downloading, error, taskError, storageError,
-    hasMore, now, unresolved, busy, canOperate, canRestore, waitingRestart, refresh, poll, loadList, selectFile, sendPending, cancelRestore, download,
+    hasMore, now, unresolved, busy, mode, webReady, hasSavedRecords, canOperate, canRestore, waitingRestart, refresh, poll, loadList, selectFile, sendPending, cancelRestore, download,
     create: (reason: string) => start('create', { reason }),
     upload: () => file.value ? start('restore/preview', {}, file.value) : Promise.resolve(false),
     remove: (item: BackupItem) => start('delete', { backup_id: item.backup_id, expected_sha256: item.sha256 }),

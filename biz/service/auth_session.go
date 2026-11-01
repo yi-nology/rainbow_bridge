@@ -302,7 +302,7 @@ func (s *Service) SetAuthSettings(settings AuthSettings) {
 // EnsureAuthSessionsReady 在启动时按有界批次清理过期与已撤销会话;不为每个请求启动协程。
 func (s *Service) EnsureAuthSessionsReady(ctx context.Context) error {
 	now := s.now()
-	_, err := s.logic.authDAO.DeleteSessionsBefore(ctx, s.logic.db, now, authSessionCleanupBatch)
+	_, err := s.logic.authDAO.DeleteSessionsBefore(ctx, s.authenticationDB(), now, authSessionCleanupBatch)
 	if err != nil && !authDBUnavailable(err) {
 		return err
 	}

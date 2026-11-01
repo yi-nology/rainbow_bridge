@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/yi-nology/rainbow_bridge/pkg/database"
 	"github.com/yi-nology/rainbow_bridge/pkg/lock"
 	"github.com/yi-nology/rainbow_bridge/pkg/logging"
+	"github.com/yi-nology/rainbow_bridge/pkg/maintcontrol"
 	appredis "github.com/yi-nology/rainbow_bridge/pkg/redis"
 )
 
@@ -58,6 +60,15 @@ func Initialize(configPath string, buildConfig BuildConfig, backupInstance *back
 	}
 
 	// Open database connection
+	control, err := maintcontrol.New(cfg)
+	if err != nil {
+		return nil, maintcontrol.ErrStartupBlocked
+	}
+	checking, err := control.Check(context.Background(), true)
+	control.Close()
+	if err != nil {
+		return nil, maintcontrol.ErrStartupBlocked
+	}
 	db, err := database.Open(cfg.Database)
 	if err != nil {
 		return nil, err
@@ -71,50 +82,55 @@ func Initialize(configPath string, buildConfig BuildConfig, backupInstance *back
 	}()
 
 	// Auto migrate database tables
-	if err := db.AutoMigrate(
-		&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{},
-		&model.ConfigFreezeState{}, &model.ConfigFreezeEvent{}, &model.ConfigWriteGate{},
-		&model.ConfigReleaseVersion{}, &model.ConfigReleaseAsset{}, &model.ConfigReleaseHead{}, &model.ConfigReleaseEvent{},
-		&model.ReleaseStorageAttempt{},
-		&model.ScopeLifecycleEvent{},
-		&model.AuthUser{}, &model.AuthSession{},
-	); err != nil {
-		return nil, err
-	}
+	if !checking {
+		if err := db.AutoMigrate(
+			&model.Config{}, &model.Asset{}, &model.Environment{}, &model.Pipeline{},
+			&model.ConfigFreezeState{}, &model.ConfigFreezeEvent{}, &model.ConfigWriteGate{},
+			&model.ConfigReleaseVersion{}, &model.ConfigReleaseAsset{}, &model.ConfigReleaseHead{}, &model.ConfigReleaseEvent{},
+			&model.ReleaseStorageAttempt{},
+			&model.ScopeLifecycleEvent{},
+			&model.AuthUser{}, &model.AuthSession{},
+		); err != nil {
+			return nil, err
+		}
 
-	if err := configdb.BackfillConfigRevisions(context.Background(), db); err != nil {
-		return nil, err
-	}
+		if err := configdb.BackfillConfigRevisions(context.Background(), db); err != nil {
+			return nil, err
+		}
 
-	// Migrate existing configs with default environment_key and pipeline_key
-	// before resolving their scope identities.
-	if err := service.MigrateConfigDefaults(db); err != nil {
-		return nil, err
-	}
+		// Migrate existing configs with default environment_key and pipeline_key
+		// before resolving their scope identities.
+		if err := service.MigrateConfigDefaults(db); err != nil {
+			return nil, err
+		}
 
-	// Assign stable environment/scope identities and replace legacy key
-	// uniqueness with generation-aware constraints.
-	if err := configdb.MigrateScopeIdentity(context.Background(), db); err != nil {
-		return nil, err
-	}
+		// Assign stable environment/scope identities and replace legacy key
+		// uniqueness with generation-aware constraints.
+		if err := configdb.MigrateScopeIdentity(context.Background(), db); err != nil {
+			return nil, err
+		}
 
-	// Seed only a never-initialized database; deleted defaults stay deleted.
-	if err := service.EnsureSystemDefaults(context.Background(), db); err != nil {
-		return nil, err
-	}
+		// Seed only a never-initialized database; deleted defaults stay deleted.
+		if err := service.EnsureSystemDefaults(context.Background(), db); err != nil {
+			return nil, err
+		}
 
-	// Backfill per-scope release counters after scopes and seeds exist.
-	if err := configdb.EnsureReleaseNumbering(context.Background(), db); err != nil {
-		return nil, err
-	}
+		// Backfill per-scope release counters after scopes and seeds exist.
+		if err := configdb.EnsureReleaseNumbering(context.Background(), db); err != nil {
+			return nil, err
+		}
 
-	if err := database.PrepareConfigAliasConstraint(context.Background(), db); err != nil {
-		return nil, err
+		if err := database.PrepareConfigAliasConstraint(context.Background(), db); err != nil {
+			return nil, err
+		}
 	}
 
 	// Initialize Redis client (optional)
 	var redisClient *redis.Client
 	if cfg.Redis.Enabled {
+		if cfg.Backup.Distributed.Enabled {
+			cfg.Redis.Namespace = fmt.Sprintf("rb:%s:g%d:", cfg.Backup.Distributed.InstanceID, cfg.Backup.Distributed.Generation)
+		}
 		var redisErr error
 		redisClient, redisErr = appredis.NewClient(cfg.Redis)
 		if redisErr != nil {
@@ -149,6 +165,14 @@ func Initialize(configPath string, buildConfig BuildConfig, backupInstance *back
 
 	// Create service instance
 	svc := service.NewService(db, redisClient, basePath, cfg)
+	if err = svc.OpenAuthenticationRepository(context.Background()); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			svc.CloseDistributedControl()
+		}
+	}()
 	svc.SetProducer(buildConfig.Version, buildConfig.GitCommit)
 	if backupInstance != nil && backupInstance.Manager != nil {
 		backupInstance.Manager.AttachDatabase(db)
@@ -172,16 +196,18 @@ func Initialize(configPath string, buildConfig BuildConfig, backupInstance *back
 		TrustedOrigins:  authOrigins,
 		BasePath:        basePath,
 	})
-	if err := svc.EnsureAuthBootstrap(context.Background()); err != nil {
-		return nil, err
-	}
-	if err := svc.EnsureAuthSessionsReady(context.Background()); err != nil {
-		return nil, err
-	}
+	if !checking {
+		if err := svc.EnsureAuthBootstrap(context.Background()); err != nil {
+			return nil, err
+		}
+		if err := svc.EnsureAuthSessionsReady(context.Background()); err != nil {
+			return nil, err
+		}
 
-	// 冻结基础结构必须在 HTTP 开放前就绪:协调行 + 存量渠道补初始 unlocked 状态(幂等,不重置既有状态)。
-	if err := svc.EnsureFreezeBootstrap(context.Background()); err != nil {
-		return nil, err
+		// 冻结基础结构必须在 HTTP 开放前就绪:协调行 + 存量渠道补初始 unlocked 状态(幂等,不重置既有状态)。
+		if err := svc.EnsureFreezeBootstrap(context.Background()); err != nil {
+			return nil, err
+		}
 	}
 
 	// Set version information
@@ -194,14 +220,17 @@ func Initialize(configPath string, buildConfig BuildConfig, backupInstance *back
 	bizrouter.InitHandlers(svc)
 
 	// Migrate to full asset paths
-	if err := svc.MigrateToFullAssetPaths(context.Background()); err != nil {
-		log.Printf("Warning: failed to migrate asset paths: %v", err)
+	if !checking {
+		if err := svc.MigrateToFullAssetPaths(context.Background()); err != nil {
+			log.Printf("Warning: failed to migrate asset paths: %v", err)
+		}
 	}
 
 	// Register middleware
 	h.Use(middleware.Recovery())
 	h.Use(middleware.Logging())
 	h.Use(middleware.CORS(&cfg.CORS, authOrigins, basePath))
+	h.Use(middleware.DistributedMaintenance(svc, cfg, basePath))
 	h.Use(middleware.Auth())
 	// 管理接口统一鉴权:默认拒绝,公开范围在中间件内按方法 + 路由精确匹配
 	h.Use(middleware.AdminSession(svc, basePath))

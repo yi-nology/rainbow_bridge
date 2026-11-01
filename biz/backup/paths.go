@@ -200,7 +200,8 @@ func safeRelativePath(value string) (string, bool) {
 	if value == "" || strings.ContainsRune(value, 0) || strings.Contains(value, "\\") {
 		return "", false
 	}
-	if strings.HasPrefix(value, "/") || filepath.VolumeName(value) != "" {
+	hasWindowsDrive := len(value) > 1 && value[1] == ':' && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z'))
+	if strings.HasPrefix(value, "/") || hasWindowsDrive || filepath.VolumeName(value) != "" {
 		return "", false
 	}
 	// Reject traversal segments before cleaning so "uploads/../x" cannot be

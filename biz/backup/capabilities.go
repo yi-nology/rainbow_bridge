@@ -43,6 +43,9 @@ func CapabilitiesFor(cfg *config.Config, limits Limits) Capabilities {
 			RollbackRetention: rollbackRetentionView(nil),
 		}
 	}
+	if cfg.Backup.Distributed.Enabled {
+		return Capabilities{Supported: false, Reasons: []string{"分布式全量维护备份仅支持运维 CLI；网页不提供远程恢复执行"}, Limits: limits.View(), RestoreRequiresRestart: true, Mode: "maintenance_cli_only", RollbackRetention: RollbackRetentionView{}}
+	}
 	reasons := unsupportedReasons(cfg)
 	if cfg.Backup.Enabled {
 		if _, layoutReasons := ResolveLayout(cfg); len(layoutReasons) > 0 {

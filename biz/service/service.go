@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 	"github.com/yi-nology/rainbow_bridge/biz/model/common"
 	"github.com/yi-nology/rainbow_bridge/pkg/config"
+	"github.com/yi-nology/rainbow_bridge/pkg/maintcontrol"
 	"google.golang.org/protobuf/proto"
 
 	"gorm.io/gorm"
@@ -53,6 +55,9 @@ type FileUploadInput struct {
 
 // Service orchestrates config and asset operations using Logic.
 type Service struct {
+	authRepository  *gorm.DB
+	control         *maintcontrol.Guard
+	controlErr      error
 	logic           *Logic
 	basePath        string
 	config          *config.Config
@@ -67,7 +72,7 @@ type Service struct {
 }
 
 func NewService(db *gorm.DB, redisClient *redis.Client, basePath string, cfg *config.Config) *Service {
-	return &Service{
+	s := &Service{
 		logic:       NewLogic(db, redisClient),
 		basePath:    sanitizeServiceBasePath(basePath),
 		config:      cfg,
@@ -75,6 +80,11 @@ func NewService(db *gorm.DB, redisClient *redis.Client, basePath string, cfg *co
 		loginRate:   newAuthRateLimiter(nil),
 		passwordOps: newAuthComputeLimiter(authPasswordConcurrent),
 	}
+	s.control, s.controlErr = maintcontrol.New(cfg)
+	if s.controlErr == nil {
+		s.controlErr = s.control.Attach(db)
+	}
+	return s
 }
 
 // SetProducer records build information embedded in transfer archives.
@@ -119,10 +129,19 @@ func maintenanceError() error {
 // maintenance is active. Service-layer protection is intentionally independent
 // of the HTTP middleware.
 func (s *Service) beginBusinessWrite() (func(), error) {
-	if s.backup == nil {
-		return func() {}, nil
+	if _, err := s.CheckDistributedMaintenance(context.Background(), false); err != nil {
+		return nil, err
 	}
-	return s.backup.Maintenance().BeginWrite()
+	end := s.control.Track()
+	if s.backup == nil {
+		return end, nil
+	}
+	oldEnd, err := s.backup.Maintenance().BeginWrite()
+	if err != nil {
+		end()
+		return nil, err
+	}
+	return func() { oldEnd(); end() }, nil
 }
 
 // --------------------- Model conversion helpers ---------------------

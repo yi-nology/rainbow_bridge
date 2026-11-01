@@ -1,5 +1,6 @@
 import type { BackupJob, BackupCapabilities } from '@/lib/api/backup'
 import { ApiError } from '@/lib/api/error'
+import { backupMode } from '@/lib/backup-capability'
 
 export const backupTime = (value?: string) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—'
 export function backupSize(size: number) {
@@ -38,21 +39,31 @@ export function backupError(cause: unknown) {
     if (cause.message === 'an earlier rollback copy must be reviewed before another restore') return errors.BACKUP_ROLLBACK_REVIEW_REQUIRED!
     if (cause.message === 'another restore plan is already waiting for a restart') return errors.BACKUP_RESTORE_PENDING!
   }
-  return errors[cause.errorType] || (cause.code < 0 ? '连接中断，尚不能确认操作结果。' : cause.message)
+  return errors[cause.errorType] || (cause.code < 0 ? '服务暂不可用，尚不能确认操作结果。请稍后重试。' : cause.message)
 }
 export function rollbackRetentionNotice(capabilities: BackupCapabilities | null) {
   const policy = capabilities?.rollback_retention
-  return capabilities?.supported && policy?.managed === true && Number.isInteger(policy.keep_count) && policy.keep_count >= 1 && policy.keep_count <= 20
+  return capabilities && backupMode(capabilities) === 'web' && policy?.managed === true && Number.isInteger(policy.keep_count) && policy.keep_count >= 1 && policy.keep_count <= 20
     ? `系统自动保留最近 ${policy.keep_count} 次恢复前的数据，成功留存的副本不影响再次恢复。`
     : ''
 }
 const reasons: Record<string, string> = {
-  backup_disabled: '部署尚未启用业务备份。', database_driver_not_supported: '当前数据库不受支持，第一版仅支持 SQLite 文件库。',
-  storage_not_local: '资源需使用本地存储。', redis_enabled: '需关闭 Redis。',
+  backup_disabled: '部署尚未启用网页备份。', database_driver_not_supported: '网页本地备份模式仅支持 SQLite 文件库。',
+  storage_not_local: '网页本地备份模式要求资源使用本地存储。', redis_enabled: '网页本地备份模式要求 Redis 关闭。',
+  snapshot_storage_not_local: '网页本地备份模式要求发布快照使用本地存储。',
+  snapshot_history_not_local: '已有发布快照存于远程，无法完整打包为本地网页备份。',
+  snapshot_inventory_unavailable: '暂时无法核对发布快照存储，请联系部署人员检查。',
   database_outside_business_root: '数据库目录不符合备份要求。', release_snapshots_outside_business_root: '版本资源目录不符合备份要求。',
   backup_control_dir_different_volume: '备份控制目录需与业务数据位于同一磁盘卷。',
+  backup_control_dir_missing: '尚未配置网页备份的控制目录。',
+  backup_control_dir_not_absolute: '网页备份控制目录需使用绝对路径。',
+  backup_control_dir_unavailable: '网页备份控制目录暂不可用。',
+  backup_control_dir_inside_business_root: '网页备份控制目录需放在业务数据目录之外。',
+  backup_control_dir_contains_business_root: '网页备份控制目录不能包含业务数据目录。',
+  backup_control_dir_contains_program: '网页备份控制目录不能包含程序目录。',
 }
-export const supportReason = (code: string) => reasons[code] || `部署条件未满足：${code}`
+export const supportReason = (code: string) => reasons[code] || '还有未识别的部署条件，请联系部署人员核对。'
+export const supportReasons = (codes: string[]) => [...new Set(codes.map(supportReason))]
 export function previewNotice(value: string) {
   if (value.startsWith('external_references_not_included:')) return `有 ${value.split(':')[1]} 处外部资源引用不包含在包内，恢复后仍需外部地址可用。`
   const descriptions: Record<string, string> = {

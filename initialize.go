@@ -189,6 +189,7 @@ func Initialize(configPath string, buildConfig BuildConfig, backupInstance *back
 		return nil, err
 	}
 	svc.SetAuthSettings(service.AuthSettings{
+		Enabled:         cfg.Auth.Enabled,
 		CookieName:      cfg.Auth.CookieName,
 		CookieSecure:    appconfig.AuthCookieSecure(cfg),
 		IdleTimeout:     idleTimeout,
@@ -229,7 +230,7 @@ func Initialize(configPath string, buildConfig BuildConfig, backupInstance *back
 	// Register middleware
 	h.Use(middleware.Recovery())
 	h.Use(middleware.Logging())
-	h.Use(middleware.CORS(&cfg.CORS, authOrigins, basePath))
+	h.Use(middleware.CORS(&cfg.CORS, authOrigins, basePath, appconfig.AuthEnabled(cfg)))
 	h.Use(middleware.DistributedMaintenance(svc, cfg, basePath))
 	h.Use(middleware.Auth())
 	// 管理接口统一鉴权:默认拒绝,公开范围在中间件内按方法 + 路由精确匹配

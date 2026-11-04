@@ -16,6 +16,9 @@ const (
 	maxAuthAbsoluteTimeout     = 24 * time.Hour
 )
 
+// AuthEnabled is secure by default; only an explicit false disables management authentication.
+func AuthEnabled(cfg *Config) bool { return cfg == nil || cfg.Auth.Enabled == nil || *cfg.Auth.Enabled }
+
 // AuthCookieSecure 解析 Cookie 的 Secure 属性:未配置时默认开启。
 func AuthCookieSecure(cfg *Config) bool {
 	if cfg.Auth.CookieSecure == nil {

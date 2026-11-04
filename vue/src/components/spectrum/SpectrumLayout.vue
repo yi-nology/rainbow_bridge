@@ -53,7 +53,7 @@ onMounted(() => { void versionStore.init() })
       <a class="spectrum-doc-link" href="https://yi-nology.github.io/rainbow_bridge/guide/" target="_blank" rel="noopener noreferrer">使用文档 <ArrowUpRight :size="14" /></a>
       <WorkspaceAccount />
     </header>
-    <main id="spectrum-main" class="spectrum-main" tabindex="-1"><p v-if="restricted" class="backup-alert" role="status">业务维护中，当前登录可用于备份恢复与任务处理。</p><SessionNotice /><ScopeNotice /><slot /></main>
+    <main id="spectrum-main" class="spectrum-main" tabindex="-1"><p v-if="restricted" class="backup-alert" role="status">业务维护中，可查看备份恢复与处理任务。</p><SessionNotice /><ScopeNotice /><slot /></main>
     <footer class="spectrum-footer">
       <details v-if="versionStore.versionInfo" class="spectrum-build-info">
         <summary>RAINBOW BRIDGE <code>{{ version }}</code><ChevronDown :size="12" aria-hidden="true" /></summary>

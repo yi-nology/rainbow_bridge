@@ -76,7 +76,7 @@ async function copyLink() {
       <p v-if="task.state === 'succeeded' && availability === false" class="backup-alert" role="alert">任务步骤已结束，业务仍未恢复。请核对当前阻塞原因。</p>
       <p v-if="task.error" class="backup-alert is-danger" role="alert">{{ noticeText(task.error) }}</p>
       <ul v-if="operation?.blocking_reasons.length" class="backup-alert"><li v-for="(item,index) in operation.blocking_reasons" :key="index">{{ noticeText(item) }}</li></ul>
-      <p v-if="task.result?.reauth_required && complete" class="backup-alert">恢复完成，请使用当前密码重新登录后核对业务数据。<RouterLink :to="{path:'/login',query:{redirect:'/config'}}">重新登录</RouterLink></p>
+      <p v-if="task.result?.reauth_required && complete && !auth.authDisabled" class="backup-alert">恢复完成，请使用当前密码重新登录后核对业务数据。<RouterLink :to="{path:'/login',query:{redirect:'/config'}}">重新登录</RouterLink></p>
       <div class="backup-actions maintenance-task-actions"><Button v-if="allowed('resume')" @click="action='resume'">继续任务</Button><Button v-if="allowed('abort')" variant="outline" @click="action='abort'">取消并恢复原服务</Button><Button v-if="allowed('cancel')" variant="outline" @click="action='cancel'">取消排队</Button></div>
       <p class="backup-secondary">关闭页面不会取消任务；连接中断时，可刷新此地址继续查看。</p>
       <details class="spectrum-help"><summary>任务信息</summary><dl class="maintenance-counts"><div><dt>提交时间</dt><dd>{{ backupTime(task.created_at) }}</dd></div><div><dt>状态更新时间</dt><dd>{{ backupTime(task.updated_at) }}</dd></div><div><dt>提交人</dt><dd>{{ task.actor }}</dd></div></dl><p class="backup-secondary">{{ task.reason || '未填写备注' }}</p><code class="backup-secondary">{{ task.task_id }}</code></details>

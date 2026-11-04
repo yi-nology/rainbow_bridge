@@ -100,6 +100,7 @@ type RedisConfig struct {
 
 // AuthConfig defines admin login session settings.
 type AuthConfig struct {
+	Enabled      *bool  `yaml:"enabled"`
 	CookieName   string `yaml:"cookie_name"`
 	CookieSecure *bool  `yaml:"cookie_secure"`
 	// AllowInsecureLocal permits cookie_secure=false on loopback binds only.

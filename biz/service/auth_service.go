@@ -29,6 +29,7 @@ const (
 
 // AuthSettings 是会话与 Cookie 的运行参数,由配置注入(测试可替换窄字段)。
 type AuthSettings struct {
+	Enabled          *bool
 	CookieName       string
 	CookieSecure     bool
 	IdleTimeout      time.Duration
@@ -40,9 +41,10 @@ type AuthSettings struct {
 
 // AdminIdentity 是服务端验证后的可信管理员身份;只能由会话校验组件创建。
 type AdminIdentity struct {
-	UserID   int64
-	Username string
-	Role     string
+	AuthenticationSource string
+	UserID               int64
+	Username             string
+	Role                 string
 }
 
 type adminIdentityContextKey struct{}
@@ -76,6 +78,9 @@ func requireAdminIdentity(ctx context.Context) (AdminIdentity, error) {
 func (s *Service) EnsureAuthBootstrap(ctx context.Context) error {
 	if s.config != nil && s.config.Backup.Distributed.WebEnabled {
 		return s.authRepositoryReady(ctx)
+	}
+	if !s.AuthenticationEnabled() {
+		return nil
 	}
 	count, err := s.logic.authDAO.CountUsers(ctx, s.authenticationDB())
 	if err != nil {
@@ -177,6 +182,9 @@ func (s *Service) adminUsernameForReset(ctx context.Context) string {
 
 // adminAccountAvailable 表示是否存在可用管理员账号(不读取旧管理密钥)。
 func (s *Service) adminAccountAvailable(ctx context.Context) bool {
+	if !s.AuthenticationEnabled() {
+		return true
+	}
 	count, err := s.logic.authDAO.CountUsers(ctx, s.authenticationDB())
 	return err == nil && count > 0
 }

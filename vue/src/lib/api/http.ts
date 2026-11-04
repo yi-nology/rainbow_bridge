@@ -3,7 +3,7 @@ import { operationMessage } from './messages'
 import { isScopeError, scopeProblem } from '@/lib/scope'
 import { isTrustedApiURL } from './url'
 import { isMaintenanceProtection, maintenanceProtectionError } from './maintenance'
-import { clearSession, sessionCsrf, sessionGeneration, sessionProblem, sessionStatus } from '../auth/session'
+import { clearSession, sessionCsrf, sessionGeneration, sessionProblem, sessionStatus, authenticationDisabled } from '../auth/session'
 
 export class StaleSessionError extends ApiError {
   constructor() { super(0, '请求所属会话已结束'); this.errorType = 'SESSION_STALE' }
@@ -58,22 +58,27 @@ export async function fetchApi(input: string | URL, init: RequestInit = {}, opti
   const trusted = isTrustedApiURL(url)
   const management = isManagementRequest(url)
   const sessionBound = isSessionBoundRequest(url)
+  const withoutCredentials = trusted && authenticationDisabled()
   const resultRead = options.taskResultRead === true && trusted && (init.method || 'GET').toUpperCase() === 'GET' &&
     /\/api\/v1\/maintenance\/tasks\/[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(url.pathname) && !url.search
   if (options.taskResultRead && !resultRead) throw new ApiError(400, '结果读取地址无效')
-  if (trusted && management && sessionStatus.value === 'anonymous' && !resultRead) {
+  if (trusted && management && sessionStatus.value === 'anonymous' && !resultRead && !withoutCredentials) {
     const error = new ApiError(401, '请重新登录')
     error.errorType = 'AUTH_REQUIRED'
     throw error
   }
   const batch = sessionGeneration()
   const headers = new Headers(init.headers)
-  if (trusted && !['GET', 'HEAD'].includes((init.method ?? 'GET').toUpperCase()) && sessionCsrf()) {
+  if (withoutCredentials) {
+    headers.delete('Authorization')
+    headers.delete('X-CSRF-Token')
+    headers.delete('Cookie')
+  } else if (trusted && !['GET', 'HEAD'].includes((init.method ?? 'GET').toUpperCase()) && sessionCsrf()) {
     headers.set('X-CSRF-Token', sessionCsrf())
   }
   let response: Response
   try {
-    response = await fetch(url, { ...init, headers, credentials: trusted ? 'include' : 'omit' })
+    response = await fetch(url, { ...init, headers, credentials: trusted && !withoutCredentials ? 'include' : 'omit' })
   } catch {
     if (sessionBound && batch !== sessionGeneration()) throw new StaleSessionError()
     throw new ApiError(-1, '服务暂不可用，请重试', '', ErrorType.NETWORK)

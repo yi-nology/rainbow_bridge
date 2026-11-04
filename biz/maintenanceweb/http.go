@@ -70,13 +70,13 @@ func (h *HTTP) Serve(action string) app.HandlerFunc {
 		c.Header("Cache-Control", "no-store")
 		write := string(c.Method()) != "GET"
 		origin := string(c.GetHeader("Origin"))
-		if write && (origin == "" || !h.Auth.OriginAllowed(origin)) {
+		if h.Auth.AuthenticationEnabled() && write && (origin == "" || !h.Auth.OriginAllowed(origin)) {
 			writeError(c, failure(403, "AUTH_ORIGIN_DENIED", "请求来源不受信任"))
 			return
 		}
 		identity, e := h.Auth.AdminIdentityForRequest(ctx, service.AuthRequestInput{SessionToken: string(c.Cookie(h.Auth.AuthSettings().CookieName)), CSRFToken: string(c.GetHeader("X-CSRF-Token")), Origin: origin, HasOrigin: origin != ""}, write)
 		resultOnly := false
-		if e != nil && action == "task" {
+		if h.Auth.AuthenticationEnabled() && e != nil && action == "task" {
 			if a, ok := service.AsAuthError(e); ok && a.HTTPStatus == 401 {
 				t, te := h.Store.task(ctx, c.Param("task_id"), false)
 				if te == nil && t.OperationID != nil && h.Store.resultAccess(ctx, c, *t.OperationID) {
@@ -126,7 +126,7 @@ func (h *HTTP) Serve(action string) app.HandlerFunc {
 					if op != nil {
 						op.AllowedActions = []string{}
 					}
-				} else if t.OperationID != nil {
+				} else if h.Auth.AuthenticationEnabled() && t.OperationID != nil {
 					e = h.Store.issueResult(ctx, c, h.Auth, identity, *t.OperationID)
 				}
 				data = map[string]any{"task": t, "operation": op}

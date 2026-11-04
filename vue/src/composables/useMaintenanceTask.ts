@@ -36,7 +36,7 @@ export function useMaintenanceTask(id: () => string) {
       if (auth.status === 'unknown') await auth.restore()
       // A historic restore can keep reauth_required=true. Verify the actual current
       // session instead of revoking a freshly reauthenticated user on every read.
-      if (result.task.result?.reauth_required && auth.authenticated) await auth.restore(true)
+      if (result.task.result?.reauth_required && auth.authenticated && !auth.authDisabled) await auth.restore(true)
       if (stopped || current !== epoch || id() !== taskId) return
       if (!auth.authenticated) { capabilities.value = null; return }
       const nextGeneration = sessionGeneration()

@@ -42,14 +42,13 @@ func AdminSession(auth SessionAuthenticator, basePath string) app.HandlerFunc {
 			return
 		}
 		settings := auth.AuthSettings()
-		cookieValue := c.Cookie(settings.CookieName)
-		origin, hasOrigin := requestOriginValue(c)
-		identity, err := auth.AdminIdentityForRequest(ctx, service.AuthRequestInput{
-			SessionToken: string(cookieValue),
-			CSRFToken:    strings.TrimSpace(string(c.GetHeader("X-CSRF-Token"))),
-			Origin:       origin,
-			HasOrigin:    hasOrigin,
-		}, requiresCSRF(method))
+		input := service.AuthRequestInput{}
+		if settings.Enabled == nil || *settings.Enabled {
+			input.Origin, input.HasOrigin = requestOriginValue(c)
+			input.SessionToken = string(c.Cookie(settings.CookieName))
+			input.CSRFToken = strings.TrimSpace(string(c.GetHeader("X-CSRF-Token")))
+		}
+		identity, err := auth.AdminIdentityForRequest(ctx, input, requiresCSRF(method))
 		if err != nil {
 			writeAdminAuthError(c, err)
 			return

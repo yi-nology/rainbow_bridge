@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { authApi } from '@/lib/api/auth'
 import { ApiError } from '@/lib/api/error'
 import { isSessionError } from '@/lib/api/http'
-import { acceptSession, clearSession, sessionGeneration, sessionIdentity, sessionStatus } from '@/lib/auth/session'
+import { acceptSession, clearSession, sessionGeneration, sessionIdentity, sessionStatus, authenticationDisabled } from '@/lib/auth/session'
 
 export const useAuthStore = defineStore('auth', () => {
   const restoring = ref(false)
@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   let inFlight: Promise<void> | null = null
   const authenticated = computed(() => sessionStatus.value === 'authenticated')
   const user = computed(() => sessionIdentity.value?.user ?? null)
+  const authDisabled = computed(authenticationDisabled)
 
   function restore(force = false): Promise<void> {
     if (submitting.value) return Promise.resolve()
@@ -43,6 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(username: string, password: string) {
+    if (authDisabled.value) return false
     if (submitting.value) return false
     const current = ++attempt
     inFlight = null
@@ -65,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    if (authDisabled.value) return false
     if (submitting.value) return false
     const current = ++attempt
     const batch = sessionGeneration()
@@ -89,5 +92,5 @@ export const useAuthStore = defineStore('auth', () => {
       submitting.value = false
     }
   }
-  return { status: sessionStatus, user, authenticated, restoring, submitting, error, restore, login, logout }
+  return { status: sessionStatus, user, authenticated, authDisabled, restoring, submitting, error, restore, login, logout }
 })

@@ -9,9 +9,10 @@ async function logout() {
 </script>
 <template>
   <div class="spectrum-account">
-    <template v-if="auth.authenticated"><span class="spectrum-account-name" :title="auth.user?.username">{{ auth.user?.username }}</span><button :disabled="auth.submitting" @click="logout">{{ auth.submitting ? '退出中…' : '退出' }}</button></template>
+    <span v-if="auth.authDisabled" class="spectrum-account-name" role="status">免鉴权模式</span>
+    <template v-else-if="auth.authenticated"><span class="spectrum-account-name" :title="auth.user?.username">{{ auth.user?.username }}</span><button :disabled="auth.submitting" @click="logout">{{ auth.submitting ? '退出中…' : '退出' }}</button></template>
     <RouterLink v-else-if="auth.status !== 'unknown'" to="/login">登录</RouterLink>
     <span v-else role="status">确认身份…</span>
-    <p v-if="auth.error && auth.authenticated" class="spectrum-account-error" role="alert">{{ auth.error }}<button :disabled="auth.submitting" @click="logout">重试退出</button></p>
+    <p v-if="auth.error && auth.authenticated && !auth.authDisabled" class="spectrum-account-error" role="alert">{{ auth.error }}<button :disabled="auth.submitting" @click="logout">重试退出</button></p>
   </div>
 </template>

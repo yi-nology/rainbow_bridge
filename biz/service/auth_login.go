@@ -425,6 +425,12 @@ func (s *Service) resolveSession(ctx context.Context, token string) (authSession
 // AdminIdentityForRequest 供管理中间件使用:验证会话并返回可信身份,
 // 同时按需要校验 CSRF(写操作)与请求来源。
 func (s *Service) AdminIdentityForRequest(ctx context.Context, input AuthRequestInput, requireCSRF bool) (AdminIdentity, error) {
+	if !s.AuthenticationEnabled() {
+		if err := s.authRepositoryReady(ctx); err != nil {
+			return AdminIdentity{}, err
+		}
+		return AnonymousAdmin(), nil
+	}
 	row, user, err := s.resolveSession(ctx, input.SessionToken)
 	if err != nil {
 		return AdminIdentity{}, err

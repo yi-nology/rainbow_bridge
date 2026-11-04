@@ -40,6 +40,7 @@ type authSessionJSON struct {
 }
 
 type authSessionDataJSON struct {
+	AuthEnabled       *bool           `json:"auth_enabled,omitempty"`
 	AccessScope       string          `json:"access_scope,omitempty"`
 	ActiveOperationID *string         `json:"active_operation_id,omitempty"`
 	User              authUserJSON    `json:"user"`
@@ -212,6 +213,22 @@ func Login(ctx context.Context, c *app.RequestContext) {
 // Me .
 // @router /api/v1/auth/me [GET]
 func Me(ctx context.Context, c *app.RequestContext) {
+	if !svc.AuthenticationEnabled() {
+		scope, operation, err := svc.AuthenticationAccess(ctx)
+		if err != nil {
+			writeAuthError(c, err)
+			return
+		}
+		var operationID *string
+		if operation != "" {
+			operationID = &operation
+		}
+		c.Header("Cache-Control", "no-store")
+		c.JSON(200, map[string]any{"code": 0, "msg": "success", "data": map[string]any{
+			"auth_enabled": false, "user": authUserJSON{ID: "0", Username: "anonymous-admin", Role: "admin"}, "session": nil, "csrf_token": "", "access_scope": scope, "active_operation_id": operationID,
+		}})
+		return
+	}
 	origin, hasOrigin := requestOrigin(c)
 	result, err := svc.CurrentSession(handler.EnrichContext(ctx, c), service.AuthRequestInput{
 		SessionToken: requestSessionToken(c),

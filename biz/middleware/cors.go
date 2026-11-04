@@ -11,7 +11,8 @@ import (
 
 // CORS 处理跨域:公开业务接口沿用配置里的来源范围,
 // 管理/auth 路由只对精确可信来源返回 ACAO 与凭据,不使用通配符、不反射任意来源。
-func CORS(cfg *config.CORSConfig, trustedOrigins []string, basePath string) app.HandlerFunc {
+func CORS(cfg *config.CORSConfig, trustedOrigins []string, basePath string, authEnabled ...bool) app.HandlerFunc {
+	protected := len(authEnabled) == 0 || authEnabled[0]
 	// Use defaults if config is nil
 	allowOrigin := "*"
 	allowMethods := "GET,POST,PUT,DELETE,OPTIONS"
@@ -32,6 +33,15 @@ func CORS(cfg *config.CORSConfig, trustedOrigins []string, basePath string) app.
 			allowCredentials = "true"
 		}
 	}
+	if !protected {
+		if allowOrigin == "*" {
+			allowCredentials = "false"
+		}
+		// Explicit headers support preflight even when callers carry stale credentials.
+		if allowHeaders == "*" {
+			allowHeaders = "Content-Type, Authorization, X-CSRF-Token, X-Client-Version, x-environment, x-pipeline"
+		}
+	}
 
 	prefix := strings.Trim(normalizeBasePath(basePath), "/")
 	return func(ctx context.Context, c *app.RequestContext) {
@@ -43,7 +53,7 @@ func CORS(cfg *config.CORSConfig, trustedOrigins []string, basePath string) app.
 			targetMethod = string(c.GetHeader("Access-Control-Request-Method"))
 		}
 		management := strings.HasPrefix(path, "/api/") && !IsPublicRequest(targetMethod, path)
-		if management {
+		if management && protected {
 			// 管理与 auth 路由:仅精确匹配的可信来源,且不使用通配符
 			c.Response.Header.Add("Vary", "Origin")
 			for _, trusted := range trustedOrigins {

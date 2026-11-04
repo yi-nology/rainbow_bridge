@@ -37,7 +37,7 @@ func Serve(ctx context.Context, cfg maintenanceweb.Config) error {
 		return e
 	}
 	defer svc.CloseDistributedControl()
-	svc.SetAuthSettings(service.AuthSettings{CookieName: cfg.App.Auth.CookieName, CookieSecure: config.AuthCookieSecure(&cfg.App), TrustedOrigins: origins, IdleTimeout: idle, AbsoluteTimeout: absolute, BasePath: cfg.App.Server.BasePath})
+	svc.SetAuthSettings(service.AuthSettings{Enabled: cfg.App.Auth.Enabled, CookieName: cfg.App.Auth.CookieName, CookieSecure: config.AuthCookieSecure(&cfg.App), TrustedOrigins: origins, IdleTimeout: idle, AbsoluteTimeout: absolute, BasePath: cfg.App.Server.BasePath})
 	store, e := maintenanceweb.Open(ctx, cfg)
 	if e != nil {
 		return e
@@ -48,7 +48,7 @@ func Serve(ctx context.Context, cfg maintenanceweb.Config) error {
 		address = ":8081"
 	}
 	h := server.Default(server.WithHostPorts(address), server.WithBasePath(cfg.App.Server.BasePath), server.WithMaxRequestBodySize(8192))
-	h.Use(middleware.CORS(&cfg.App.CORS, origins, cfg.App.Server.BasePath))
+	h.Use(middleware.CORS(&cfg.App.CORS, origins, cfg.App.Server.BasePath, config.AuthEnabled(&cfg.App)))
 	// Logout revokes result-only grants too; no fallback grants are minted by logout.
 	h.Use(func(ctx context.Context, c *app.RequestContext) {
 		token := string(c.Cookie(svc.AuthSettings().CookieName))

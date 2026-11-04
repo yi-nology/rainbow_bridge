@@ -42,6 +42,9 @@ func Create(ctx context.Context, c *app.RequestContext) {
 	}
 	cfg, err := svc.AddConfigWithIdentity(handler.EnrichContext(ctx, c), req.GetConfig(), req.GetExpectedScopeId())
 	if err != nil {
+		if handler.WriteAssetError(c, err) {
+			return
+		}
 		if scopeErr, ok := service.AsScopeError(err); ok {
 			c.JSON(scopeErr.HTTPStatus, &config.ConfigResponse{Code: int32(scopeErr.Code), Msg: "error", Error: scopeErr.Message, ErrorType: scopeErr.ErrorType})
 			return
@@ -82,6 +85,9 @@ func Update(ctx context.Context, c *app.RequestContext) {
 	}
 	cfg, err := svc.UpdateConfigWithIdentity(handler.EnrichContext(ctx, c), req.GetConfig(), req.ExpectedEditRevision, req.GetExpectedScopeId())
 	if err != nil {
+		if handler.WriteAssetError(c, err) {
+			return
+		}
 		status, kind := 0, ""
 		switch {
 		case errors.Is(err, configdb.ErrEditRevisionInvalid):

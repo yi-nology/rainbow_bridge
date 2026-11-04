@@ -81,6 +81,7 @@ func NewService(db *gorm.DB, redisClient *redis.Client, basePath string, cfg *co
 		passwordOps: newAuthComputeLimiter(authPasswordConcurrent),
 	}
 	s.control, s.controlErr = maintcontrol.New(cfg)
+	s.logic.assetReferences = assetReferencePolicy{basePath: s.basePath, originAllowed: s.OriginAllowed}
 	if s.controlErr == nil {
 		s.controlErr = s.control.Attach(db)
 	}

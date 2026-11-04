@@ -67,6 +67,7 @@ export const useAssetStore = defineStore('asset', () => {
     fetchAssets,
     resetAssets,
     uploadAsset,
+    removeAsset: assetApi.removeInScope.bind(assetApi),
     getAssetUrl: assetApi.getFileUrl,
   }
 })

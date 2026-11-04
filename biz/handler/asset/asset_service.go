@@ -254,12 +254,15 @@ func GetFile(ctx context.Context, c *app.RequestContext) {
 
 	assetItem, path, err := svc.GetAssetFile(handler.EnrichContext(ctx, c), fileID)
 	if err != nil {
+		if handler.WriteAssetError(c, err) {
+			return
+		}
 		if scopeErr, ok := service.AsScopeError(err); ok {
 			c.JSON(scopeErr.HTTPStatus, map[string]any{"code": scopeErr.Code, "error_type": scopeErr.ErrorType, "error": scopeErr.Message})
 			return
 		}
 		if errors.Is(err, service.ErrAssetNotFound) || errors.Is(err, os.ErrNotExist) {
-			c.JSON(404, map[string]any{"code": 404, "error": "asset not found"})
+			c.JSON(404, map[string]any{"code": 404, "msg": "error", "error": "asset not found", "error_type": service.ErrTypeAssetNotFound})
 			return
 		}
 		c.JSON(500, map[string]any{"code": 500, "error": "asset read failed"})

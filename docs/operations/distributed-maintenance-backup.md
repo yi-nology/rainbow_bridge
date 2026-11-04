@@ -69,3 +69,40 @@ maintenance-backup --config maintenance.yaml --action abort --request-id REQUEST
 恢复只导入编译时允许的业务表和对象，不执行备份 SQL。恢复到新库、新原始桶和新快照桶，检查态不 Ready、不开放写入；逐表逐列、对象大小/SHA、运行时与 ZIP 检查后才提交 active。保留目标当前管理员，清空会话，提升会话与缓存代次；版本编号取当前、备份和历史上界。
 
 最终开放写入前可 abort，回原连接但 generation 继续递增；已完成恢复后拒绝自动退库。旧库、旧桶和中断候选均保留，工具不自动删除。当前批次不提供备份删除、旧代回收、定时或增量。人工清理必须对照控制记录的精确 DB、bucket、attempt prefix、原配置 Secret 归属和当前工作负载引用，确认没有运行作业及引用后逐项处理；不得按通配符删除、不得删原生产桶或 FLUSH Redis。控制记录和可用备份应独立留存。
+
+## 同 Pod 部署的代理来源维护（2026-11-04）
+
+本节对应正式实例 `rainbow-bridge/rainbow-bridge-app` 的 business-host + maintenance-helper 部署。可信来源是浏览器访问入口的协议、主机、端口，不含路径或尾斜杠；Nginx upstream 只定义上游，并不会把浏览器 Origin 改成上游地址。
+
+### 实际配置来源
+
+| 容器 / 挂载 | Secret 与键 | 来源字段 |
+| --- | --- | --- |
+| app，`/app-config/config.yaml` | `rainbow-bridge-app-config` / `config.yaml` | `auth.trusted_origins` |
+| management，`/console/console.yaml` | `console-config` / `console.yaml` | **`application.auth.trusted_origins`** |
+
+console 的 Go 字段名为 `App`，YAML 标签实际是 `application`；修改前应读取实际 YAML 确认，不能写成新增的 `app` 节点。旧 `rainbow-bridge-config` ConfigMap 已不是这两个进程的运行配置。当前配置以这两份 Secret 为准，后续更新部署材料时也要保留已合并的来源；接入时一次性使用的旧渲染脚本/旧 ConfigMap 不应覆盖当前 Secret。
+
+此次两个列表均精确合并以下来源，其他既有来源和配置字段保留。这是本部署配置，不是产品默认白名单：
+
+```yaml
+trusted_origins:
+  - http://10.60.226.43:31880
+  - http://10.44.56.107:32376
+```
+
+代理页面入口是 `http://10.44.56.107:32376/rainbow-bridge/`；该主机根路径属于其他平台。
+
+### 修改与重载
+
+1. 核对实例、Deployment、Service、Secret UID 和挂载。控制实例应为 active，无活动网页任务、引擎作业或维护 Job；先在部署主机受限目录保存两份 Secret 和当前 Deployment/Service，文件 0600、目录 0700。完整配置只在受限主机处理。
+2. 用 YAML 节点只合并来源列表，保留其他字段，并使用当前 resourceVersion 更新原 Secret，保持 UID。配置前后数据连接 fingerprint、generation、session generation 不变；账号与密码保持原值。
+3. 来源虽然不影响数据 fingerprint，却会改变完整配置 SHA。business-host 运行中的子进程读取的是启动时的私有配置副本，单独更新 Secret 不会热更新鉴权。应通过维护租约及受认证 host 命令进入 draining，等待实际退出码 0 和 stopped 记录，再进入 checking、批准新配置 SHA；实际投射文件匹配后启动固定业务子进程，确认 running 和 SHA 一致才回 active，结束对应配置重载记录。
+4. console/helper 在启动时加载来源，需要在其配置投射完成后向 **management 容器** PID 1 发送 SIGTERM，由现有重启策略重新启动。app 的 host、Pod、Service 和产品镜像可保持不变。等待 helper 与 app Ready，再以两个真实 Origin 分别登录，读取业务管理列表及 maintenance capabilities，最后退出。此流程无需执行备份或恢复。
+5. 旧预览基于旧配置 SHA，更新后重新生成计划；历史作业的配置哈希和模板记录按原值保留。当前 CLI 没有通用的 `reload-config` 命令；本次使用受限运维辅助程序复用维护租约、fencing token 和 host 签名协议完成配置重载，未增加产品接口。不要用直接删除 Pod 的方式代替退出证明。
+
+此次私密原始备份与重载 checkpoint 位于部署主机 `/root/rainbow-backups/origin-fix-20261104`；受限辅助程序为 `/root/rainbow-backups/deploy-v512-20261101/origin-fix`，用于此次已记录变更，不应重复执行 apply。完成时同一 Pod 两容器 Ready，app restart=0、management restart=1，业务配置 SHA 与 Secret 一致，控制实例 active，无活动任务。
+
+### 回退方法
+
+来源回退只恢复此前的来源列表：在无活动维护任务时，从受限备份提取原 `trusted_origins`，合并到**当前**配置节点，核对其他字段与当前数据身份仍相同，使用当前 resourceVersion 更新原 Secret；随后按上述受控停止、批准新 SHA、启动及 helper 重载流程生效。每次变更使用独立备份和重载操作标识。不要整体覆盖旧 Secret、回滚业务数据库、重置管理员或沿用旧操作 token。若身份/配置已被后续恢复改变，先重新核对当前配置，不套用此次原始快照。本次未执行回退。

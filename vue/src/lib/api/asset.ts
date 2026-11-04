@@ -3,12 +3,26 @@ import { apiClient } from './client'
 import { toCamelCase } from '../utils'
 import type { FileAsset, UploadAssetResponse } from './types'
 import { assertScope, readScope } from '@/lib/scope'
+import { ApiError } from './error'
+import type { AssetDeleteResult } from './asset-delete'
 
 class AssetApiService extends BaseApiService<FileAsset> {
   protected baseUrl = '/api/v1/asset'
 
   protected getIdParamName(): string {
     return 'file_id'
+  }
+
+  async removeInScope(fileId: string, environmentKey: string, pipelineKey: string, expectedScopeId: string): Promise<AssetDeleteResult> {
+    assertScope(environmentKey, pipelineKey, expectedScopeId)
+    const response = await apiClient.post<AssetDeleteResult>('/api/v1/asset/delete', {
+      file_id: fileId, environment_key: environmentKey, pipeline_key: pipelineKey, expected_scope_id: expectedScopeId,
+    }, { showErrorToast: false })
+    assertScope(environmentKey, pipelineKey, expectedScopeId)
+    if (response.data?.file_id !== fileId || response.data.deleted !== true || typeof response.data.already_deleted !== 'boolean') {
+      throw new ApiError(502, '删除结果未确认，请刷新资源列表核对。')
+    }
+    return response.data
   }
 
   // 重写list方法，因为需要环境和管道key参数

@@ -7,6 +7,7 @@ import { Upload, Loader2, Search } from 'lucide-vue-next'
 import { useAssetStore } from '@/stores/asset'
 import { useFreezeStore } from '@/stores/freeze'
 import { isFreezeBlockedError } from '@/lib/api/error'
+import { IMAGE_ACCEPT } from '@/lib/image-upload'
 
 const assetStore = useAssetStore()
 const freezeStore = useFreezeStore()
@@ -76,7 +77,7 @@ const handleFileChange = async (e: Event) => {
       ref="fileInputRef"
       class="hidden"
       @change="handleFileChange"
-      accept="image/*,application/json,text/*"
+      :accept="`${IMAGE_ACCEPT},application/json,text/*`"
     />
     <Button
       @click="handleUploadClick"

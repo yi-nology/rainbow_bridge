@@ -23,6 +23,7 @@ func Register(r *server.Hertz) {
 			_v1 := _api.Group("/v1", _v1Mw()...)
 			{
 				_asset := _v1.Group("/asset", _assetMw()...)
+				_asset.POST("/delete", append(_deleteMw(), asset.Delete)...)
 				_asset.GET("/list", append(_listMw(), asset.List)...)
 				_asset.POST("/upload", append(_uploadMw(), asset.Upload)...)
 				{

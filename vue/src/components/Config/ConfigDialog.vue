@@ -15,7 +15,8 @@ import { Switch } from '@/components/ui/switch'
 import { Plus, X, Upload, AlertCircle, Loader2 } from 'lucide-vue-next'
 import { useAssetStore } from '@/stores/asset'
 import { type ConfigItem, type ConfigType, CONFIG_TYPE_META } from '@/lib/types'
-import { resolveAssetUrl } from '@/lib/utils'
+import ConfigImageUpload from './ConfigImageUpload.vue'
+import { imageSelectionError } from '@/lib/image-upload'
 
 const props = defineProps<{
   open: boolean
@@ -80,8 +81,8 @@ const busy = computed(() => saving.value || uploading.value || loadingDetail.val
 const formElement = ref<HTMLFormElement | null>(null)
 const saveError = ref('')
 const startAttempt = useDialogAttempt(
-  () => [props.open, props.selectedEnvKey, props.selectedPipelineKey, props.editingConfig?.id],
-  () => { saving.value = false; uploading.value = false },
+  () => [props.open, props.selectedEnvKey, props.selectedPipelineKey, props.scopeId, props.editingConfig?.id, props.frozen],
+  () => { saving.value = false; uploading.value = false; loadingDetail.value = false },
 )
 
 function handleOpenChange(value: boolean) {
@@ -298,48 +299,40 @@ const handleUpdate = () => {
   })
 }
 
-const handleFileUpload = async (type: 'file' | 'image') => {
-  if (busy.value) return
+async function uploadFiles(files: File[], type: 'file' | 'image') {
+  if (!props.open || busy.value || blocked.value || !props.scopeId || !props.selectedEnvKey || !props.selectedPipelineKey) return
   if (props.frozen) {
     showSaveError(`该范围已冻结,无法上传资源${props.frozenReason ? `(原因:${props.frozenReason})` : ''}`)
     return
   }
+  const validation = type === 'image' ? imageSelectionError(files) : files.length !== 1 ? '一次只能上传一个文件' : ''
+  if (validation) { showSaveError(validation); return }
+  const file = files[0]!
+  const current = startAttempt()
+  const environmentKey = props.selectedEnvKey, pipelineKey = props.selectedPipelineKey, scopeId = props.scopeId
+  uploading.value = true
+  saveError.value = ''
+  try {
+    const result = await assetStore.uploadAsset(file, environmentKey, pipelineKey, scopeId)
+    if (!current()) return
+    if (!result?.id) throw new Error('资源上传响应不完整，请在资源管理中核对后重试')
+    // Keep a service-owned reference, never a browser/object URL or proxy origin.
+    formData.value.content = 'asset://' + result.id
+    errors.value = errors.value.filter(error => error.field !== 'content')
+  } catch (error) {
+    if (current()) showSaveError(error instanceof Error ? error.message : '资源上传失败')
+  } finally {
+    if (current()) uploading.value = false
+  }
+}
+
+const handleFileUpload = () => {
+  if (busy.value || props.frozen) return
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = type === 'image' ? 'image/*' : '*/*'
+  input.accept = '*/*'
   const current = startAttempt()
-  const environmentKey = props.selectedEnvKey
-  const pipelineKey = props.selectedPipelineKey
-  const scopeId = props.scopeId
-
-  input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!current() || !file || !environmentKey || !pipelineKey) return
-
-      uploading.value = true
-      saveError.value = ''
-      try {
-        const result = await assetStore.uploadAsset(file, environmentKey, pipelineKey, scopeId)
-        if (!current()) return
-        if (result?.url) {
-          // 只保存相对路径，避免重复添加 basePath
-          const basePath = import.meta.env.BASE_URL || ''
-          const normalizedBasePath = basePath.replace(/\/$/, '')
-          let url = result.url
-          if (normalizedBasePath && url.startsWith(normalizedBasePath)) {
-            url = url.replace(normalizedBasePath, '')
-          }
-          formData.value.content = url
-          errors.value = errors.value.filter(e => e.field !== 'content')
-        }
-      } catch (e) {
-        if (!current()) return
-        showSaveError(e instanceof Error ? e.message : '资源上传失败')
-      } finally {
-        if (current()) uploading.value = false
-      }
-    }
-
+  input.onchange = () => { if (current() && input.files?.length) void uploadFiles(Array.from(input.files), 'file') }
   input.click()
 }
 
@@ -593,29 +586,24 @@ const isDirty = computed(() => formSignature() !== initialSignature.value)
               </div>
             </div>
           </div>
+          <ConfigImageUpload v-else-if="formData.type === 'image'" :selection-context="[open, selectedEnvKey, selectedPipelineKey, scopeId, editingConfig?.id].join(':')" :content="formData.content" :disabled="busy || !!frozen || !!blocked" :uploading="uploading" :invalid="!!getFieldError('content')" @select="files => uploadFiles(files, 'image')" />
           <button
-            v-else-if="formData.type === 'file' || formData.type === 'image'"
+            v-else-if="formData.type === 'file'"
             id="content"
             type="button"
             :disabled="busy || frozen"
-            :aria-label="`上传${formData.type === 'image' ? '图片' : '文件'}`"
+            aria-label="上传文件"
             class="spectrum-config-upload border border-dashed rounded-lg p-6 text-center transition-colors"
             :class="[getFieldError('content') ? 'border-destructive' : '', frozen ? 'opacity-60 pointer-events-none' : '']"
             :title="frozen ? `已冻结:${frozenReason || '该范围不可上传资源'}` : undefined"
-            @click="handleFileUpload(formData.type)"
+            @click="handleFileUpload"
           >
             <Loader2 v-if="uploading" class="w-6 h-6 mx-auto animate-spin" />
             <span v-if="uploading" role="status" class="block mt-3">上传中…</span>
             <Upload v-else-if="!formData.content" class="w-8 h-8 mx-auto text-muted-foreground" />
             <p v-if="!uploading && !formData.content" class="text-sm text-muted-foreground mt-3">
-              点击上传{{ formData.type === 'image' ? '图片' : '文件' }}
+              点击上传文件
             </p>
-            <img
-              v-else-if="!uploading && formData.type === 'image' && formData.content"
-              :src="resolveAssetUrl(formData.content)"
-              alt="预览"
-              class="max-w-full max-h-64 mx-auto object-contain rounded-md shadow-sm"
-            />
             <p v-else-if="!uploading" class="text-sm truncate">{{ formData.content }}</p>
           </button>
           <p v-if="getFieldError('content')" id="content-error" role="alert" class="text-sm text-destructive flex items-center gap-1">

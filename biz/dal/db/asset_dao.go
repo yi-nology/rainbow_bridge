@@ -53,6 +53,18 @@ func (dao *AssetDAO) DeleteByFileID(ctx context.Context, db *gorm.DB, fileID str
 	return db.WithContext(ctx).Unscoped().Where("file_id = ?", fileID).Delete(&model.Asset{}).Error
 }
 
+// SoftDeleteByScopeAndFileID retains metadata and stored payloads for history.
+func (dao *AssetDAO) SoftDeleteByScopeAndFileID(ctx context.Context, db *gorm.DB, scopeID, fileID string) error {
+	result := db.WithContext(ctx).Where("scope_id = ? AND file_id = ?", scopeID, fileID).Delete(&model.Asset{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (dao *AssetDAO) GetByFileID(ctx context.Context, db *gorm.DB, fileID string) (*model.Asset, error) {
 	var asset model.Asset
 	if err := db.WithContext(ctx).Where("file_id = ?", fileID).First(&asset).Error; err != nil {

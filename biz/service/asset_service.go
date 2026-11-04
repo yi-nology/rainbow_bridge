@@ -248,9 +248,6 @@ func (s *Service) GetAssetFile(ctx context.Context, fileID string) (*model.Asset
 		}
 		return nil, "", err
 	}
-	if asset.DeletedAt.Valid {
-		return nil, "", scopeDeletedError("asset belongs to a deleted scope")
-	}
 	if asset.ScopeID != "" {
 		active, err := db.ScopeIsActive(ctx, s.logic.db, asset.ScopeID)
 		if err != nil {
@@ -259,6 +256,9 @@ func (s *Service) GetAssetFile(ctx context.Context, fileID string) (*model.Asset
 		if !active {
 			return nil, "", scopeDeletedError("asset belongs to a deleted scope")
 		}
+	}
+	if asset.DeletedAt.Valid {
+		return nil, "", assetDeletedError()
 	}
 
 	// 根据配置选择存储方式

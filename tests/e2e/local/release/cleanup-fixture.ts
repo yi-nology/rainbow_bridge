@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test'
-import { mockApi, ok, fail, meta, config } from '../../auth/mock'
+import { mockApi, ok, fail, meta, config, fixtureIdentity } from '../../auth/mock'
 export { ok, fail } from '../../auth/mock'
 
 export const base = () => process.env.RB_QA_A_ORIGIN
@@ -13,13 +13,13 @@ export async function fixture(page: Page) {
     environment_key: key, environment_name: key === 'qa' ? '演示环境' : '另一环境',
     pipelines: [{ pipeline_key: 'web', pipeline_name: '网页渠道' }],
   })), total: 2 }))
-  const active = { snapshot_id: 's1', version: 'v1', revision: '1', changed_at: '2026-10-20T00:00:00Z', changed_by: 'admin', changed_reason: '' }
+  const active = { scope_id: fixtureIdentity('qa', 'web'), snapshot_id: 's1', version: 'v1', revision: '1', changed_at: '2026-10-20T00:00:00Z', changed_by: 'admin', changed_reason: '' }
   const state = { active: active as typeof active | null, items: [
     { meta: { ...meta, version: 'v2', snapshot_id: 's2', reason: '' }, is_active: false },
     { meta: { ...meta, version: 'v1', snapshot_id: 's1', reason: '' }, is_active: true },
   ], deleted: false }
   mock.overrides.set('release/list', route => ok(route, { items: state.items, active: state.active, has_more: false }))
-  mock.overrides.set('release/active', route => ok(route, { active: state.active }))
+  mock.overrides.set('release/active', route => ok(route, { active: state.active, active_revision: state.active?.revision || '0' }))
   mock.overrides.set('release/detail', route => ok(route, { meta: { ...meta, reason: '' }, configs: [config], assets: [] }))
   mock.overrides.set('release/delete', async route => {
     const payload = route.request().postDataJSON()

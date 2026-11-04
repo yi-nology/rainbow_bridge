@@ -3,9 +3,10 @@ import { computed, ref } from 'vue'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Eye, Copy, Check, FileImage, FileJson, FileText, File, ImageOff } from 'lucide-vue-next'
+import { Eye, Copy, Check, FileImage, FileJson, FileText, File, ImageOff, Trash2 } from 'lucide-vue-next'
 import { useAssetStore } from '@/stores/asset'
 import { resolveAssetUrl } from '@/lib/utils'
+import type { Asset } from '@/lib/api/transformers'
 
 const assetStore = useAssetStore()
 const failedImages = ref(new Set<string>())
@@ -16,7 +17,11 @@ const props = defineProps<{
   onCopy: (url: string, id: string) => void
   copiedId: string | null
   searchTerm: string
+  canDelete: boolean
+  scopeId: string
+  frozen?: boolean
 }>()
+const emit = defineEmits<{ delete: [asset: Asset] }>()
 const filteredAssets = computed(() => assetStore.assets.filter(resource => resource.name.toLowerCase().includes(props.searchTerm.toLowerCase())))
 
 function getFileIcon(type: string) {
@@ -44,7 +49,7 @@ function formatFileSize(bytes: number): string {
           <TableHead class="w-24">类型</TableHead>
           <TableHead class="w-24">大小</TableHead>
           <TableHead>URL</TableHead>
-          <TableHead class="w-24 text-right">操作</TableHead>
+          <TableHead class="w-36 text-right">操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -76,6 +81,7 @@ function formatFileSize(bytes: number): string {
               <Button variant="ghost" size="icon" title="复制链接" :aria-label="`复制 ${resource.name} 链接`" @click="onCopy(resource.url, resource.id)">
                 <Check v-if="copiedId === resource.id" class="w-4 h-4" /><Copy v-else :size="16" />
               </Button>
+              <Button variant="ghost" size="icon" class="text-destructive" :disabled="!canDelete || resource.scopeId !== scopeId" :title="frozen ? '已冻结：无法删除资源' : '删除资源'" :aria-label="`删除 ${resource.name}`" @click="emit('delete', resource)"><Trash2 :size="16" /></Button>
             </div>
           </TableCell>
         </TableRow>

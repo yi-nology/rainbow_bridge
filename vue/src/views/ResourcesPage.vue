@@ -17,6 +17,10 @@ import EnvironmentChannelSelector from '@/components/resources/EnvironmentChanne
 import ResourceList from '@/components/resources/ResourceList.vue'
 import ImagePreview from '@/components/resources/ImagePreview.vue'
 import Uploader from '@/components/resources/Uploader.vue'
+import DeleteAssetDialog from '@/components/resources/DeleteAssetDialog.vue'
+import type { Asset } from '@/lib/api/transformers'
+import { sessionIdentity } from '@/lib/auth/session'
+import { scopeIdFor } from '@/lib/scope'
 
 const environmentStore = useEnvironmentStore()
 const assetStore = useAssetStore()
@@ -25,6 +29,8 @@ const freezeStore = useFreezeStore()
 const searchTerm = ref('')
 const { selectedEnvKey, selectedPipelineKey, selectedScopeId, envPipelineModel, initialize } = useScopeSelection(() => environmentStore.environments)
 const copiedId = ref<string | null>(null)
+const deleteTarget = ref<Asset | null>(null)
+const previewAssetId = ref('')
 
 // 预览相关状态
 const previewImage = ref<string>('')
@@ -41,6 +47,8 @@ onUnmounted(() => assetStore.resetAssets())
 watch([selectedEnvKey, selectedPipelineKey, selectedScopeId], ([envKey, pipelineKey]) => {
   isPreviewOpen.value = false
   previewImage.value = ''
+  previewAssetId.value = ''
+  deleteTarget.value = null
   if (envKey && pipelineKey) {
     assetStore.fetchAssets(envKey, pipelineKey)
     freezeStore.loadStatus(envKey, pipelineKey)
@@ -53,6 +61,24 @@ watch([selectedEnvKey, selectedPipelineKey, selectedScopeId], ([envKey, pipeline
 
 const frozen = computed(() => freezeStore.isLocked(selectedEnvKey.value, selectedPipelineKey.value))
 const frozenReason = computed(() => freezeStore.statusFor(selectedEnvKey.value, selectedPipelineKey.value)?.last_reason || '')
+const deleteReady = computed(() => !!sessionIdentity.value && !!selectedScopeId.value &&
+  selectedScopeId.value === scopeIdFor(selectedEnvKey.value, selectedPipelineKey.value) &&
+  freezeStore.statusFor(selectedEnvKey.value, selectedPipelineKey.value)?.state === 'unlocked' && !assetStore.loading)
+const scopeLabel = computed(() => {
+  const environment = environmentStore.environments.find(item => item.key === selectedEnvKey.value)
+  const pipeline = environment?.pipelines.find(item => item.key === selectedPipelineKey.value)
+  return `${environment?.name || selectedEnvKey.value} / ${pipeline?.name || selectedPipelineKey.value}`
+})
+watch(sessionIdentity, () => { deleteTarget.value = null; closePreview(); previewImage.value = ''; previewAssetId.value = '' }, { flush: 'sync' })
+
+async function deleted(asset: Asset, scopeId: string) {
+  if (scopeId !== selectedScopeId.value) return
+  deleteTarget.value = null
+  if (previewAssetId.value === asset.id) { closePreview(); previewImage.value = ''; previewImageName.value = ''; previewAssetId.value = '' }
+  if (copiedId.value === asset.id) copiedId.value = null
+  toast.success('资源已删除')
+  await assetStore.fetchAssets(selectedEnvKey.value, selectedPipelineKey.value, scopeId)
+}
 
 // 处理复制链接
 const handleCopy = async (url: string, id: string) => {
@@ -65,6 +91,7 @@ const handleCopy = async (url: string, id: string) => {
 
 // 处理图片预览
 const handlePreviewImage = (url: string, name: string) => {
+  previewAssetId.value = assetStore.assets.find(item => item.url === url)?.id || ''
   previewImage.value = resolveAssetUrl(url)
   previewImageName.value = name
   isPreviewOpen.value = true
@@ -96,7 +123,7 @@ const handleSearchChange = (value: string) => {
         />
       </CardContent>
     </Card>
-    <div v-if="frozen" class="spectrum-resource-freeze"><LockKeyhole :size="16" /><strong>已冻结 · 资源只读</strong><span>{{ frozenReason || '当前范围不可上传资源，预览与链接复制不受影响。' }}</span></div>
+    <div v-if="frozen" class="spectrum-resource-freeze"><LockKeyhole :size="16" /><strong>已冻结 · 资源只读</strong><span>{{ frozenReason || '当前范围不可上传或删除资源，预览与链接复制不受影响。' }}</span></div>
 
     <!-- 资源列表和上传功能 -->
     <Card class="spectrum-panel spectrum-section">
@@ -130,6 +157,10 @@ const handleSearchChange = (value: string) => {
         <div v-else>
           <!-- 资源列表组件 -->
           <ResourceList
+            :scope-id="selectedScopeId"
+            :can-delete="deleteReady && !frozen"
+            :frozen="frozen"
+            @delete="resource => { if (deleteReady && !frozen) deleteTarget = resource }"
             :selectedEnvKey="selectedEnvKey"
             :selectedPipelineKey="selectedPipelineKey"
             :onPreviewImage="handlePreviewImage"
@@ -148,6 +179,7 @@ const handleSearchChange = (value: string) => {
       :imageName="previewImageName"
       :onClose="closePreview"
     />
+    <DeleteAssetDialog :target="deleteTarget" :environment-key="selectedEnvKey" :pipeline-key="selectedPipelineKey" :scope-id="selectedScopeId" :scope-label="scopeLabel" :frozen="frozen" :ready="deleteReady" @close="deleteTarget = null" @deleted="deleted" />
     </div>
   </SpectrumLayout>
 </template>

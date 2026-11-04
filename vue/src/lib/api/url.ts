@@ -1,5 +1,5 @@
-import { getApiBaseUrl, getBasePath } from '../utils'
-export { getBasePath } from '../utils'
+import { getApiBaseUrl, getBasePath } from '../runtime-url'
+export { getBasePath } from '../runtime-url'
 
 export function apiURL(path: string): URL {
   const base = getApiBaseUrl().replace(/\/$/, '')

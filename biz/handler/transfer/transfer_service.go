@@ -72,6 +72,9 @@ func Import(ctx context.Context, c *app.RequestContext) {
 				c.JSON(transferErr.HTTPStatus, &transfer.ImportResponse{Code: int32(transferErr.Code), Msg: "error", Error: transferErr.Message, ErrorType: transferErr.ErrorType})
 				return
 			}
+			if handler.WriteAssetError(c, err) {
+				return
+			}
 			if scopeErr, ok := service.AsScopeError(err); ok {
 				c.JSON(scopeErr.HTTPStatus, &transfer.ImportResponse{Code: int32(scopeErr.Code), Msg: "error", Error: scopeErr.Message, ErrorType: scopeErr.ErrorType})
 				return
@@ -111,6 +114,9 @@ func Import(ctx context.Context, c *app.RequestContext) {
 	written, err := svc.ImportConfigsWithIdentity(handler.EnrichContext(ctx, c), req.GetConfigs(),
 		req.GetOverwrite(), req.GetExpectedEnvironmentId(), req.GetExpectedScopeId())
 	if err != nil {
+		if handler.WriteAssetError(c, err) {
+			return
+		}
 		if scopeErr, ok := service.AsScopeError(err); ok {
 			c.JSON(scopeErr.HTTPStatus, &transfer.ImportResponse{Code: int32(scopeErr.Code), Msg: "error", Error: scopeErr.Message, ErrorType: scopeErr.ErrorType})
 			return
@@ -483,6 +489,9 @@ func ImportSelective(ctx context.Context, c *app.RequestContext) {
 
 	outcome, err := svc.ImportConfigsSelectiveWithResult(handler.EnrichContext(ctx, c), data, fileHeader.Filename, selections, overwrite)
 	if err != nil {
+		if handler.WriteAssetError(c, err) {
+			return
+		}
 		if scopeErr, ok := service.AsScopeError(err); ok {
 			c.JSON(scopeErr.HTTPStatus, &transfer.ImportResponse{Code: int32(scopeErr.Code), Msg: "error", Error: scopeErr.Message, ErrorType: scopeErr.ErrorType})
 			return

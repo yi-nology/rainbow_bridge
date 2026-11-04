@@ -16,16 +16,17 @@ var (
 
 // Logic contains business rules on top of data persistence.
 type Logic struct {
-	db             *gorm.DB
-	redisClient    *redis.Client
-	configDAO      *db.ConfigDAO
-	assetDAO       *db.AssetDAO
-	environmentDAO *db.EnvironmentDAO
-	pipelineDAO    *db.PipelineDAO
-	freezeDAO      *db.FreezeDAO
-	authDAO        *db.AuthDAO
-	releaseDAO     *db.ReleaseDAO
-	writeGateDAO   *db.WriteGateDAO
+	db              *gorm.DB
+	redisClient     *redis.Client
+	configDAO       *db.ConfigDAO
+	assetDAO        *db.AssetDAO
+	environmentDAO  *db.EnvironmentDAO
+	pipelineDAO     *db.PipelineDAO
+	freezeDAO       *db.FreezeDAO
+	authDAO         *db.AuthDAO
+	assetReferences assetReferencePolicy
+	releaseDAO      *db.ReleaseDAO
+	writeGateDAO    *db.WriteGateDAO
 	// inTx 表示该 Logic 绑定在写协调事务上,禁止再开 l.db 独立事务。
 	inTx bool
 }

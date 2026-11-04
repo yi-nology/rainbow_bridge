@@ -4,6 +4,41 @@ package asset;
 import "api.proto";
 import "common.proto";
 
+option go_package = "github.com/yi-nology/rainbow_bridge/biz/model/asset";
+
+message DeleteAssetRequest {
+  string file_id = 1;
+  string environment_key = 2;
+  string pipeline_key = 3;
+  string expected_scope_id = 4;
+}
+
+message AssetReferenceSummary {
+  string environment_key = 1;
+  string pipeline_key = 2;
+  string scope_id = 3;
+  string resource_key = 4;
+  string name = 5;
+  string alias = 6;
+}
+
+message DeleteAssetData {
+  string file_id = 1;
+  bool deleted = 2;
+  bool already_deleted = 3;
+  int32 reference_count = 4;
+  repeated AssetReferenceSummary references = 5;
+  bool references_truncated = 6;
+}
+
+message DeleteAssetResponse {
+  int32 code = 1;
+  string msg = 2;
+  string error = 3;
+  string error_type = 4;
+  DeleteAssetData data = 5;
+}
+
 // ListAssetRequest is used to list assets.
 message ListAssetRequest {
   string environment_key = 1;
@@ -51,6 +86,9 @@ message GetFileRequest {
 
 // AssetService handles file asset operations.
 service AssetService {
+  rpc Delete(DeleteAssetRequest) returns (DeleteAssetResponse) {
+    option (api.post) = "/api/v1/asset/delete";
+  }
   // List returns a list of assets for a business.
   rpc List(ListAssetRequest) returns (AssetListResponse) {
     option (api.get) = "/api/v1/asset/list";
@@ -64,6 +102,6 @@ service AssetService {
 
   // GetFile retrieves a file by its ID.
   rpc GetFile(GetFileRequest) returns (common.OperateResponse) {
-    option (api.get) = "/api/v1/asset/file/{file_id}/{file_name=*}";
+    option (api.get) = "/api/v1/asset/file/*filepath";
   }
 }

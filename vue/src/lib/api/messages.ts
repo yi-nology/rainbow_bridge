@@ -1,4 +1,9 @@
 const messages: Record<string, string> = {
+  ASSET_IN_USE: '该资源正在被配置使用，请先修改或删除引用配置。',
+  ASSET_DELETED: '资源已删除，请重新选择后保存。',
+  ASSET_NOT_FOUND: '资源不存在，请刷新列表核对。',
+  ASSET_REFERENCE_INVALID: '配置中的资源引用无法核对，请修正后再删除。',
+  ASSET_SNAPSHOT_DEPENDENCY: '历史版本仍依赖此资源，暂时无法删除，请联系部署人员核对。',
   API_NOT_FOUND: '接口地址不存在或服务版本不匹配，请确认服务地址与版本。',
   RELEASE_VERSION_AUTO_ASSIGNED: '版本号由系统生成，请刷新页面后重新创建。',
   RELEASE_VERSION_SEQUENCE_EXHAUSTED: '当前范围的版本编号已用尽，无法创建新版本。请联系管理员处理。',

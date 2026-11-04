@@ -42,6 +42,9 @@ func (l *Logic) validateConfigContent(ctx context.Context, cfg *model.Config) er
 	if cfg == nil {
 		return errors.New("config payload required")
 	}
+	if err := l.validateAssetReferences(ctx, cfg); err != nil {
+		return err
+	}
 
 	// 前端传什么类型就存什么类型，不做自动类型转换
 

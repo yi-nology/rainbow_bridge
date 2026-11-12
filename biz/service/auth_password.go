@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
@@ -125,16 +126,26 @@ func verifyAdminPassword(encoded, password string) (bool, error) {
 
 // authVirtualHash 是未知账号时用于固定开销校验的假哈希:避免明显的快速返回差异。
 // 首次使用时生成一次,参数与真实哈希一致。
-var authVirtualHashOnce = func() func() string {
-	cached := ""
-	return func() string {
-		if cached == "" {
-			hash, err := hashAdminPassword("rainbow-bridge-virtual-password-placeholder")
-			if err != nil {
-				return ""
-			}
-			cached = hash
+// 生成由 sync.Once 守护:并发首登只做一次 Argon2 计算,所有调用方拿到同一份哈希,
+// 且 Do 的完成边保证后续读取不会被数据竞争探测器命中(issue #35)。
+var (
+	authVirtualHashInit  sync.Once
+	authVirtualHashValue string
+)
+
+func authVirtualHashOnce() string {
+	authVirtualHashInit.Do(func() {
+		hash, err := hashAdminPassword("rainbow-bridge-virtual-password-placeholder")
+		if err != nil {
+			return
 		}
-		return cached
-	}
-}()
+		authVirtualHashValue = hash
+	})
+	return authVirtualHashValue
+}
+
+// resetAuthVirtualHashForTest 仅测试使用:重置懒初始化,用于复现并发首次生成。
+func resetAuthVirtualHashForTest() {
+	authVirtualHashInit = sync.Once{}
+	authVirtualHashValue = ""
+}

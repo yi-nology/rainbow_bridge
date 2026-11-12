@@ -81,8 +81,17 @@ func (l *Logic) invalidateScopeCaches(ctx context.Context, scopeID, environmentK
 			configCacheGlobEscaper.Replace(environmentKey), configCacheGlobEscaper.Replace(pipelineKey)),
 	}
 	for _, pattern := range patterns {
-		_ = redis.DeleteByPattern(ctx, l.redisClient, pattern)
+		// Same bounded-SCAN discipline as invalidateConfigCaches: the Redis
+		// instance is shared, so a blocking KEYS sweep here would stall every
+		// instance for the whole keyspace (see redis.DeleteByPatternScan).
+		if err := redis.DeleteByPatternScan(ctx, l.redisClient, pattern); err != nil {
+			fmt.Printf("Scope delete committed; cache invalidation failed pattern=%s: %v\n", pattern, err)
+		}
 	}
-	_ = redis.Delete(ctx, l.redisClient, redis.GenerateScopedConfigMapKey(scopeID))
-	_ = redis.Delete(ctx, l.redisClient, redis.GenerateConfigMapKey(environmentKey, pipelineKey))
+	if err := redis.Delete(ctx, l.redisClient, redis.GenerateScopedConfigMapKey(scopeID)); err != nil {
+		fmt.Printf("Scope delete committed; cache invalidation failed key=%s: %v\n", redis.GenerateScopedConfigMapKey(scopeID), err)
+	}
+	if err := redis.Delete(ctx, l.redisClient, redis.GenerateConfigMapKey(environmentKey, pipelineKey)); err != nil {
+		fmt.Printf("Scope delete committed; cache invalidation failed key=%s: %v\n", redis.GenerateConfigMapKey(environmentKey, pipelineKey), err)
+	}
 }

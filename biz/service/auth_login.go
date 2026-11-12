@@ -74,9 +74,16 @@ type AuthPasswordChangeInput struct {
 }
 
 // Login 校验凭据并创建新会话;失败不删除浏览器现有有效会话。
+// 免鉴权模式下不签发任何持久会话(docs/operations/auth-disabled.md:免鉴权期间没有
+// 生成持久会话,恢复鉴权后原登录流程照常):窗口期里签发的会话是一条凭据版本匹配的
+// 正常 admin 会话,恢复鉴权后依旧有效,等于留下一条隐藏管理员通道。身份读取侧
+// (AdminIdentityForRequest)在此模式下返回 anonymous-admin,登录入口同样短路。
 func (s *Service) Login(ctx context.Context, input AuthLoginInput) (*AuthLoginResult, error) {
 	if err := s.authRepositoryReady(ctx); err != nil {
 		return nil, err
+	}
+	if !s.AuthenticationEnabled() {
+		return nil, authInvalidRequestError("鉴权已关闭,免鉴权模式下不签发登录会话")
 	}
 	username := input.Username
 	password := input.Password

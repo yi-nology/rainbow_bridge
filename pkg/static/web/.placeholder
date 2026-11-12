@@ -1,0 +1,2 @@
+Placeholder so //go:embed all:web has a matching file on a fresh clone.
+The frontend build (make build-frontend) replaces the contents of this directory.

@@ -31,9 +31,10 @@ func setupHTTPFallback(h interface {
 }
 
 // isAPIPath classifies only complete path segments. It intentionally treats
-// the root /api namespace, a correctly prefixed /api, and an accidentally
-// duplicated deployment prefix before /api as API misses. Similar names such
-// as /apix, /apiary, /docs/api-guide, or /rainbow-bridge-other/api stay pages.
+// the root /api namespace, a correctly prefixed /api, and any number of
+// accidentally duplicated deployment prefixes before /api as API misses.
+// Similar names such as /apix, /apiary, /docs/api-guide, or
+// /rainbow-bridge-other/api stay pages.
 func isAPIPath(requestPath, basePath string) bool {
 	if hasAPISegment(requestPath) {
 		return true
@@ -43,19 +44,22 @@ func isAPIPath(requestPath, basePath string) bool {
 		return false
 	}
 	candidate := requestPath
-	for depth := 0; depth < 4; depth++ {
+	// No depth cap: strings.TrimPrefix strictly shortens candidate on every
+	// iteration, so the loop terminates even for pathologically repeated
+	// prefixes, and misconfiguration beyond four layers still classifies as
+	// an API miss (JSON 404) instead of falling through to the SPA page.
+	for {
 		if candidate == base+"/api" || strings.HasPrefix(candidate, base+"/api/") {
 			return true
 		}
 		if !strings.HasPrefix(candidate, base+"/") {
-			break
+			return false
 		}
 		candidate = strings.TrimPrefix(candidate, base)
 		if hasAPISegment(candidate) {
 			return true
 		}
 	}
-	return false
 }
 
 func hasAPISegment(path string) bool {

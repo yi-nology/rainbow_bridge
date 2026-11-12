@@ -75,18 +75,23 @@ func requireAdminIdentity(ctx context.Context) (AdminIdentity, error) {
 
 // EnsureAuthBootstrap 在启动时初始化管理员账号:
 // 账号表为空时必须提供合法首次密码,否则失败退出;已有账号则不因环境变量变化覆盖。
+// 免鉴权模式只跳过「创建管理员」这一步,不跳过空账号表这条前置检查:
+// 免鉴权窗口期把空账号表放过去,会留下零管理员实例,按文档恢复鉴权时启动直接失败。
 func (s *Service) EnsureAuthBootstrap(ctx context.Context) error {
 	if s.config != nil && s.config.Backup.Distributed.WebEnabled {
 		return s.authRepositoryReady(ctx)
-	}
-	if !s.AuthenticationEnabled() {
-		return nil
 	}
 	count, err := s.logic.authDAO.CountUsers(ctx, s.authenticationDB())
 	if err != nil {
 		return fmt.Errorf("auth bootstrap: count users: %w", err)
 	}
 	if count > 0 {
+		return nil
+	}
+	if !s.AuthenticationEnabled() {
+		// 免鉴权模式不创建管理员(文档:服务器记录 anonymous-admin,不新建账号),
+		// 启动不因此失败,但把恢复鉴权的前置条件讲清楚,别等恢复那天才发现。
+		log.Printf("auth bootstrap: no admin account exists while authentication is disabled; set %s to a valid first password before re-enabling authentication, otherwise the restored start will fail", AdminInitialPasswordEnv)
 		return nil
 	}
 	username := strings.TrimSpace(os.Getenv(AdminUsernameEnv))

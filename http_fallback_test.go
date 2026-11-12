@@ -70,6 +70,12 @@ func TestAPIFallbackPathSegments(t *testing.T) {
 		{"/rainbow-bridge/api/v1/unknown", true},
 		{"/rainbow-bridge/rainbow-bridge/api/v1/unknown", true},
 		{"/rainbow-bridge/rainbow-bridge/rainbow-bridge/api/v1/unknown", true},
+		// Repeated deployment prefixes beyond four layers must still classify
+		// as API misses (404 JSON), never fall through to the SPA page (#33).
+		{"/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/api/v1/unknown", true},
+		{"/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/api/v1/unknown", true},
+		{"/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/api", true},
+		{"/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/rainbow-bridge/api/v1/version", true},
 		{"/apix", false},
 		{"/apiary", false},
 		{"/docs/api-guide", false},

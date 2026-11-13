@@ -454,11 +454,6 @@ func releaseStaticFileName(snapshotID, version string) string {
 	return fmt.Sprintf("release-%s-%s.zip", snapshotID, name)
 }
 
-// ExportActiveReleasePackage 供旧 runtime 静态导出使用;空 pin 保持原调用兼容。
-func (s *Service) ExportActiveReleasePackage(ctx context.Context, environmentKey, pipelineKey string) (result *ReleaseStaticExportResult, err error) {
-	return s.ExportActiveReleasePackageWithScope(ctx, environmentKey, pipelineKey, "")
-}
-
 // ExportActiveReleasePackageWithScope 在本次请求内先捕获范围代身份,再按该 scope 的
 // head 固定一次生效版本并复用发布构包器;不按 env/pipeline 重新解析另一代。
 func (s *Service) ExportActiveReleasePackageWithScope(ctx context.Context,
@@ -475,11 +470,7 @@ func (s *Service) ExportActiveReleasePackageWithScope(ctx context.Context,
 			err = releaseExportContextError(ctx.Err())
 		}
 	}()
-	scopeID, err := normalizeLegacyScopeID(requestedScopeID)
-	if err != nil {
-		return nil, err
-	}
-	scope, err := resolveReadScope(ctx, s.logic, environmentKey, pipelineKey, scopeID)
+	scope, err := resolveReadScope(ctx, s.logic, environmentKey, pipelineKey, requestedScopeID)
 	if err != nil {
 		return nil, err
 	}

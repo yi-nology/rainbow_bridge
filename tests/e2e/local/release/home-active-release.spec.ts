@@ -164,16 +164,6 @@ test.describe('首页生效配置与静态导出 @release', () => {
     await expect(page.getByRole('cell', { name: 'EDITOR_ONLY', exact: true })).toHaveCount(0)
     await expect(page.getByText('not-published')).toHaveCount(0)
 
-    // 旧接口兼容(显式验证):首页显示 v1.0 的同时,/runtime/config 仍返回编辑区内容
-    const legacyRead = await request(target, '/api/v1/runtime/config', {
-      method: 'GET',
-      headers: { 'x-environment': scopeHome.env, 'x-pipeline': scopeHome.pipeline },
-    })
-    expect(legacyRead.status, legacyRead.text.slice(0, 200)).toBe(200)
-    const legacyConfigs = (JSON.parse(legacyRead.text).data.configs ?? []) as { alias: string; content: string }[]
-    expect(legacyConfigs.some((item) => item.alias === 'EDITOR_ONLY'), '旧接口不得读取未发布编辑内容').toBe(false)
-    expect(legacyConfigs.find((item) => item.alias === 'HOME_A')?.content).toBe('home-v1')
-
     // H03:切换生效到 v1.1 → 刷新后版本、快照与正文一起变化
     await activateVersion(target, token, scopeHome, 'v1.1', '切换到 v1.1')
     await page.getByRole('button', { name: '刷新' }).click()
@@ -182,7 +172,7 @@ test.describe('首页生效配置与静态导出 @release', () => {
     await expect(page.getByRole('cell', { name: 'EDITOR_ONLY', exact: true })).toBeVisible()
     await expect(page.getByText('配置 3 项')).toBeVisible()
 
-    // 页面只读生效读取:没有旧 config/static 读取
+    // 页面只读生效读取:旧 config/static 入口已下线,任何调用都会 404
     const legacy = requests.filter((url) => url.includes('/api/v1/runtime/config') || url.includes('/api/v1/runtime/static'))
     expect(legacy, `首页不得请求旧接口: ${legacy.join(', ')}`).toEqual([])
 

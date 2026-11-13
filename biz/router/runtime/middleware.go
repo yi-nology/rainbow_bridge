@@ -26,16 +26,6 @@ func _runtimeMw() []app.HandlerFunc {
 	return nil
 }
 
-func _getconfigMw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
-func _exportstaticMw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
 func _getoverviewMw() []app.HandlerFunc {
 	// your code...
 	return nil

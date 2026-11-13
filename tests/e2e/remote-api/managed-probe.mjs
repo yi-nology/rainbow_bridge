@@ -118,10 +118,10 @@ try {
   const target = targetResult?.data?.pipeline
   if (!target?.scope_id) throw new Error('Target scope creation failed')
   scopeIds.add(target.scope_id); objects.push({ type: 'scope', id: target.scope_id, key: target.pipeline_key }); await ledger()
-  for (const endpoint of ['runtime/config', 'runtime/release']) await record('owned scope without active', 'GET', endpoint,
+  for (const endpoint of ['runtime/release']) await record('owned scope without active', 'GET', endpoint,
     () => call('GET', endpoint + '?scope_id=' + source.scope_id, undefined, { headers: { 'x-environment': envKey, 'x-pipeline': source.pipeline_key } }),
     r => r.http === 404 && r.body?.error_type === 'RELEASE_NOT_ACTIVE')
-  for (const endpoint of ['runtime/static', 'runtime/release/static']) await record('no published package', 'GET', endpoint + '?' + query(source),
+  for (const endpoint of ['runtime/release/static']) await record('no published package', 'GET', endpoint + '?' + query(source),
     () => get(endpoint + '?' + query(source) + (endpoint.includes('/release/') ? '&version=v1&expected_snapshot_id=' + randomUUID() : '')),
     r => [400,404].includes(r.http))
   for (const [endpoint, assertion] of [

@@ -56,7 +56,7 @@ export default function() {
       'x-pipeline': 'main',
     };
     
-    let res = http.get(`${API_BASE}/runtime/config`, { headers });
+    let res = http.get(`${API_BASE}/runtime/release`, { headers });
     check(res, {
       'status is 200': (r) => r.status === 200,
       'has configs': (r) => r.json('data.configs') !== undefined,

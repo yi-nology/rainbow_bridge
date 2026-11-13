@@ -266,10 +266,9 @@ func checkRuntime(ctx context.Context, l *Lease, k *Kube, app *config.Config) er
 				return fmt.Errorf("候选 runtime 未指向批准快照")
 			}
 			headers := map[string]string{"x-environment": env, "x-pipeline": pipe}
-			for _, endpoint := range []string{"runtime/static?environment_key=" + url.QueryEscape(env) + "&pipeline_key=" + url.QueryEscape(pipe), "runtime/release/static?environment_key=" + url.QueryEscape(env) + "&pipeline_key=" + url.QueryEscape(pipe) + "&scope_id=" + scope + "&version=" + url.QueryEscape(version) + "&expected_snapshot_id=" + snapshot} {
-				if e = k.checkZIP(ctx, k.businessPath(p, app.Server.BasePath+"/api/v1/"+endpoint), headers, assets); e != nil {
-					return e
-				}
+			endpoint := "runtime/release/static?environment_key=" + url.QueryEscape(env) + "&pipeline_key=" + url.QueryEscape(pipe) + "&scope_id=" + scope + "&version=" + url.QueryEscape(version) + "&expected_snapshot_id=" + snapshot
+			if e = k.checkZIP(ctx, k.businessPath(p, app.Server.BasePath+"/api/v1/"+endpoint), headers, assets); e != nil {
+				return e
 			}
 		}
 	}

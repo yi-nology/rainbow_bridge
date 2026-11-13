@@ -85,15 +85,17 @@ export async function migrate(
 
 /** 运行时接口：x-environment / x-pipeline 头，业务状态在响应体内。 */
 export async function runtimeConfig(target: Target, scope: Scope): Promise<RawResponse> {
-  return getJson(target, '/api/v1/runtime/config', {
+  return getJson(target, '/api/v1/runtime/release', {
     'x-environment': scope.env,
     'x-pipeline': scope.pipeline,
   })
 }
 
 export async function runtimeStatic(target: Target, scope: Scope): Promise<RawResponse> {
-  const query = `environment_key=${encodeURIComponent(scope.env)}&pipeline_key=${encodeURIComponent(scope.pipeline)}`
-  return getJson(target, `/api/v1/runtime/static?${query}`)
+  return getJson(target, '/api/v1/runtime/release/static', {
+    'x-environment': scope.env,
+    'x-pipeline': scope.pipeline,
+  })
 }
 
 export async function runtimeOverview(target: Target): Promise<RawResponse> {

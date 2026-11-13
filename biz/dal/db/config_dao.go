@@ -162,18 +162,6 @@ func (dao *ConfigDAO) GetByScopeAndResourceKey(ctx context.Context, db *gorm.DB,
 	return &entity, nil
 }
 
-// GetByResourceKeyOnly is retained for the legacy key-only helper; new code
-// must resolve a scope before reading.
-func (dao *ConfigDAO) GetByResourceKeyOnly(ctx context.Context, db *gorm.DB, resourceKey string) (*model.Config, error) {
-	var entity model.Config
-	if err := db.WithContext(ctx).
-		Where("resource_key = ?", resourceKey).Order("id DESC").
-		First(&entity).Error; err != nil {
-		return nil, err
-	}
-	return &entity, nil
-}
-
 // GetByAlias fetches the current scope config by alias.
 func (dao *ConfigDAO) GetByAlias(ctx context.Context, db *gorm.DB,
 	environmentKey, pipelineKey, alias string) (*model.Config, error) {

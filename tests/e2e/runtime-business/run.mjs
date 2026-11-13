@@ -492,20 +492,11 @@ async function runCases() {
     return { png_url: pngUrl, png_sha256: sha256(png.bytes), text_sha256: sha256(text.bytes) }
   })
 
-  await harness.case('RT11', 'legacy runtime/config matches new active release; overview lists identities only', async result => {
-    const newData = jsonData(await runtimeRequest(scopeA, {}), 'RT11 new runtime')
-    const legacyResponse = await anonymous(base.target, '/api/v1/runtime/config', { headers: scopeHeaders(scopeA) })
-    const legacy = jsonData(legacyResponse, 'RT11 legacy runtime/config')
-    harness.check(result, legacy.snapshot_id === newData.snapshot_id && legacy.version === newData.version &&
-      legacy.scope_id === scopeA.scopeId, 'RT11 legacy version/snapshot/scope match new active release')
-    harness.check(result, legacyResponse.headers['x-rainbow-snapshot-id'] === legacy.snapshot_id,
-      'RT11 legacy snapshot response header matches body')
-    harness.check(result, legacyResponse.headers['x-rainbow-version'] === legacy.version,
-      'RT11 legacy version response header matches body')
-    const legacyMap = configMap(legacy)
-    harness.check(result, legacyMap.get('greeting').content === newData.configs.find(c => c.alias === 'greeting').content,
-      'RT11 legacy greeting matches new runtime')
-    harness.check(result, !legacyResponse.text.includes('A_EDITOR_ONLY'), 'RT11 legacy does not read A3')
+  await harness.case('RT11', 'runtime/release serves the active release; overview lists identities only', async result => {
+    const newData = jsonData(await runtimeRequest(scopeA, {}), 'RT11 runtime')
+    harness.check(result, newData.snapshot_id === a1.snapshot_id && newData.version === a1.version &&
+      newData.scope_id === scopeA.scopeId, 'RT11 runtime version/snapshot/scope match active release')
+    harness.check(result, !JSON.stringify(newData).includes('A_EDITOR_ONLY'), 'RT11 runtime does not read A3')
     const overview = jsonData(await anonymous(base.target, '/api/v1/runtime/overview'), 'RT11 overview')
     const aEnv = overview.list.find(item => item.environment_key === envA)
     const bEnv = overview.list.find(item => item.environment_key === envB)
@@ -514,7 +505,7 @@ async function runCases() {
       'RT11 overview A/default scope identity')
     harness.check(result, aEnv.pipelines.some(item => item.scope_id === scopeABeta.scopeId && item.pipeline_key === 'beta'),
       'RT11 overview A/beta scope identity')
-    return { legacy_snapshot: legacy.snapshot_id, overview_environments: overview.total }
+    return { snapshot: newData.snapshot_id, overview_environments: overview.total }
   })
 
   await harness.case('RT12', 'no active is 404 without editor fallback; empty snapshot yields configs []', async result => {
@@ -613,15 +604,6 @@ async function runCases() {
     harness.check(result, emptyFormat.status === 400, 'RT17 empty content_format 400', emptyFormat.status)
     const badFormat = await runtimeRequest(scopeA, { contentFormat: 'xml' })
     harness.check(result, badFormat.status === 400, 'RT17 invalid content_format 400', badFormat.status)
-    for (const [name, pathValue] of [
-      ['version', `/api/v1/runtime/config?version=${encodeURIComponent(a1.version)}`],
-      ['content_format', '/api/v1/runtime/config?content_format=raw'],
-      ['expected_snapshot_id', `/api/v1/runtime/config?expected_snapshot_id=${a1.snapshot_id}`],
-    ]) {
-      const response = await anonymous(base.target, pathValue, { headers: scopeHeaders(scopeA) })
-      harness.check(result, response.status === 400, `RT17 legacy config rejects ${name}`, response.status)
-      harness.check(result, errorType(response) === 'RELEASE_INVALID_REQUEST', `RT17 legacy config ${name} error_type`, errorType(response))
-    }
     return { json_status: jsonResponse.status, raw_status: rawResponse.status, empty_status: emptyFormat.status, bad_status: badFormat.status }
   })
 
@@ -646,7 +628,7 @@ async function runCases() {
     return { runtime_status: runtime.status, list_status: list.status, write_status: write.status }
   })
 
-  await harness.case('RT23', 'scope_id pin works on declared endpoints; legacy ignores it (defect)', async result => {
+  await harness.case('RT23', 'scope_id pin works on declared read and static endpoints', async result => {
     const pinned = await runtimeRequest(scopeA, { scopeId: scopeA.scopeId })
     const pinData = jsonData(pinned, 'RT23 pinned runtime')
     expectRuntime(result, pinData, {
@@ -661,35 +643,11 @@ async function runCases() {
     const fixedWrong = await fetchStatic(scopeA, a1.version, a1.snapshot_id, scopeB.scopeId)
     harness.check(result, [409, 410].includes(fixedWrong.status), 'RT23 static wrong pin rejected', fixedWrong.status)
 
-    const legacyConfig = await anonymous(base.target,
-      `/api/v1/runtime/config?scope_id=${encodeURIComponent(scopeB.scopeId)}`, { headers: scopeHeaders(scopeA) })
-    const legacyStatic = await anonymous(base.target,
-      `/api/v1/runtime/static?environment_key=${encodeURIComponent(envA)}&pipeline_key=default&scope_id=${encodeURIComponent(scopeB.scopeId)}`)
-    const ignoredConfig = legacyConfig.status === 200
-    const ignoredStatic = legacyStatic.status === 200
-    if (ignoredConfig || ignoredStatic) {
-      harness.defects.push({
-        id: 'RT23',
-        description: 'Legacy runtime config/static declare scope_id in IDL but handlers ignore it',
-        message: `legacy config status=${legacyConfig.status}, legacy static status=${legacyStatic.status} with wrong scope_id`,
-        minimal_reproduction: `/api/v1/runtime/config?scope_id=<other-live-scope> with A headers returns ${legacyConfig.status}; ` +
-          `/api/v1/runtime/static?...&scope_id=<other-live-scope> returns ${legacyStatic.status}`,
-        impact: 'A caller that believes it pinned an older generation can silently receive the current generation',
-        status: 'confirmed_product_defect',
-      })
-    }
-    if (ignoredConfig || ignoredStatic) {
-      const error = new Error('RT23 legacy endpoints silently ignored a wrong scope_id')
-      error.recordedDefect = true
-      throw error
-    }
-    harness.check(result, !ignoredConfig, 'RT23 legacy runtime/config must reject or honor wrong scope_id', legacyConfig.status)
-    harness.check(result, !ignoredStatic, 'RT23 legacy runtime/static must reject or honor wrong scope_id', legacyStatic.status)
     return {
       pinned: pinned.status,
       wrong_pin: { status: wrong.status, type: errorType(wrong) },
-      legacy_config: { status: legacyConfig.status, ignored: ignoredConfig },
-      legacy_static: { status: legacyStatic.status, ignored: ignoredStatic },
+      fixed_pin: fixedPin.status,
+      fixed_wrong: fixedWrong.status,
     }
   })
 
@@ -739,13 +697,6 @@ async function runCases() {
       harness.check(result, sha256(bytes) === entry.sha256, `RT30 asset ${entry.path} manifest SHA`)
       harness.check(result, knownAssets.has(entry.sha256), `RT30 asset ${entry.path} matches local fixture SHA`)
     }
-    const legacy = await anonymous(base.target,
-      `/api/v1/runtime/static?environment_key=${encodeURIComponent(envA)}&pipeline_key=default`)
-    const legacyBundle = await staticBundle(result, legacy, 'RT30 legacy active static')
-    harness.check(result, legacy.headers['x-rainbow-snapshot-id'] === a1.snapshot_id &&
-      legacy.headers['x-rainbow-version'] === a1.version, 'RT30 legacy static headers match active A1')
-    harness.check(result, legacyBundle.config.data.snapshot_id === a1.snapshot_id &&
-      legacyBundle.config.data.version === a1.version, 'RT30 legacy static config identity')
     const mismatch = await fetchStatic(scopeA, a1.version, a2.snapshot_id)
     harness.check(result, mismatch.status === 409 && errorType(mismatch) === 'RELEASE_SNAPSHOT_MISMATCH',
       'RT30 snapshot mismatch is 409 JSON', { status: mismatch.status, type: errorType(mismatch), contentType: mismatch.contentType })
@@ -753,7 +704,6 @@ async function runCases() {
     return {
       fixed_assets: fixedBundle.manifest.assets.length,
       fixed_version: a2.version,
-      legacy_version: a1.version,
       mismatch_status: mismatch.status,
     }
   })
@@ -986,10 +936,6 @@ async function runCases() {
     harness.check(result, new URL(bannerUrl).pathname.startsWith('/api/v1/release/asset/'),
       'RT27 root image URL has no double prefix', new URL(bannerUrl).pathname)
     await downloadAsset(result, banner.content, rootAssets.red, 'RT27 root image', root.origin)
-    const legacy = await anonymous(root.target, '/api/v1/runtime/config', { headers: scopeHeaders(scope) })
-    const legacyData = jsonData(legacy, 'RT27 root legacy')
-    harness.check(result, legacyData.snapshot_id === v1.snapshot_id && legacyData.version === v1.version,
-      'RT27 root legacy config follows active v1')
     const missing = await anonymous(root.target, '/api/v1/runtime/release', { headers: {} })
     harness.check(result, missing.status === 400, 'RT27 root missing header 400', missing.status)
     const unknown = await anonymous(root.target, '/api/v1/runtime/no-such-route')

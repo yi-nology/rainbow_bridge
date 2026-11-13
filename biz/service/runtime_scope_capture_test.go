@@ -107,7 +107,7 @@ func TestRuntimeReleaseDAOFailureIsNotScopeNotFound(t *testing.T) {
 	}
 }
 
-func TestActiveStaticOldInvalidPinIs400(t *testing.T) {
+func TestActiveStaticUnknownPinIs404(t *testing.T) {
 	f := newReleaseFixture(t)
 	if _, err := f.create(t, "v1", "1", ""); err != nil {
 		t.Fatal(err)
@@ -116,5 +116,5 @@ func TestActiveStaticOldInvalidPinIs400(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := f.svc.ExportActiveReleasePackageWithScope(adminTestContext(), "qa_prod", "main", "not-a-uuid")
-	requireScopeErrorType(t, err, ErrTypeScopeInvalidRequest)
+	requireScopeErrorType(t, err, ErrTypeScopeNotFound)
 }

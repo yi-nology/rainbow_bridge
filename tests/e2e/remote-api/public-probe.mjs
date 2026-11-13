@@ -11,7 +11,7 @@ await mkdir(output, { recursive: true })
 const save = (name, data) => writeFile(join(output, name), JSON.stringify(data, null, 2))
 const digest = data => createHash('sha256').update(data).digest('hex')
 const publicPaths = new Set(['/ping', '/api/v1/version', '/api/v1/version/latest',
-  '/api/v1/runtime/overview', '/api/v1/runtime/config', '/api/v1/runtime/static',
+  '/api/v1/runtime/overview',
   '/api/v1/runtime/release', '/api/v1/runtime/release/static'])
 
 // Read only registration source; include hand registrations absent from IDL.
@@ -106,7 +106,7 @@ for (const row of coverage) {
 await observe('GET', '/api/v1/qa-unknown-' + runId, 'unknown API must return JSON 404', [404])
 await observe('POST', '/api/v1/qa-unknown-' + runId, 'unknown API must return JSON 404', [404], { headers: { 'Content-Type': 'application/json' }, body: '{}' })
 // Existing scopes are never selected: use a unique absent key for lookup semantics.
-for (const path of ['/api/v1/runtime/release', '/api/v1/runtime/config']) {
+for (const path of ['/api/v1/runtime/release']) {
   await observe('GET', path, 'nonexistent run scope, no editor fallback', [404], { headers: { 'x-environment': runId, 'x-pipeline': 'absent' } })
 }
 const index = await request('GET', '/')

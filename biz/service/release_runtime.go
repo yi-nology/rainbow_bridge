@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/db"
 	"github.com/yi-nology/rainbow_bridge/biz/dal/model"
 )
@@ -23,31 +22,6 @@ var releaseRuntimeScopeHookForTest func(scopeID string)
 // 每个响应内部版本一致:active 只解析一次,后续校验与渲染都基于这一行快照。
 func (s *Service) RuntimeRelease(ctx context.Context, environmentKey, pipelineKey string, versionParam *string) (*ReleaseRuntimeConfig, error) {
 	return s.RuntimeReleaseWithScope(ctx, environmentKey, pipelineKey, versionParam, "")
-}
-
-// RuntimeReleaseLegacy preserves the old config endpoint: an empty or
-// whitespace-only scope_id means no pin, but a non-empty value must be a UUID
-// before the shared read-scope validation runs.
-func (s *Service) RuntimeReleaseLegacy(ctx context.Context, environmentKey, pipelineKey, requestedScopeID string) (*ReleaseRuntimeConfig, error) {
-	if strings.TrimSpace(environmentKey) == "" || strings.TrimSpace(pipelineKey) == "" {
-		return nil, releaseInvalidRequestError("x-environment and x-pipeline headers are required")
-	}
-	scopeID, err := normalizeLegacyScopeID(requestedScopeID)
-	if err != nil {
-		return nil, err
-	}
-	return s.RuntimeReleaseWithScope(ctx, environmentKey, pipelineKey, nil, scopeID)
-}
-
-func normalizeLegacyScopeID(raw string) (string, error) {
-	value := strings.TrimSpace(raw)
-	if value == "" {
-		return "", nil
-	}
-	if _, err := uuid.Parse(value); err != nil {
-		return "", scopeInvalidRequest("scope_id must be a UUID")
-	}
-	return value, nil
 }
 
 // RuntimeReleaseWithScope optionally pins the caller to the scope_id it saw.

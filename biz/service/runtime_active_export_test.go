@@ -68,7 +68,7 @@ func TestActiveRuntimeExportPinsPlanAcrossSwitchAndDelete(t *testing.T) {
 	if config["snapshot_id"] != first.Meta.SnapshotID || config["version"] != "v1" {
 		t.Fatal("archive mixed snapshot metadata")
 	}
-	next, err := f.svc.ExportActiveReleasePackage(adminTestContext(), "qa_prod", "main")
+	next, err := f.svc.ExportActiveReleasePackageWithScope(adminTestContext(), "qa_prod", "main", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestActiveRuntimeExportTimeout(t *testing.T) {
 	releaseExportTotalTimeout = time.Millisecond
 	t.Cleanup(func() { releaseExportTotalTimeout = previous; releaseExportPauseHookForTest = nil })
 	releaseExportPauseHookForTest = func(string) { time.Sleep(5 * time.Millisecond) }
-	result, err := f.svc.ExportActiveReleasePackage(adminTestContext(), "qa_prod", "main")
+	result, err := f.svc.ExportActiveReleasePackageWithScope(adminTestContext(), "qa_prod", "main", "")
 	if result != nil {
 		os.Remove(result.TempPath)
 		t.Fatal("timed-out export returned a package")

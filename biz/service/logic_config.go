@@ -134,27 +134,6 @@ func (l *Logic) GetConfig(ctx context.Context, environmentKey, pipelineKey, reso
 	return cfg, nil
 }
 
-// GetConfigByKey is the legacy unscoped helper; new callers must resolve a scope.
-func (l *Logic) GetConfigByKey(ctx context.Context, resourceKey string) (*model.Config, error) {
-	cacheKey := fmt.Sprintf("rainbow_bridge:config:key:%s", resourceKey)
-	var cachedConfig model.Config
-	found, err := redis.Get(ctx, l.redisClient, cacheKey, &cachedConfig)
-	if err == nil && found && configdb.ValidEditRevision(cachedConfig.EditRevision) {
-		return &cachedConfig, nil
-	}
-	cfg, err := l.configDAO.GetByResourceKeyOnly(ctx, l.db, resourceKey)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrResourceNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err := redis.Set(ctx, l.redisClient, cacheKey, cfg, time.Hour); err != nil {
-		fmt.Printf("Failed to cache config by key: %v\n", err)
-	}
-	return cfg, nil
-}
-
 func (l *Logic) ListConfigs(ctx context.Context, environmentKey, pipelineKey, minVersion, maxVersion, resourceType string, latestOnly bool) ([]model.Config, error) {
 	scopeID, err := configdb.ActiveScopeID(ctx, l.db, environmentKey, pipelineKey)
 	if err != nil {

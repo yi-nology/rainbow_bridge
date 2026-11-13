@@ -4,8 +4,6 @@ package runtime
 
 import (
 	"context"
-	"os"
-	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -18,53 +16,6 @@ var svc *service.Service
 
 func SetService(s *service.Service) {
 	svc = s
-}
-
-// GetConfig .
-// @router /api/v1/runtime/config [GET]
-func GetConfig(ctx context.Context, c *app.RequestContext) {
-	environmentKey := strings.TrimSpace(string(c.GetHeader("x-environment")))
-	pipelineKey := strings.TrimSpace(string(c.GetHeader("x-pipeline")))
-	if environmentKey == "" || pipelineKey == "" {
-		writeRuntimeErrorJSON(c, consts.StatusBadRequest, service.ErrTypeReleaseInvalidRequest, "x-environment and x-pipeline headers are required")
-		return
-	}
-	// 旧入口只跟随当前生效版本:显式传版本选择参数按请求错误拒绝
-	if name := rejectedSelectionParam(c); name != "" {
-		writeRuntimeErrorJSON(c, consts.StatusBadRequest, service.ErrTypeReleaseInvalidRequest, name+" is not supported here; use /api/v1/runtime/release or the fixed release export")
-		return
-	}
-	data, err := svc.RuntimeReleaseLegacy(handler.EnrichContext(ctx, c), environmentKey, pipelineKey, c.Query("scope_id"))
-	if err != nil {
-		writeRuntimeServiceError(c, err)
-		return
-	}
-	writeActiveRuntimeConfig(c, data)
-}
-func ExportStatic(ctx context.Context, c *app.RequestContext) {
-	environmentKey := strings.TrimSpace(c.Query("environment_key"))
-	pipelineKey := strings.TrimSpace(c.Query("pipeline_key"))
-	if environmentKey == "" || pipelineKey == "" {
-		writeRuntimeErrorJSON(c, consts.StatusBadRequest, service.ErrTypeReleaseInvalidRequest, "environment_key and pipeline_key are required")
-		return
-	}
-	// 旧入口只跟随当前生效版本:显式传版本选择参数按请求错误拒绝
-	if name := rejectedSelectionParam(c); name != "" {
-		writeRuntimeErrorJSON(c, consts.StatusBadRequest, service.ErrTypeReleaseInvalidRequest, name+" is not supported here; use the fixed release export")
-		return
-	}
-	result, err := svc.ExportActiveReleasePackageWithScope(handler.EnrichContext(ctx, c),
-		environmentKey, pipelineKey, c.Query("scope_id"))
-	if err != nil {
-		writeRuntimeServiceError(c, err)
-		return
-	}
-	defer os.Remove(result.TempPath)
-	c.Header("Cache-Control", "no-store")
-	c.Header("Content-Type", "application/zip")
-	c.Header("X-Rainbow-Snapshot-Id", result.SnapshotID)
-	c.Header("X-Rainbow-Version", result.Version)
-	c.FileAttachment(result.TempPath, result.FileName)
 }
 
 func GetOverview(ctx context.Context, c *app.RequestContext) {

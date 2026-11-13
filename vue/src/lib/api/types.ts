@@ -140,16 +140,6 @@ export interface EnvironmentOverview {
   pipelines: PipelineOverview[] | null
 }
 
-export interface RuntimeConfigData {
-  configs: ApiResourceConfig[]
-  environment: {
-    environment_key: string
-    environment_name: string
-    pipeline_key: string
-    pipeline_name: string
-  }
-}
-
 export interface ImportSummaryItem {
   resource_key: string
   environment_key: string
@@ -196,5 +186,4 @@ export interface AssetListResponse extends ApiResponse<ListData<ApiFileAsset>> {
 export interface UploadAssetResponse extends ApiResponse<{ asset: ApiFileAsset; reference: string }> {}
 
 export interface RuntimeOverviewResponse extends ApiResponse<ListData<ApiEnvironmentOverview>> {}
-export interface RuntimeConfigResponse extends ApiResponse<RuntimeConfigData> {}
 export interface ImportResponse extends ApiResponse<ImportSummary> {}

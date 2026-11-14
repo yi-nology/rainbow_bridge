@@ -14,7 +14,7 @@ jobs:
     name: Validate release inputs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Check notes, configuration and maintenance tools
         shell: bash
         run: |
@@ -49,7 +49,7 @@ jobs:
     needs: [build-binaries]
     steps:
       - name: Checkout release notes
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download artifacts
         uses: actions/download-artifact@v8
@@ -73,7 +73,7 @@ jobs:
           sha256sum *.zip *.tar.gz *.md > SHA256SUMS.txt
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: docs/releases/${{ github.ref_name }}.md
           fail_on_unmatched_files: true

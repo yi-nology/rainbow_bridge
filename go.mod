@@ -14,7 +14,7 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	golang.org/x/crypto v0.53.0
 	golang.org/x/sys v0.46.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.6.0
